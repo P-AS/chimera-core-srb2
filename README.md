@@ -45,12 +45,19 @@ lines diff directly.
 `./waterbox/run-gate.sh [-d <SRB2 data folder>] [-m <miniBox>]`: the legs, each saying what it compared, each
 with teeth. `equivalence`: native == sandbox, step for step, on the intro and Greenflower Zone Act 1. `steps`:
 a step is a tic, a wipe's frames are lag steps, play is a tic a step. `savestates`: a save and load before
-every step, and a new host mid-wipe, change nothing. `input`: movies through the menus and in Greenflower,
+every step, and a new host mid-wipe, change nothing. `declaration`: the package's controller is the core's. `settings`: each setting reaches the engine.
+`input`: movies through the menus and in Greenflower,
 the same every way. `files`: what the game writes is kept in the machine and exported identically. `time`: a
 host stall mid-run changes nothing. `audio`: the music and sounds are heard, and every leg's run line carries
 the sound's hash too.
 
 The harnesses' `--wav FILE` writes a run's sound.
+
+## Settings
+
+Declared in `waterbox/waterbox.config`, so Chimera shows them as the core's options; each is SRB2's own option,
+given to the engine at start: Play Style (default Manual), Camera Speed (1.0), Score/Time/Rings (Mania), Flip
+Camera with Gravity (Yes), Start Map (empty: the intro and the title).
 
 ## The controller
 

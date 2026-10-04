@@ -4,9 +4,14 @@
  * The work folder holds what the sandbox would see mounted: srb2.pk3,
  * zones.pk3, characters.pk3 and music.pk3.
  *
- * usage: run-native <workdir> [harness.h's options] [--host-clock]
+ * usage: run-native <workdir> [harness.h's options] [--host-clock] [--print-cvar NAME]...
+ *        run-native --list-input
  *   --host-clock    the host's clock instead of the machine's: a diagnostic
  *                   (the time leg's teeth), never how the core runs
+ *   --print-cvar    after the run, print "cvar NAME VALUE": what the engine's
+ *                   option is (the settings leg)
+ *   --list-input    print the controller: "button NAME" and "axis NAME" lines,
+ *                   in its order, and exit (the declaration leg)
  */
 #include <execinfo.h>
 #include <signal.h>
@@ -51,13 +56,29 @@ static const int16_t *audio(int *n)
 	return GetAudio();
 }
 
+/* the engine's option by name (srb2-driver.c) */
+extern const char *chimera_cvar_string(const char *name);
+
+static const char *g_cvars[32];
+static int g_ncvars;
+
 static int known(const char *arg)
 {
+	static int want_cvar;
+	if (want_cvar)
+	{
+		want_cvar = 0;
+		if (g_ncvars < (int)(sizeof g_cvars / sizeof g_cvars[0]))
+			g_cvars[g_ncvars++] = arg;
+		return 1;
+	}
 	if (!strcmp(arg, "--host-clock"))
 	{
 		chimera_host_clock = 1;
 		return 1;
 	}
+	if (!strcmp(arg, "--print-cvar"))
+		return want_cvar = 1;
 	return 0;
 }
 
@@ -76,9 +97,17 @@ int main(int argc, char **argv)
 	signal(SIGSEGV, crashed);
 	signal(SIGFPE, crashed);
 	signal(SIGABRT, crashed);
+	if (argc == 2 && !strcmp(argv[1], "--list-input"))
+	{
+		for (int i = 0; i < GetButtonCount(); i++)
+			printf("button %s\n", GetButtonName(i));
+		for (int i = 0; i < GetAxisCount(); i++)
+			printf("axis %s\n", GetAxisName(i));
+		return 0;
+	}
 	if (argc < 2)
 	{
-		fprintf(stderr, "usage: run-native <workdir> [options] [--host-clock]\n");
+		fprintf(stderr, "usage: run-native <workdir> [options] [--host-clock] [--print-cvar NAME]...\n");
 		return 2;
 	}
 	static struct harness_opts o;
@@ -143,5 +172,8 @@ int main(int argc, char **argv)
 		fprintf(stderr, "run-native: Init failed: %s\n", c.load_error());
 		return 1;
 	}
-	return harness_run(&c, &o);
+	const int ret = harness_run(&c, &o);
+	for (int i = 0; i < g_ncvars; i++)
+		printf("cvar %s %s\n", g_cvars[i], chimera_cvar_string(g_cvars[i]));
+	return ret;
 }

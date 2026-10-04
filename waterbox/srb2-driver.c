@@ -28,6 +28,7 @@
 #include "m_argv.h"
 #include "doomstat.h"
 #include "netcode/d_clisrv.h"
+#include "command.h"
 
 #include "chimera-platform.h"
 #include "srb2-driver.h"
@@ -124,3 +125,10 @@ int srb2_halted(void) { return g_halted; }
 const char *srb2_error(void) { return g_error; }
 int srb2_input_was_read(void) { return g_input_read; }
 unsigned srb2_gametic(void) { return (unsigned)gametic; }
+
+/* an engine option's value by name, for the native reference's diagnostics */
+const char *chimera_cvar_string(const char *name)
+{
+	consvar_t *v = CV_FindVar(name);
+	return v ? v->string : "(none)";
+}
