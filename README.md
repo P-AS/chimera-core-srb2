@@ -29,6 +29,13 @@ The patches go onto
 `extern/SRB2` and `extern/openmpt` on the first build (`waterbox/apply-patches.sh [openmpt]`, each series all or
 nothing). `extern/openmpt` is shallow: `git submodule update --init` fetches only its pinned commit.
 
+## Data for the gate
+
+`waterbox/fetch-data.sh [<folder>]` downloads STJr's own SRB2 2.2.15 release and takes out the four pk3s, checked
+against the declared firmware (default `build/srb2-2.2.15`); `run-gate.sh -d <folder>` runs on them. CI
+(`.github/workflows/chimera.yml`) does this, then the gate, the package and Chimera's contract tests, and publishes
+`dev` and nightly releases.
+
 ## The package
 
 ```
