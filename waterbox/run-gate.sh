@@ -1,12 +1,14 @@
 #!/bin/sh
 # run-gate.sh - the gate: every leg says what it compared.
 #
-# usage: waterbox/run-gate.sh [-d <SRB2 data folder>] [-m <miniBox checkout>]
+# usage: waterbox/run-gate.sh [-d <SRB2 data folder>] [-m <miniBox checkout>] [-c <Chimera bundle>]
 #   -d   the folder holding srb2.pk3, zones.pk3, characters.pk3 and music.pk3
 #        (2.2.15's); default /usr/share/games/SRB2. The data is never the
 #        core's to carry: the gate links it into build/gate/.
 #   -m   miniBox (default $MINIBOX_DIR): the sandbox legs run core.wbx through
 #        its host (build/native/run-wbx)
+#   -c   a Chimera bundle (the folder with Chimera.exe): the engine leg opens
+#        the package through its libchimera, as the frontend does
 #
 # The content: the game's start (the intro, 700 steps: its wipes, a frame a
 # step) and Greenflower Zone Act 1 (-warp 1: its entry - the fade, the title
@@ -47,6 +49,11 @@
 #                and moved to a new host, and nothing is written to the host's
 #                work folder. Its teeth - a run that ends before the second
 #                write does not pass
+#   exports      core.wbx exports every call Chimera's engine requires of it
+#                (source/engine/source/session.cpp's required proc() lookups:
+#                Init, FrameAdvance, SetAxis, the five memory-domain calls, and
+#                the getters waterbox.config names for video, audio and lag);
+#                its teeth - a name the core does not export is reported missing
 #   declaration  waterbox.config's controller is the core's (its buttons and
 #                axes, in order, as GetButtonName/GetAxisName give them); its
 #                teeth - a declaration with two buttons swapped does not pass
@@ -57,6 +64,10 @@
 #                value of each setting is the engine's option (read back with
 #                run-native --print-cvar). Its teeth - another value is not the
 #                default's
+#   engine       (with -c) Chimera's own engine opens the package, as the
+#                frontend's session does (the required exports, the declaration,
+#                the firmware, Init), and runs the menus-to-Tutorial movie's
+#                presses for 450 steps: the same lag count as run-native's
 #   time         the machine's clock is its own: a 300 ms host stall mid-run
 #                changes nothing, native and sandbox; its teeth - on the host's
 #                clock the same stall changes the run
@@ -65,10 +76,12 @@ here="$(cd "$(dirname "$0")" && pwd)"
 root="$(cd "$here/.." && pwd)"
 data=/usr/share/games/SRB2
 mb="${MINIBOX_DIR:-}"
-while getopts d:m: o; do
+bundle=""
+while getopts d:m:c: o; do
 	case "$o" in
 	d) data="$OPTARG" ;;
 	m) mb="$OPTARG" ;;
+	c) bundle="$OPTARG" ;;
 	*) sed -n '2,10p' "$0" >&2; exit 2 ;;
 	esac
 done
@@ -251,6 +264,24 @@ fi
 [ "$(names short)" != "$want" ] && pass "files teeth: a run ending before the second write does not pass" \
 	|| bad "files teeth: the short run passed - the leg cannot fail"
 
+# ---- exports: what Chimera's engine refuses to open a core without
+exported="$(nm --defined-only "$core" | awk '$2 ~ /^[TtDdBb]$/ {print $3}' | sort -u)"
+missing_from() {
+	for name in "$@"; do
+		echo "$exported" | grep -qx "$name" || printf '%s ' "$name"
+	done
+}
+required="$(python3 -c 'import json,sys; c=json.load(open(sys.argv[1]))
+names=["Init","FrameAdvance","SetAxis","GetMemoryDomainCount","GetMemoryDomainName","GetMemoryDomainPtr",
+ "GetMemoryDomainSize","GetMemoryDomainWritable",c["video"]["getBgra"],c["audio"]["get"],c["lag"]["inputWasRead"]]
+if len(c["input"]["buttons"])>64: names.append("SetButton")
+print(" ".join(names))' "$here/waterbox.config")"
+m="$(missing_from $required)"
+[ -z "$m" ] && pass "exports: core.wbx exports every call the engine requires ($(echo $required | wc -w))" \
+	|| bad "exports: core.wbx does not export: $m"
+[ -n "$(missing_from GetNothingAtAll)" ] && pass "exports teeth: a name the core does not export is reported missing" \
+	|| bad "exports teeth: a missing name was not reported - the leg cannot fail"
+
 # ---- declaration: the controller the package declares is the core's
 decl="$here/waterbox.config"
 declared() { python3 -c 'import json,sys; c=json.load(open(sys.argv[1])); i=c["input"]
@@ -299,6 +330,18 @@ done
 	|| bad "settings: a value did not reach the engine"
 [ "$(cvars '{"warp": "1", "scoreTimeRings": "Classic"}')" != "$want" ] && pass "settings teeth: another value is not the default's" \
 	|| bad "settings teeth: a value changed nothing - the leg cannot fail"
+
+# ---- engine: the package through Chimera's libchimera
+if [ -n "$bundle" ]; then
+	sh "$here/build-package.sh" -m "${mb:-$MINIBOX_DIR}" -o "$root/build/gate/package" >/dev/null
+	e="$(LD_LIBRARY_PATH="$bundle/dll" python3 "$here/tests/engine-open.py" "$bundle/dll/libchimera.so" \
+		"$root/build/gate/package/srb2.chimeraCore" "$data" 450 2>/dev/null | grep "^450 steps")"
+	nl="$(field "$(nat intro -n 450 -p 0 --input "$tests/menu-to-tutorial.txt")" lag)"
+	case "$e" in
+	"450 steps ($nl lag)"*) pass "engine: Chimera's engine ($(head -2 "$bundle/BUILD.txt" | tail -1 | awk '{print $2}' | cut -c1-8)) opens the package and runs the menus to the Tutorial: $e" ;;
+	*) bad "engine: '$e' (run-native's lag: $nl)" ;;
+	esac
+fi
 
 # ---- time: the intro (its wipes and in-tic waits), stalled half way
 steps=700
