@@ -1,6 +1,7 @@
 /* srb2-driver.c - the machine: SRB2's engine started as upstream's main
  * starts it (D_SRB2Main, then what D_SRB2Loop does before its first frame:
- * patches/0001), and stepped a pass of its loop at a time (D_RunFrame).
+ * patches/0001), and stepped a pass of its loop at a time (D_RunFrame), the
+ * machine's clock a tic further each pass: a step is a tic.
  *
  * An exit of the engine - I_Error, a quit - does not end a process: it halts
  * the machine where it stands (chimera_exit longjmps out of the engine), which
@@ -12,6 +13,8 @@
 #include "doomdef.h"
 #include "d_main.h"
 #include "m_argv.h"
+#include "doomstat.h"
+#include "netcode/d_clisrv.h"
 
 #include "chimera-platform.h"
 #include "srb2-driver.h"
@@ -55,6 +58,7 @@ void srb2_frame(void)
 {
 	if (g_halted)
 		return;
+	chimera_clock_step();
 	g_in_engine = 1;
 	if (setjmp(g_exit_jump) == 0)
 		D_RunFrame();
@@ -63,3 +67,4 @@ void srb2_frame(void)
 
 int srb2_halted(void) { return g_halted; }
 const char *srb2_error(void) { return g_error; }
+unsigned srb2_gametic(void) { return (unsigned)gametic; }

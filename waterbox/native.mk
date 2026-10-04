@@ -44,7 +44,7 @@ $(B)/core/run-native.o: run-native.c srb2-driver.h platform/chimera-platform.h $
 	gcc -O2 -g -Wall -I. -c -o $@ $<
 
 $(B)/run-native: $(CORE_OBJS) $(SRB2_OBJS) $(PNG_OBJS) $(ZLIB_OBJS) $(B)/core/run-native.o
-	gcc -rdynamic -o $@ $^ -lm
+	gcc -rdynamic -o $@ $^ $(WRAP_FLAGS) -lm
 
 clean:
 	rm -rf $(B)

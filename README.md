@@ -26,7 +26,12 @@ build/native/run-native build/work -n 400 --ppm frame.ppm
 ```
 
 It runs the engine's loop `-n` times, printing a hash of the picture every `-p` frames, and writes the last
-picture with `--ppm`.
+picture with `--ppm`. A step is a tic, on the machine's own clock.
+
+## The gate
+
+`./waterbox/run-gate.sh [-d <SRB2 data folder>]`: the legs, each saying what it compared. So far `time`: a
+host stall mid-run changes nothing, and on the host's clock it would (the leg's teeth).
 
 ## Licence
 

@@ -8,7 +8,9 @@ the guest build), following Chimera's `docs/porting-a-core.md` and `docs/game-co
 - [x] **0. Headless native build.** SRB2's engine with the core's platform layer in place of `sdl/`: no
   window, no SDL, no audio device, no network, no threads. `build/native/run-native` boots 2.2.15's data and
   runs the intro in the software renderer.
-- [ ] **1. Virtual time.** The machine's clock instead of the host's; the stall leg and its teeth.
+- [x] **1. Virtual time.** The machine's clock instead of the host's (`platform/i_system.c`): a step is a
+  tic, sleeps jump to the next tic's deadline, the libc clocks and `rand` are wrapped. Gate leg `time`: a
+  300 ms host stall mid-run changes nothing; on `--host-clock` the same stall changes the run (teeth).
 - [ ] **2. Guest build.** `core.wbx` through miniBox's musl toolchain (`MINIBOX_DIR`), native == sandbox.
 - [ ] 3. The machine's filesystem (config, game data, saves inside the machine).
 - [ ] 4. Input (the base tic command, `I_BaseTiccmd`), lag.
@@ -57,15 +59,17 @@ Found reading the engine, for the milestones ahead:
 - **The game's RNG is seeded from the OS at start**: `D_SRB2Main` seeds `M_Random` from `I_GetRandomBytes` and
   `P_SetRandSeed(M_RandomizedSeed())`. The core's `I_GetRandomBytes` is a splitmix64 stream of the driver's
   `chimera_random_seed` - a setting later, as DSDA's `-rngseed`.
-- **Time**: `I_UpdateTime` turns `I_GetPreciseTime` deltas into tics with a double accumulator and a strict
+- **Time** (done, milestone 1): `I_UpdateTime` turns `I_GetPreciseTime` deltas into tics with a double accumulator and a strict
   `>` - a clock that moves exactly one tic per step yields no tic on the first (1/35 is not more than 1/35)
-  and one per step after. The seam (milestone 1) must keep the accumulator clear of the threshold (start the
-  clock half a tic in, and keep it on half-tics).
+  and one per step after. The clock starts half a tic in and stays on half-tics, clear of the threshold.
 - **Four loops wait inside a tic** on `I_Sleep` + `I_UpdateTime`: the wipe (`f_wipe.c`), the level load's
-  fade (`p_setup.c`), the intro/finale (`f_finale.c`), `g_game.c`'s. On a virtual clock `I_Sleep` must move
-  time to the next tic's deadline, or they spin forever.
+  fade (`p_setup.c`), the intro/finale (`f_finale.c`), `g_game.c`'s. `I_Sleep` moves the clock to the next
+  tic's deadline, so each ends; **its tics pass inside one step** (the intro's wipes: 704 tics in 700
+  steps). Whether a wipe should instead be steps of its own, lag frames as DSDA's stepped melt is, is
+  milestone 4's question (input and lag).
 - `time()`, `clock()`, `localtime()` in Lua's `os` library (`loslib.c`) and `d_netfil.c`; `rand()` in
-  `d_netfil.c` and `d_net.c`'s packet drop: the clock's wraps must answer them too.
+  `d_netfil.c` and `d_net.c`'s packet drop: wrapped (`WRAP_FLAGS`): the machine's time since 2000-01-01 UTC,
+  `localtime` as UTC, and a `rand` of the core's own (glibc's and musl's differ).
 - The frame-rate cap sleeps (`I_SleepDuration`) and interpolation (`cv_fpscap`, `rendertimefrac`) read the
   precise clock: interpolation must be off (one picture per tic).
 - The configuration (`config.cfg`) and game data (`gamedata.dat`) are written under `-home`: inside the
