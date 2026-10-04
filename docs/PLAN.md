@@ -23,14 +23,14 @@ the guest build), following Chimera's `docs/porting-a-core.md` and `docs/game-co
 - [x] **4. Input** (`srb2-input.c`): SRB2's keyboard as buttons (key events: the menus work) plus axes into the
   tic command (`I_BaseTiccmd`) for exact values; lag = no tic command built. Gate leg `input`: a movie through
   the menus into the Tutorial Zone, and one running in Greenflower.
-- [ ] **5. Audio** (user-decided: a C mixer of the core's own; libvorbis, not stb_vorbis; GME and libopenmpt -
+- [x] **5. Audio** (user-decided: a C mixer of the core's own; libvorbis, not stb_vorbis; GME and libopenmpt -
   libxmp if libopenmpt proves impractical; no MIDI for now):
   - [x] **5a.** The mixer (`platform/i_sound.c`): sound effects (DMX, WAV, Ogg Vorbis), Ogg Vorbis and WAV
     music with loop points and fades. Gate leg `audio`; every leg's run line carries the sound's hash.
   - [x] **5b.** GME (libgme 0.6.5: VGM/VGZ, NSF, SPC, GBS, HES, KSS, AY, SAP, GYM), music and sound effects,
     as upstream's mixer drives it. C++: the guest is built with miniBox's C++ toolchain.
-  - [ ] 5c. libopenmpt (tracker modules; libxmp if libopenmpt is impractical): C++; its SIMD chosen by the
-    host's CPU at run time must be compiled out.
+  - [x] **5c.** libopenmpt 0.8.9 (tracker modules: MOD, S3M, XM, IT, MPTM...), as upstream's mixer drives it,
+    its random seeding made deterministic (`patches/openmpt/0001`).
 - [ ] 6. Savestates: **rerecord and session pass** (gate leg `savestates`, ~32 MB a state), including a state
   taken mid-wipe with the engine suspended on its cothread. 7. the package, properties (`Game State`),
   settings.
@@ -56,6 +56,8 @@ the guest build), following Chimera's `docs/porting-a-core.md` and `docs/game-co
   that runs the loop itself.
 - `0002-no-curl.patch`: `d_netfil.c`'s HTTP download under `HAVE_CURL`, as its include already is (upstream's
   CMake makes curl mandatory, so nothing else guards it); without it, no download.
+- `patches/openmpt/0001-deterministic-random-device.patch` (on `extern/openmpt`): libopenmpt's random seeding
+  deterministic under `MPT_BUILD_DETERMINISTIC_RANDOM` (see "The sound").
 - `0004-driver-aiming.patch`: a non-zero aiming in the base tic command (`I_BaseTiccmd`, the external driver's)
   sets the look pitch; `G_BuildTiccmd` otherwise overwrites it with its own look state.
 - `0003-workdir-backport.patch`: upstream's `-workdir` (da1b35820, on `next` for 2.2.16), backported: it names
@@ -189,6 +191,24 @@ default volume. Upstream SRB2 vendors GME 0.6.1 for Windows and links the system
 the current release. The gate plays GME's own `test.nsf` (from SRB2's `libs/gme`) from a PWAD it makes
 (`waterbox/tests/make-wad.py`), through the console's `addfile` and `tunes`.
 
+**libopenmpt** (`extern/openmpt`, libopenmpt-0.8.9, a shallow submodule of OpenMPT's repository) is built from
+its own Makefile's source list (the library, its common and sound code, the DMO plugins it emulates; C++17 with
+exceptions and RTTI, as it is built), with the core's Ogg Vorbis and zlib for MO3's compressed samples and
+archives. Its own build settings leave SIMD intrinsics out of a library build, so nothing is chosen by the host's
+CPU. **Its random seeding is not**: every module draws its generator's seed from a global one seeded by
+`std::random_device` (tracker effects with randomness - IT's random volume and panning, random vibrato
+waveforms - would play differently each load). The fuzzer build's deterministic engines also change loaders and
+the resampler, so **patch `patches/openmpt/0001`** makes only the seeding device the deterministic one, under
+`MPT_BUILD_DETERMINISTIC_RANDOM`, with the real generators. `apply-patches.sh openmpt` applies the series as it
+does SRB2's. SRB2 is built with `HAVE_OPENMPT`: its `s_sound.c` keeps the module handle (`openmpt_mhandle`, which
+the mixer uses, so the Instrument Filter setting reaches the playing module as upstream's does) and its sound
+menu has the OpenMPT section, as upstream's Linux builds have. The mixer does what upstream's does with a
+module: probed after GME and before Vorbis, subsong 0, the interpolation filter from `cv_modfilter`, repeat
+forever when looping, tempo (limited to 4), subsongs, length and position (seeking adjusted for the length),
+and the GME volume scale. Checked against the system's libopenmpt (0.5.5) through ctypes: correlation 1.0000 on
+OpenMPT's own `test.mod`, gain 0.80. The gate plays it from a PWAD it makes (`test.xm` and `test.mptm` are
+silent feature tests).
+
 **The C++ guest toolchain** (miniBox `-Dguest_cpp=true`, `build/meson-cpp`): libstdc++ for the guest, linked
 with miniBox's recipe (`--no-relax`, the weak `pthread` pulls, `cxxglue`). GME is built without exceptions or
 RTTI (it uses neither), and with `-include ctime` (its `Hes_Emu.cpp` names `time_t` for an emulated time, which
@@ -198,7 +218,8 @@ tarball, so the build was seeded with 16.2.0's source; and libstdc++'s `std::sta
 under GCC 16's C23 against musl's `basename()`, so it was configured `--disable-libstdcxx-backtrace`.
 
 **The math is the core's** (`platform/detmath.c`, from the DSDA core): libvorbis builds its tables with `sin`,
-`cos`, `acos`, `atan`, `exp` and `log`, and glibc and musl differ in their last bits, so the link answers them
+`cos`, `acos`, `atan`, `exp` and `log`, libopenmpt its resampler and filters with their float forms (`sinf`,
+`cosf`, `sincosf`, `tanf`, `logf`, `log10f`, `powf`, and `log2`, exact on a power of two), and glibc and musl differ in their last bits, so the link answers them
 with functions built from IEEE-exact operations only, in both builds. The same wraps cover what SRB2 itself
 calls: **`hypot` in its slopes (play)** and `sincos` in its renderer (the picture), which the gate's
 Greenflower 1 has none of, and which would have split native and sandbox on a sloped level. **`pow`** is the

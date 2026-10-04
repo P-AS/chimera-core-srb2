@@ -1,0 +1,17 @@
+diff --git a/common/mptRandom.h b/common/mptRandom.h
+index 3b29c23..80abefb 100644
+--- a/common/mptRandom.h
++++ b/common/mptRandom.h
+@@ -92,9 +92,11 @@ public:
+ };
+ 
+ 
+-#ifdef MPT_BUILD_FUZZER
++#if defined(MPT_BUILD_FUZZER) || defined(MPT_BUILD_DETERMINISTIC_RANDOM)
+ 
+ //  Use deterministic seeding
++//  (MPT_BUILD_DETERMINISTIC_RANDOM: a host that must replay exactly - an
++//  emulator's movie - seeds deterministically, with the real generators)
+ using random_device = deterministic_random_device;
+ 
+ #else // !MPT_BUILD_FUZZER

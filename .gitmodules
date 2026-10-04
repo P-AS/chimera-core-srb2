@@ -10,3 +10,7 @@
 [submodule "extern/gme"]
 	path = extern/gme
 	url = https://github.com/libgme/game-music-emu.git
+[submodule "extern/openmpt"]
+	path = extern/openmpt
+	url = https://github.com/OpenMPT/openmpt.git
+	shallow = true

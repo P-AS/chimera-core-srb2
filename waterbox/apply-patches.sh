@@ -1,5 +1,7 @@
 #!/bin/sh
-# Applies the numbered patches to the extern/SRB2 submodule (SRB2). Idempotent: a tree
+# Applies a numbered patch series to its submodule: with no argument, patches/*.patch
+# to extern/SRB2; with a name, patches/<name>/*.patch to extern/<name> (the
+# libraries the core carries a fix or two for: openmpt). Idempotent: a tree
 # that already carries the whole series is left alone, a pristine one has it
 # applied, and anything in between is an error that names the files.
 #
@@ -19,19 +21,26 @@
 set -eu
 here="$(cd "$(dirname "$0")" && pwd)"
 root="$(cd "$here/.." && pwd)"
-# SRB2_TREE points it at another checkout: how this script is tested without
-# touching the tree a build depends on
-tree="${SRB2_TREE:-$root/extern/SRB2}"
+# SRB2_TREE (or PATCH_TREE) points it at another checkout: how this script is
+# tested without touching the tree a build depends on
+name="${1:-SRB2}"
+if [ "$name" = SRB2 ]; then
+	series="$root/patches"
+	tree="${SRB2_TREE:-$root/extern/SRB2}"
+else
+	series="$root/patches/$name"
+	tree="${PATCH_TREE:-$root/extern/$name}"
+fi
 
 if [ "$(git -C "$tree" rev-parse --show-toplevel 2>/dev/null)" != "$(cd "$tree" 2>/dev/null && pwd -P)" ]; then
-	echo "extern/SRB2 is not checked out; run:" >&2
-	echo "  git -C $root submodule update --init --recursive extern/SRB2" >&2
+	echo "extern/$name is not checked out; run:" >&2
+	echo "  git -C $root submodule update --init --recursive extern/$name" >&2
 	exit 1
 fi
 
 # an empty series (no patches/ yet) asks nothing of the tree but that it be
 # checked out; the whole-series check below would choke on the empty glob
-if ! ls "$root"/patches/*.patch >/dev/null 2>&1; then
+if ! ls "$series"/*.patch >/dev/null 2>&1; then
 	echo "no patches to apply"
 	exit 0
 fi
@@ -40,7 +49,7 @@ scratch="$(mktemp -d)"
 trap 'rm -rf "$scratch"' EXIT
 
 # every file the series touches (a created or deleted file has /dev/null on one side)
-cat "$root"/patches/*.patch | sed -n 's#^--- a/##p; s#^+++ b/##p' | sort -u > "$scratch/touched"
+cat "$series"/*.patch | sed -n 's#^--- a/##p; s#^+++ b/##p' | sort -u > "$scratch/touched"
 
 # the scratch copy: those files as HEAD has them (one the series creates is absent)
 mkdir "$scratch/tree"
@@ -66,7 +75,7 @@ done < "$scratch/touched"
 # The series is tried on the scratch copy FIRST, whichever state the tree is in:
 # a series that does not apply in order must be found out here, and not half
 # way through applying it to the real tree.
-for p in "$root"/patches/*.patch; do
+for p in "$series"/*.patch; do
 	(cd "$scratch/tree" && git apply "$p") || {
 		echo "the series does not apply to the submodule's HEAD at $(basename "$p") - was the submodule moved without rebasing the patches?" >&2
 		exit 1
@@ -75,7 +84,7 @@ done
 
 
 if [ "$pristine" -eq 1 ]; then
-	for p in "$root"/patches/*.patch; do
+	for p in "$series"/*.patch; do
 		git -C "$tree" apply "$p"
 		echo "applied: $(basename "$p")"
 	done
@@ -93,9 +102,9 @@ while IFS= read -r f; do
 done < "$scratch/touched"
 
 if [ "$wrong" -ne 0 ]; then
-	echo "extern/SRB2 is partly patched. To start again from the submodule's HEAD:" >&2
-	echo "  git -C extern/SRB2 reset --hard && git -C extern/SRB2 clean -fd && waterbox/apply-patches.sh" >&2
+	echo "extern/$name is partly patched. To start again from the submodule's HEAD:" >&2
+	echo "  git -C extern/$name reset --hard && git -C extern/$name clean -fd && waterbox/apply-patches.sh $1" >&2
 	echo "(that discards edits made in the tree - turn them into a patch first)" >&2
 	exit 1
 fi
-echo "already applied: all $(ls "$root"/patches/*.patch | wc -l) patches"
+echo "already applied: all $(ls "$series"/*.patch | wc -l) patches"

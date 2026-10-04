@@ -12,7 +12,8 @@
  *     channel as Mix_Volume and Mix_SetPanning give them; pitch ignored, as
  *     SDL_mixer ignores it;
  *   - music: GME's formats (VGM/VGZ, NSF, SPC, GBS, HES, KSS, AY, SAP, GYM),
- *     Ogg Vorbis and WAV, tried in upstream's order, with the loop point of the song's
+ *     tracker modules (libopenmpt: MOD, S3M, XM, IT, MPTM...), Ogg Vorbis and
+ *     WAV, tried in upstream's order, with the loop point of the song's
  *     LOOPPOINT= (samples, read as upstream reads it) or LOOPMS= tag, or the
  *     one the game sets; fades stepped every 10 ms of output, as upstream's
  *     SDL timer steps them, with the callback run from I_UpdateSound; the
@@ -33,7 +34,7 @@
 #include "doomdef.h"
 #include "doomtype.h"
 #include "i_sound.h"
-#include "s_sound.h"
+#include "s_sound.h" /* with HAVE_OPENMPT: openmpt_mhandle, cv_modfilter */
 #include "sounds.h"
 #include "w_wad.h"
 #include "z_zone.h"
@@ -602,6 +603,13 @@ boolean I_SetSongSpeed(float speed)
 		gme_set_tempo(g_song->gme, speed);
 		return true;
 	}
+	if (g_song && g_song->type == MU_MOD_EX)
+	{
+		if (speed > 4.0f)
+			speed = 4.0f; /* upstream's limit */
+		openmpt_module_ctl_set_floatingpoint(openmpt_mhandle, "play.tempo_factor", (double)speed);
+		return true;
+	}
 	return false;
 }
 
@@ -629,12 +637,14 @@ UINT32 I_GetSongLength(void)
 		return 0;
 	if (g_song->type == MU_GME)
 		return (UINT32)gme_length();
+	if (g_song->type == MU_MOD_EX)
+		return (UINT32)(openmpt_module_get_duration_seconds(openmpt_mhandle) * 1000.);
 	return (UINT32)(g_song->length(g_song) * 1000 / g_song->rate);
 }
 
 boolean I_SetSongLoopPoint(UINT32 looppoint)
 {
-	if (!g_song || g_song->type == MU_GME || !is_looping)
+	if (!g_song || g_song->type == MU_GME || g_song->type == MU_MOD_EX || !is_looping)
 		return false;
 	const UINT32 length = I_GetSongLength();
 	if (length > 0)
@@ -656,6 +666,8 @@ UINT32 I_GetSongLoopPoint(void)
 		}
 		return (UINT32)max(looppoint, 0);
 	}
+	if (g_song && g_song->type == MU_MOD_EX)
+		return 0;
 	return g_song ? (UINT32)(loop_point * 1000) : 0;
 }
 
@@ -669,6 +681,11 @@ boolean I_SetSongPosition(UINT32 position)
 	const UINT32 looppoint = I_GetSongLoopPoint();
 	if (length && position >= length)
 		position = length > looppoint ? position % (length - looppoint) : 0;
+	if (g_song->type == MU_MOD_EX)
+	{
+		openmpt_module_set_position_seconds(openmpt_mhandle, (double)(position / 1000.0L));
+		return true;
+	}
 	g_song->seek(g_song, (UINT64)position * g_song->rate / 1000);
 	g_song->primed = 0;
 	return true;
@@ -692,6 +709,8 @@ UINT32 I_GetSongPosition(void)
 		gme_free_info(info);
 		return (UINT32)max(position, 0);
 	}
+	if (g_song && g_song->type == MU_MOD_EX)
+		return (UINT32)(openmpt_module_get_position_seconds(openmpt_mhandle) * 1000.);
 	return g_song ? (UINT32)(g_song->tell(g_song) * 1000 / g_song->rate) : 0;
 }
 
@@ -755,6 +774,25 @@ boolean I_LoadSong(char *data, size_t len)
 		s->channels = 2;
 		s->track = -1;
 	}
+	else if (openmpt_probe_file_header(OPENMPT_PROBE_FILE_HEADER_FLAGS_DEFAULT, copy,
+		len > openmpt_probe_file_header_get_recommended_size() ? openmpt_probe_file_header_get_recommended_size() : len,
+		len, NULL, NULL, NULL, NULL, NULL, NULL) == OPENMPT_PROBE_FILE_HEADER_RESULT_SUCCESS)
+	{
+		/* a module: upstream keeps its handle in s_sound.c's openmpt_mhandle */
+		openmpt_mhandle = openmpt_module_create_from_memory2(copy, len, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
+		if (!openmpt_mhandle)
+		{
+			CONS_Alert(CONS_ERROR, "openmpt_module_create_from_memory2: could not load the module\n");
+			free(vgz);
+			free(s);
+			free(copy);
+			return false;
+		}
+		s->type = MU_MOD_EX;
+		s->rate = RATE;
+		s->channels = 2;
+		s->track = -1;
+	}
 	else if (len >= 4 && !memcmp(copy, "OggS", 4) && ov_open_callbacks(&s->mem, &s->vf, NULL, 0, mem_callbacks) == 0)
 	{
 		const vorbis_info *vi = ov_info(&s->vf, -1);
@@ -807,6 +845,11 @@ void I_UnloadSong(void)
 	{
 		if (g_song->type == MU_GME)
 			gme_delete(g_song->gme);
+		else if (g_song->type == MU_MOD_EX)
+		{
+			openmpt_module_destroy(openmpt_mhandle);
+			openmpt_mhandle = NULL;
+		}
 		else
 			g_song->close(g_song);
 		free(g_song);
@@ -830,6 +873,16 @@ boolean I_PlaySong(boolean looping)
 		g_playing = true;
 		return true;
 	}
+	if (g_song->type == MU_MOD_EX)
+	{
+		openmpt_module_select_subsong(openmpt_mhandle, 0);
+		openmpt_module_set_render_param(openmpt_mhandle, OPENMPT_MODULE_RENDER_INTERPOLATIONFILTER_LENGTH, cv_modfilter.value);
+		if (looping)
+			openmpt_module_set_repeat_count(openmpt_mhandle, -1);
+		g_song->track = 0;
+		g_playing = true;
+		return true;
+	}
 	g_song->seek(g_song, 0);
 	g_song->primed = 0;
 	is_looping = looping;
@@ -842,7 +895,7 @@ void I_StopSong(void)
 {
 	if (!fading_nocleanup)
 		I_StopFadingSong();
-	if (g_song && g_song->type == MU_GME)
+	if (g_song && (g_song->type == MU_GME || g_song->type == MU_MOD_EX))
 		g_song->track = -1;
 	g_playing = false;
 	var_cleanup();
@@ -860,6 +913,18 @@ void I_SetMusicVolume(UINT8 volume)
 
 boolean I_SetSongTrack(INT32 track)
 {
+	if (g_song && g_song->type == MU_MOD_EX)
+	{
+		if (g_song->track == track)
+			return false;
+		if (track >= 0 && track < openmpt_module_get_num_subsongs(openmpt_mhandle))
+		{
+			openmpt_module_select_subsong(openmpt_mhandle, track);
+			g_song->track = track;
+			return true;
+		}
+		return false;
+	}
 	if (!g_song || g_song->type != MU_GME || g_song->track == track)
 		return false;
 	if (track >= 0 && track < gme_track_count(g_song->gme) - 1)
@@ -1052,6 +1117,13 @@ static int music_raw(int frames)
 		gme_play(g_song->gme, frames * 2, g_raw);
 		return frames;
 	}
+	if (g_song->type == MU_MOD_EX)
+	{
+		/* upstream's mix_openmpt: what the module renders (nothing past its end) */
+		const size_t got = openmpt_module_read_interleaved_stereo(openmpt_mhandle, RATE, (size_t)frames, g_raw);
+		memset(g_raw + got * 2, 0, (size_t)(frames - (int)got) * 4);
+		return frames;
+	}
 	for (int i = 0; i < frames; i++)
 	{
 		INT32 l, r;
@@ -1064,11 +1136,11 @@ static int music_raw(int frames)
 }
 
 /* a raw music sample at the volume of the moment: get_real_volume for a
- * stream (Mix_VolumeMusic), upstream's own scale for GME (which SDL_mixer
- * hooks past the music volume, limiting it to 18) */
+ * stream (Mix_VolumeMusic), upstream's own scale for GME and modules (which
+ * SDL_mixer hooks past the music volume, limiting it to 18) */
 static INT32 music_gain(INT32 sample, musictype_t type)
 {
-	if (type == MU_GME)
+	if (type == MU_GME || type == MU_MOD_EX)
 	{
 		if (music_volume >= 18)
 			music_volume = 18;
