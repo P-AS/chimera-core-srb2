@@ -1,0 +1,52 @@
+diff --git a/src/d_main.c b/src/d_main.c
+index 5d8211393..e5ed3c633 100644
+--- a/src/d_main.c
++++ b/src/d_main.c
+@@ -697,10 +697,9 @@ static void D_Display(void)
+ 
+ tic_t rendergametic;
+ 
+-static void D_RunFrame(void);
+ static tic_t oldentertics = 0;
+ 
+-void D_SRB2Loop(void)
++void D_SRB2LoopSetup(void)
+ {
+ 	if (dedicated)
+ 		server = true;
+@@ -761,6 +760,11 @@ void D_SRB2Loop(void)
+ 			gstartuplumpnum = W_GetNumForPatchName("MISSING");
+ 		V_DrawScaledPatch(0, 0, 0, W_CachePatchNum(gstartuplumpnum, PU_PATCH));
+ 	}
++}
++
++void D_SRB2Loop(void)
++{
++	D_SRB2LoopSetup();
+ #ifdef __EMSCRIPTEN__
+ 	emscripten_set_main_loop(D_RunFrame, 0, 1);
+ #else
+@@ -789,7 +793,7 @@ int EMSCRIPTEN_KEEPALIVE resume_loop(void)
+ }
+ #endif
+ 
+-static void D_RunFrame(void)
++void D_RunFrame(void)
+ {
+ 	static tic_t entertic = 0, realtics = 0, rendertimeout = INFTICS;
+ 	static double deltatics = 0.0;
+diff --git a/src/d_main.h b/src/d_main.h
+index 0a29f929b..279dec317 100644
+--- a/src/d_main.h
++++ b/src/d_main.h
+@@ -29,6 +29,10 @@ extern char srb2path[256]; //Alam: SRB2's Home
+ 
+ // the infinite loop of D_SRB2Loop() called from win_main for windows version
+ void D_SRB2Loop(void) FUNCNORETURN;
++// D_SRB2Loop in two parts, for a host that runs the loop itself:
++// what it does before its first frame, then one pass of the loop
++void D_SRB2LoopSetup(void);
++void D_RunFrame(void);
+ 
+ //
+ // D_SRB2Main()
