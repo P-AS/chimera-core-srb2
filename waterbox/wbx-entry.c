@@ -234,6 +234,7 @@ ECL_EXPORT int GetMemoryDomainCount(void) { return 0; }
 ECL_EXPORT const char *GetMemoryDomainName(int i) { (void)i; return ""; }
 ECL_EXPORT uint8_t *GetMemoryDomainPtr(int i) { (void)i; return NULL; }
 ECL_EXPORT int64_t GetMemoryDomainSize(int i) { (void)i; return 0; }
+ECL_EXPORT int GetMemoryDomainWritable(int i) { (void)i; return 0; }
 
 /* the machine's clock, in I_GetPrecisePrecision() units */
 ECL_EXPORT uint64_t GetCycleCount(void) { return chimera_clock_precise(); }
