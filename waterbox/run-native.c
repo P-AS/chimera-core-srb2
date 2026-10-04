@@ -10,6 +10,8 @@
  *                   (the time leg's teeth), never how the core runs
  *   --print-cvar    after the run, print "cvar NAME VALUE": what the engine's
  *                   option is (the settings leg)
+ *   --print-unlocks after the run, print "unlocks ...": what the game data has
+ *                   unlocked (the settings leg)
  *   --list-input    print the controller: "button NAME" and "axis NAME" lines,
  *                   in its order, and exit (the declaration leg)
  */
@@ -59,6 +61,8 @@ static const int16_t *audio(int *n)
 
 /* the engine's option by name (srb2-driver.c) */
 extern const char *chimera_cvar_string(const char *name);
+extern const char *chimera_unlocks_summary(void);
+static int g_print_unlocks;
 
 static const char *g_cvars[32];
 static int g_ncvars;
@@ -80,6 +84,8 @@ static int known(const char *arg)
 	}
 	if (!strcmp(arg, "--print-cvar"))
 		return want_cvar = 1;
+	if (!strcmp(arg, "--print-unlocks"))
+		return g_print_unlocks = 1;
 	return 0;
 }
 
@@ -177,5 +183,7 @@ int main(int argc, char **argv)
 	const int ret = harness_run(&c, &o);
 	for (int i = 0; i < g_ncvars; i++)
 		printf("cvar %s %s\n", g_cvars[i], chimera_cvar_string(g_cvars[i]));
+	if (g_print_unlocks)
+		printf("unlocks %s\n", chimera_unlocks_summary());
 	return ret;
 }
