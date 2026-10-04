@@ -1,0 +1,29 @@
+{
+  "_comment": "An SRB2 project is the game (its four pk3s are firmware) and, if it wants them, add-ons and save data.",
+  "slots": [
+    {
+      "id": "addons",
+      "title": "Add-ons",
+      "min": 0,
+      "max": -1,
+      "formats": [
+        "pk3",
+        "wad",
+        "soc",
+        "lua"
+      ],
+      "help": "Mods, levels and characters (.pk3, .wad, .soc, .lua), in load order, as SRB2's -file loads them. None for the game itself."
+    },
+    {
+      "id": "savedata",
+      "title": "Save data",
+      "min": 0,
+      "max": -1,
+      "formats": [
+        "dat",
+        "ssg"
+      ],
+      "help": "The game's progress to start from: gamedata.dat (unlocks, emblems, records) and save slots (srb2sav*.ssg), under those names, as Export Save Data writes them. None for a fresh game."
+    }
+  ]
+}
