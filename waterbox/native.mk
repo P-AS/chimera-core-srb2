@@ -22,7 +22,7 @@ $(call flags_stamp,$(B),$(SRB2_CFLAGS) | $(ZLIB_CFLAGS) | $(PNG_CFLAGS) | $(CORE
 SRB2_OBJS := $(patsubst $(SRB2)/%.c,$(B)/srb2/%.o,$(SRB2_SRCS))
 ZLIB_OBJS := $(patsubst $(LIBS)/zlib/%.c,$(B)/zlib/%.o,$(ZLIB_SRCS))
 PNG_OBJS := $(patsubst $(LIBS)/libpng-src/%.c,$(B)/png/%.o,$(PNG_SRCS))
-CORE_OBJS := $(addprefix $(B)/core/,$(addsuffix .o,$(CORE_C_NAMES)))
+CORE_OBJS := $(addprefix $(B)/core/,$(addsuffix .o,$(CORE_C_NAMES))) $(B)/core/libco.o
 
 ifeq ($(MB),)
 $(error name miniBox: make -f native.mk MINIBOX_DIR=<miniBox checkout>)
@@ -58,6 +58,10 @@ MBHOST := $(MB)/build/meson-linux/source/host
 $(B)/run-wbx: run-wbx.c harness.h $(B)/flags
 	@test -f $(MBHOST)/libminiboxhost.so || { echo "miniBox's host is not built: meson setup $(MB)/build/meson-linux $(MB) && ninja -C $(MB)/build/meson-linux" >&2; false; }
 	gcc -O2 -g -Wall -I. -I$(MB)/source/host -o $@ run-wbx.c $(MBHOST)/libminiboxhost.so -Wl,-rpath,$(MBHOST)
+
+$(B)/core/libco.o: $(LIBCO_SRC) $(B)/flags
+	@mkdir -p $(dir $@)
+	gcc $(CORE_CFLAGS) -std=gnu11 -c -o $@ $<
 
 clean:
 	rm -rf $(B)

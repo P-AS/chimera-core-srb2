@@ -8,14 +8,24 @@
 #   -m   miniBox (default $MINIBOX_DIR): the sandbox legs run core.wbx through
 #        its host (build/native/run-wbx)
 #
-# The content: the game's start (the intro, 700 steps: its wipes and in-tic
-# waits) and Greenflower Zone Act 1 (-warp 1, 1000 steps: the level, its
-# enemies, the HUD, Lua). No input yet.
+# The content: the game's start (the intro, 700 steps: its wipes, a frame a
+# step) and Greenflower Zone Act 1 (-warp 1: its entry - the fade, the title
+# card - and play: the level, its enemies, the HUD, Lua). No input yet.
 #
 # Legs:
-#   equivalence  native == sandbox: every step's picture, the engine's tic and
-#                the machine's clock, on both contents; its teeth - the native
-#                build on the host's clock is not the sandbox
+#   equivalence  native == sandbox: every step's picture, the engine's tic, the
+#                machine's clock and the lag count, on both contents; its teeth -
+#                the native build on the host's clock is not the sandbox
+#   steps        a step is a tic: every step moves the machine's clock exactly
+#                one tic; the level's entry (the fade, the title card, the fade
+#                in) is a run of lag steps with the game frozen, a frame of the
+#                wipe each; in play every step reads input and runs one tic. Its
+#                teeth - on the host's clock (where a sleep sleeps and a wipe
+#                passes inside one step) the same checks fail
+#   savestates   the sandbox's machine saved and loaded before every step
+#                (rerecord), and moved to a new host mid-wipe (session: the
+#                engine suspended on its own cothread), is the run without; its
+#                teeth - a stale state (a step run twice) is not
 #   time         the machine's clock is its own: a 300 ms host stall mid-run
 #                changes nothing, native and sandbox; its teeth - on the host's
 #                clock the same stall changes the run
@@ -84,6 +94,51 @@ if [ "$n" != "$b" ]; then
 else
 	bad "equivalence teeth: the host's clock made no difference - the leg cannot fail"
 fi
+
+# ---- steps: on Greenflower Zone Act 1's entry and its first seconds of play.
+# The step lines: "step <n> tic <t> clock <c> lag <l> picture <p>".
+# Checked: every clock delta is one tic (1000000 units); at least 40 lag steps
+# before step 70, none of which runs a tic; from step 80, every step reads
+# input and runs exactly one tic.
+steps_check() {
+	awk '/^step/ {
+		n = $2; t = $4; c = $6; l = $8
+		if (n > 1) {
+			if (c - pc != 1000000) clock++
+			if (l > pl && t != pt) lagrun++
+			if (n <= 70 && l > pl) entry++
+			if (n >= 80 && (l != pl || t != pt + 1)) play++
+		}
+		pc = c; pt = t; pl = l
+	}
+	END {
+		if (clock || lagrun || entry < 40 || play) {
+			printf "clock-steps-not-one-tic=%d lag-steps-running-tics=%d entry-lag=%d play-steps-not-one-tic=%d\n", clock, lagrun, entry, play
+			exit 1
+		}
+		printf "every step one tic of clock; %d lag steps on the entry, the game frozen; play one tic a step\n", entry
+	}'
+}
+if r="$(nat gfz1 -n 200 -p 1 | steps_check)"; then pass "steps: native: $r"; else bad "steps: native: $r"; fi
+if r="$(box gfz1 -n 200 -p 1 | steps_check)"; then pass "steps: sandbox: $r"; else bad "steps: sandbox: $r"; fi
+if r="$(nat gfz1 -n 200 -p 1 --host-clock | steps_check)"; then
+	bad "steps teeth: the host's clock passed the checks too - the leg cannot fail ($r)"
+else
+	pass "steps teeth: on the host's clock the checks fail ($r)"
+fi
+
+# ---- savestates: 150 steps of Greenflower's entry (the wipe, the title card)
+# and play; the session moves at step 30, mid-wipe
+plain="$(box gfz1 -n 150 -p 10)"
+rr="$(box gfz1 -n 150 -p 10 --rerecord)"
+[ -n "$plain" ] && [ "$plain" = "$rr" ] && pass "savestates: rerecord (a state saved and loaded before every step) is the run without" \
+	|| bad "savestates: rerecord changed the run"
+ss="$(box gfz1 -n 150 -p 10 --session-at 30)"
+[ "$plain" = "$ss" ] && pass "savestates: session (a new host at step 30, mid-wipe) is the run without" \
+	|| bad "savestates: the session changed the run"
+stale="$(box gfz1 -n 150 -p 10 --stale-state 100)"
+[ "$plain" != "$stale" ] && pass "savestates teeth: a stale state (step 100 run twice) changes the run" \
+	|| bad "savestates teeth: a stale state changed nothing - the legs cannot fail"
 
 # ---- time: the intro (its wipes and in-tic waits), stalled half way
 steps=700

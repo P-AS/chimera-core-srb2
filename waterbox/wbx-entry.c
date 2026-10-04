@@ -92,8 +92,8 @@ ECL_EXPORT int GetAudioSampleCount(void) { return SAMPLES_PER_STEP; }
 ECL_EXPORT int GetVsyncNumerator(void) { return 35; }
 ECL_EXPORT int GetVsyncDenominator(void) { return 1; }
 
-/* every step is a tic the game reads, until input says otherwise */
-ECL_EXPORT int InputWasRead(void) { return 1; }
+/* a step that built no tic command is lag: a wipe's frame, the title card */
+ECL_EXPORT int InputWasRead(void) { return srb2_input_was_read(); }
 
 ECL_EXPORT int GetMemoryDomainCount(void) { return 0; }
 ECL_EXPORT const char *GetMemoryDomainName(int i) { (void)i; return ""; }

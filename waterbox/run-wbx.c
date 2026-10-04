@@ -4,7 +4,18 @@
  * into the guest under its name - what the frontend does with a project's
  * firmware - read from the disk as the guest reads it.
  *
- * usage: run-wbx <core.wbx> <workdir> [harness.h's options]
+ * usage: run-wbx <core.wbx> <workdir> [harness.h's options] [--rerecord] [--session-at N]
+ *        [--stale-state N]
+ *   --rerecord      round-trip the whole machine through the host's save and
+ *                   load before every step: the run must not change
+ *   --session-at N  before step N, save the machine, destroy the host, build a
+ *                   new one from the same core and files, load the state into
+ *                   it and finish the run there - a reopened project; with the
+ *                   engine suspended on its own cothread mid-wipe, the case
+ *                   that proves that stack travels in a state
+ *   --stale-state N save before step N and load that state again before step
+ *                   N+1: step N runs twice, so the run must change (the
+ *                   savestate legs' teeth)
  */
 #include "minibox.h"
 
@@ -27,7 +38,7 @@ typedef uint32_t (MB_GUEST_ABI *u32fn)(void);
 typedef uint64_t (MB_GUEST_ABI *u64fn)(void);
 
 static mb_host *g_host;
-static intfn g_Init, g_GetVideoWidth, g_GetVideoHeight;
+static intfn g_Init, g_GetVideoWidth, g_GetVideoHeight, g_InputWasRead;
 static ptrfn g_GetLoadError, g_GetVideoBgra;
 static framefn g_FrameAdvance;
 static u32fn g_GetGameTic;
@@ -52,21 +63,53 @@ static const uint32_t *core_video(int *w, int *h)
 	return (const uint32_t *)g_GetVideoBgra();
 }
 static uint32_t core_gametic(void) { return g_GetGameTic(); }
+static int core_input_was_read(void) { return g_InputWasRead(); }
 static uint64_t core_clock(void) { return g_GetCycleCount(); }
 
-int main(int argc, char **argv)
+typedef struct { uint8_t *b; size_t len, cap, pos; } membuf;
+static int32_t mem_write(uintptr_t ud, const uint8_t *d, uintptr_t n)
 {
-	if (argc < 3)
+	membuf *m = (membuf *)ud;
+	if (m->len + n > m->cap)
 	{
-		fprintf(stderr, "usage: run-wbx <core.wbx> <workdir> [options]\n");
-		return 2;
+		m->cap = (m->len + n) * 2 + 64;
+		m->b = realloc(m->b, m->cap);
 	}
-	static struct harness_opts o;
-	if (!harness_parse(argc, argv, 3, &o, NULL))
-		return 2;
+	memcpy(m->b + m->len, d, n);
+	m->len += n;
+	return 0;
+}
+static intptr_t mem_read(uintptr_t ud, uint8_t *d, uintptr_t n)
+{
+	membuf *m = (membuf *)ud;
+	const uintptr_t avail = m->len - m->pos;
+	if (n > avail)
+		n = avail;
+	memcpy(d, m->b + m->pos, n);
+	m->pos += n;
+	return (intptr_t)n;
+}
 
-	FILE *wf = fopen(argv[1], "rb");
-	if (!wf) { perror(argv[1]); return 1; }
+static const char *g_wbx, *g_workdir;
+static int g_rerecord;
+static long g_session_at, g_stale_at;
+static membuf g_state;
+
+static void check(const mb_return *r, const char *what)
+{
+	if (r->error_message[0])
+	{
+		fprintf(stderr, "%s: %s\n", what, r->error_message);
+		exit(1);
+	}
+}
+
+/* the host: the core loaded, every file of the work folder mounted, the
+ * exports found, the machine started (Init) and sealed */
+static void build_host(void)
+{
+	FILE *wf = fopen(g_wbx, "rb");
+	if (!wf) { perror(g_wbx); exit(1); }
 	const uint32_t mib[] = { LAYOUT_MIB };
 	mb_memory_layout_template layout = {
 		(uintptr_t)mib[0] << 20, (uintptr_t)mib[1] << 20, (uintptr_t)mib[2] << 20,
@@ -75,23 +118,22 @@ int main(int argc, char **argv)
 	mb_return r;
 	wbx_create_host(&layout, "core.wbx", file_read, (uintptr_t)&fr, &r);
 	fclose(wf);
-	if (r.error_message[0]) { fprintf(stderr, "create: %s\n", r.error_message); return 1; }
+	check(&r, "create");
 	g_host = (mb_host *)r.data;
 
-	DIR *d = opendir(argv[2]);
-	if (!d) { perror(argv[2]); return 1; }
+	DIR *d = opendir(g_workdir);
+	if (!d) { perror(g_workdir); exit(1); }
 	struct dirent *de;
 	while ((de = readdir(d)) != NULL)
 	{
-		char path[4096];
-		snprintf(path, sizeof path, "%s/%s", argv[2], de->d_name);
+		char path[4096], real[4096];
+		snprintf(path, sizeof path, "%s/%s", g_workdir, de->d_name);
 		struct stat st;
 		if (stat(path, &st) != 0 || !S_ISREG(st.st_mode))
 			continue;
-		char real[4096];
-		if (!realpath(path, real)) { perror(path); return 1; }
+		if (!realpath(path, real)) { perror(path); exit(1); }
 		wbx_mount_file_path(g_host, de->d_name, real, &r);
-		if (r.error_message[0]) { fprintf(stderr, "mount %s: %s\n", de->d_name, r.error_message); return 1; }
+		check(&r, de->d_name);
 	}
 	closedir(d);
 	wbx_activate_host(g_host, &r);
@@ -103,7 +145,91 @@ int main(int argc, char **argv)
 	g_GetVideoWidth = (intfn)proc("GetVideoWidth");
 	g_GetVideoHeight = (intfn)proc("GetVideoHeight");
 	g_GetGameTic = (u32fn)proc("GetGameTic");
+	g_InputWasRead = (intfn)proc("InputWasRead");
 	g_GetCycleCount = (u64fn)proc("GetCycleCount");
+
+	/* Init runs before Seal: the started machine is the sealed baseline */
+	if (g_Init() != 1)
+	{
+		fprintf(stderr, "run-wbx: Init failed: %s\n", (const char *)g_GetLoadError());
+		exit(1);
+	}
+	wbx_deactivate_host(g_host, &r);
+	wbx_seal(g_host, &r);
+	check(&r, "seal");
+	wbx_activate_host(g_host, &r);
+}
+
+static void pre_frame(long step)
+{
+	mb_return r;
+	if (g_stale_at && (step == g_stale_at || step == g_stale_at + 1))
+	{
+		if (step == g_stale_at)
+		{
+			g_state.len = 0;
+			wbx_save_state(g_host, mem_write, (uintptr_t)&g_state, &r);
+			check(&r, "save_state");
+		}
+		else
+		{
+			g_state.pos = 0;
+			wbx_load_state(g_host, mem_read, (uintptr_t)&g_state, &r);
+			check(&r, "load_state");
+		}
+	}
+	if (g_rerecord || step == g_session_at)
+	{
+		g_state.len = 0;
+		wbx_save_state(g_host, mem_write, (uintptr_t)&g_state, &r);
+		check(&r, "save_state");
+	}
+	if (step == g_session_at)
+	{
+		/* the machine leaves in a state and arrives in a new host */
+		wbx_deactivate_host(g_host, &r);
+		wbx_destroy_host(g_host, &r);
+		build_host();
+	}
+	if (g_rerecord || step == g_session_at)
+	{
+		g_state.pos = 0;
+		wbx_load_state(g_host, mem_read, (uintptr_t)&g_state, &r);
+		check(&r, "load_state");
+	}
+}
+
+static int known(const char *arg)
+{
+	static long *want;
+	if (want)
+	{
+		*want = atol(arg);
+		want = NULL;
+		return 1;
+	}
+	if (!strcmp(arg, "--rerecord"))
+		return g_rerecord = 1;
+	if (!strcmp(arg, "--session-at"))
+		return (want = &g_session_at) != NULL;
+	if (!strcmp(arg, "--stale-state"))
+		return (want = &g_stale_at) != NULL;
+	return 0;
+}
+
+int main(int argc, char **argv)
+{
+	if (argc < 3)
+	{
+		fprintf(stderr, "usage: run-wbx <core.wbx> <workdir> [options] [--rerecord] [--session-at N] [--stale-state N]\n");
+		return 2;
+	}
+	static struct harness_opts o;
+	if (!harness_parse(argc, argv, 3, &o, known))
+		return 2;
+	g_wbx = argv[1];
+	g_workdir = argv[2];
+	build_host();
 
 	const struct harness_core c = {
 		.init = core_init,
@@ -111,21 +237,16 @@ int main(int argc, char **argv)
 		.frame = core_frame,
 		.video = core_video,
 		.gametic = core_gametic,
+		.input_was_read = core_input_was_read,
 		.clock = core_clock,
+		.pre_frame = pre_frame,
 	};
-	/* Init runs before Seal: the started machine is the sealed baseline */
-	if (c.init() != 1)
-	{
-		fprintf(stderr, "run-wbx: Init failed: %s\n", c.load_error());
-		return 1;
-	}
-	wbx_deactivate_host(g_host, &r);
-	wbx_seal(g_host, &r);
-	if (r.error_message[0]) { fprintf(stderr, "seal: %s\n", r.error_message); return 1; }
-	wbx_activate_host(g_host, &r);
-
 	const int ret = harness_run(&c, &o);
+	if (g_rerecord || g_session_at)
+		fprintf(stderr, "stateBytes=%zu\n", g_state.len);
+	mb_return r;
 	wbx_deactivate_host(g_host, &r);
 	wbx_destroy_host(g_host, &r);
+	free(g_state.b);
 	return ret;
 }

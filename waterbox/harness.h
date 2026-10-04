@@ -10,8 +10,9 @@
  *   --stall-at F    stall the host before step F ...
  *   --stall-ms MS   ... for this long (default 300): the machine must not notice
  *
- * It ends with "run <hash> tic <n> clock <c>": the hash of every step's picture
- * in order, the engine's tic counter and the machine's clock - the whole run.
+ * It ends with "run <hash> tic <n> clock <c> lag <l>": the hash of every step's
+ * picture in order, the engine's tic counter, the machine's clock and the
+ * steps that read no input - the whole run.
  */
 #ifndef HARNESS_H
 #define HARNESS_H
@@ -30,6 +31,7 @@ struct harness_core
 	void (*frame)(void);
 	const uint32_t *(*video)(int *w, int *h);
 	uint32_t (*gametic)(void);
+	int (*input_was_read)(void);
 	uint64_t (*clock)(void);
 	/* before each step (run-wbx's savestate legs); may be NULL */
 	void (*pre_frame)(long step);
@@ -107,6 +109,7 @@ static int harness_write_ppm(const char *path, const uint32_t *px, int w, int h)
 static int harness_run(const struct harness_core *c, const struct harness_opts *o)
 {
 	uint64_t run = 0xcbf29ce484222325ull;
+	long lag = 0;
 	int w = 0, h = 0;
 	const uint32_t *px = NULL;
 	for (long f = 1; f <= o->frames; f++)
@@ -119,14 +122,17 @@ static int harness_run(const struct harness_core *c, const struct harness_opts *
 		if (c->pre_frame)
 			c->pre_frame(f);
 		c->frame();
+		if (!c->input_was_read())
+			lag++;
 		px = c->video(&w, &h);
 		const uint64_t pic = harness_fnv1a(px, sizeof(uint32_t) * (size_t)w * (size_t)h);
 		run = (run ^ pic) * 0x100000001b3ull;
 		if (o->every > 0 && (f % o->every == 0 || f == o->frames))
-			printf("step %ld tic %u clock %llu picture %016llx\n", f, c->gametic(),
-				(unsigned long long)c->clock(), (unsigned long long)pic);
+			printf("step %ld tic %u clock %llu lag %ld picture %016llx\n", f, c->gametic(),
+				(unsigned long long)c->clock(), lag, (unsigned long long)pic);
 	}
-	printf("run %016llx tic %u clock %llu\n", (unsigned long long)run, c->gametic(), (unsigned long long)c->clock());
+	printf("run %016llx tic %u clock %llu lag %ld\n", (unsigned long long)run, c->gametic(),
+		(unsigned long long)c->clock(), lag);
 	fflush(stdout);
 	if (o->ppm && px && harness_write_ppm(o->ppm, px, w, h) != 0)
 	{

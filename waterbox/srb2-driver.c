@@ -1,14 +1,24 @@
 /* srb2-driver.c - the machine: SRB2's engine started as upstream's main
  * starts it (D_SRB2Main, then what D_SRB2Loop does before its first frame:
- * patches/0001), and stepped a pass of its loop at a time (D_RunFrame), the
- * machine's clock a tic further each pass: a step is a tic.
+ * patches/0001), and stepped a tic at a time.
+ *
+ * The engine runs on a cothread of its own (libco, miniBox's): a step moves
+ * the machine's clock one tic and resumes it, and it runs until it next waits
+ * for time. That is either the top of its loop, a pass of D_RunFrame done, or
+ * a sleep inside a tic (I_Sleep, platform/i_system.c). SRB2 sleeps there in
+ * the loops that draw a frame a tic without running the game: the wipes, the
+ * level's title card, the special stage's white, the intro's. So each of those
+ * frames is a step of its own, with its own picture, and a step in which no
+ * tic command was built is lag: the game read no input.
  *
  * An exit of the engine - I_Error, a quit - does not end a process: it halts
- * the machine where it stands (chimera_exit longjmps out of the engine), which
- * keeps answering, silent and still, with I_Error's message kept. */
-#include <setjmp.h>
+ * the machine where it stands. The engine's cothread is never resumed again,
+ * and the machine keeps answering, silent and still, with I_Error's message
+ * kept. */
 #include <stdio.h>
 #include <string.h>
+
+#include <libco.h>
 
 #include "doomdef.h"
 #include "d_main.h"
@@ -19,10 +29,28 @@
 #include "chimera-platform.h"
 #include "srb2-driver.h"
 
-static jmp_buf g_exit_jump;
-static int g_in_engine;
+/* the engine's stack: its BSP walk, Lua and the netcode nest deep */
+#define ENGINE_STACK (16u << 20)
+
+static cothread_t g_host, g_engine;
+static int g_started;
 static int g_halted;
+static int g_input_read;
 static char g_error[1024];
+
+static void to_host(void) { co_switch(g_host); }
+
+static void engine_main(void)
+{
+	D_SRB2Main();
+	D_SRB2LoopSetup();
+	g_started = 1;
+	for (;;)
+	{
+		to_host();
+		D_RunFrame();
+	}
+}
 
 void chimera_exit(int rc, const char *msg)
 {
@@ -34,37 +62,57 @@ void chimera_exit(int rc, const char *msg)
 	else
 		fprintf(stderr, "srb2: quit (%d)\n", rc);
 	g_halted = 1;
-	if (g_in_engine)
-		longjmp(g_exit_jump, 1);
-	/* an exit outside the engine's calls (an atexit, say) has nowhere to go */
-	for (;;) {}
+	/* on the engine's cothread (where every exit comes from): leave it for
+	 * good; elsewhere there is nowhere to go */
+	for (;;)
+	{
+		if (g_engine && co_active() == g_engine)
+			to_host();
+	}
 }
+
+/* the engine waits for time inside a tic: the step ends here */
+void chimera_wait(void)
+{
+	if (g_engine && co_active() == g_engine)
+		to_host();
+}
+
+void chimera_input_read(void) { g_input_read = 1; }
 
 int srb2_start(int argc, char **argv)
 {
 	myargc = argc;
 	myargv = argv;
-	g_in_engine = 1;
-	if (setjmp(g_exit_jump) == 0)
+	g_host = co_active();
+	g_engine = co_create(ENGINE_STACK, engine_main);
+	if (!g_engine)
 	{
-		D_SRB2Main();
-		D_SRB2LoopSetup();
+		snprintf(g_error, sizeof g_error, "no memory for the engine's stack");
+		g_halted = 1;
+		return -1;
 	}
-	g_in_engine = 0;
+	/* the start runs to the loop; were it to wait for time, time passes */
+	for (;;)
+	{
+		co_switch(g_engine);
+		if (g_started || g_halted)
+			break;
+		chimera_clock_step();
+	}
 	return g_halted ? -1 : 0;
 }
 
 void srb2_frame(void)
 {
+	g_input_read = 0;
 	if (g_halted)
 		return;
 	chimera_clock_step();
-	g_in_engine = 1;
-	if (setjmp(g_exit_jump) == 0)
-		D_RunFrame();
-	g_in_engine = 0;
+	co_switch(g_engine);
 }
 
 int srb2_halted(void) { return g_halted; }
 const char *srb2_error(void) { return g_error; }
+int srb2_input_was_read(void) { return g_input_read; }
 unsigned srb2_gametic(void) { return (unsigned)gametic; }
