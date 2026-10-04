@@ -58,6 +58,11 @@ CORE_C_NAMES := $(addprefix platform/,$(PLATFORM_NAMES)) srb2-driver
 CORE_HDRS := $(wildcard *.h) $(wildcard platform/*.h)
 CORE_CFLAGS_COMMON := $(SRB2_CFLAGS_COMMON)
 
+# the calls the core answers itself (platform/i_system.c): the libc clocks,
+# which are the machine's, and rand, which is the same in both builds
+WRAP_FLAGS := -Wl,--wrap=clock_gettime -Wl,--wrap=time -Wl,--wrap=gettimeofday -Wl,--wrap=clock \
+	-Wl,--wrap=localtime -Wl,--wrap=rand -Wl,--wrap=srand
+
 # the patch series goes onto the submodule before anything of SRB2 builds
 PATCH_STAMP := $(ROOT)/build/patches.stamp
 $(PATCH_STAMP): $(wildcard $(ROOT)/patches/*.patch) apply-patches.sh

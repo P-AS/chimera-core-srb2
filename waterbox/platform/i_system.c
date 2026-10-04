@@ -9,13 +9,13 @@
  *     mounts them ("."), and no folder is made
  *   - the "operating system's" random bytes, which seed the game's RNG at
  *     start (M_RandomSeedFromOS), are the driver's seed's
- *   - the clock is the host's monotonic clock (milestone 0); the machine's
- *     own comes with the virtual-time seam */
+ *   - the clock is the machine's (below): nothing reads the host's */
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <sys/time.h>
 
 #include "doomdef.h"
 #include "doomtype.h"
@@ -25,19 +25,50 @@
 
 #include "chimera-platform.h"
 
+int __real_clock_gettime(clockid_t clk, struct timespec *tp);
+
 UINT8 graphics_started = 0;
 UINT8 keyboard_started = 0;
 
-/* ---- time */
+/* ---- time: the machine's
+ *
+ * The precise clock counts TIC_UNITS a tic (35 MHz: a microsecond is 35 units,
+ * as m_anigif and Lua's getTimeMicros divide by I_GetPrecisePrecision()/1e6).
+ * It moves only when the machine does: a tic a step (chimera_clock_step, the
+ * driver's), and to the next tic's deadline when the engine sleeps - the
+ * loops that wait inside a tic (the wipe, the level's fade, the intro) sleep
+ * until I_GetTime moves, and idle must jump to the next deadline. The frame
+ * cap's sleep (I_SleepDuration) is pacing, which is the frontend's: nothing.
+ *
+ * It starts half a tic in and stays on half-tics: I_UpdateTime turns deltas
+ * into tics with a double accumulator and a strict ">", and a clock on whole
+ * tics sits exactly on that threshold (1/35 is not more than 1/35), giving
+ * no tic on the first step.
+ *
+ * chimera_host_clock (the native reference's --host-clock, never the core's)
+ * puts the host's monotonic clock back, for the gate's teeth. */
 
-#define PRECISION 1000000000ull
+#define TIC_UNITS 1000000ull
+#define PRECISION (TICRATE * TIC_UNITS)
+/* what the libc clocks answer: 2000-01-01 00:00:00 UTC, plus the machine's time */
+#define EPOCH 946684800ull
+
+static uint64_t g_clock = TIC_UNITS / 2;
+int chimera_host_clock;
+
+static uint64_t host_precise(void)
+{
+	struct timespec ts;
+	__real_clock_gettime(CLOCK_MONOTONIC, &ts);
+	return (uint64_t)ts.tv_sec * PRECISION + (uint64_t)ts.tv_nsec * (PRECISION / 1000000ull) / 1000ull;
+}
 
 uint64_t chimera_clock_precise(void)
 {
-	struct timespec ts;
-	clock_gettime(CLOCK_MONOTONIC, &ts);
-	return (uint64_t)ts.tv_sec * PRECISION + (uint64_t)ts.tv_nsec;
+	return chimera_host_clock ? host_precise() : g_clock;
 }
+
+void chimera_clock_step(void) { g_clock += TIC_UNITS; }
 
 precise_t I_GetPreciseTime(void) { return chimera_clock_precise(); }
 UINT64 I_GetPrecisePrecision(void) { return PRECISION; }
@@ -45,15 +76,77 @@ void I_StartupTimer(void) {}
 
 void I_Sleep(UINT32 ms)
 {
-	struct timespec ts = { ms / 1000, (long)(ms % 1000) * 1000000L };
-	nanosleep(&ts, NULL);
+	if (chimera_host_clock)
+	{
+		struct timespec ts = { ms / 1000, (long)(ms % 1000) * 1000000L };
+		nanosleep(&ts, NULL);
+		return;
+	}
+	g_clock += TIC_UNITS;
 }
 
 void I_SleepDuration(precise_t duration)
 {
-	struct timespec ts = { (time_t)(duration / PRECISION), (long)(duration % PRECISION) };
-	nanosleep(&ts, NULL);
+	if (chimera_host_clock)
+	{
+		struct timespec ts = { (time_t)(duration / PRECISION),
+			(long)(duration % PRECISION * 1000ull / (PRECISION / 1000000ull)) };
+		nanosleep(&ts, NULL);
+	}
 }
+
+/* the libc clocks the engine calls (the link wraps them): the machine's
+ * time since EPOCH. localtime is UTC: the host's time zone is not the
+ * machine's (Lua's os.date). */
+static uint64_t machine_us(void)
+{
+	return chimera_clock_precise() / (PRECISION / 1000000ull);
+}
+
+int __wrap_clock_gettime(clockid_t clk, struct timespec *tp)
+{
+	const uint64_t us = machine_us();
+	tp->tv_sec = (time_t)(us / 1000000ull + (clk == CLOCK_REALTIME ? EPOCH : 0));
+	tp->tv_nsec = (long)(us % 1000000ull) * 1000L;
+	return 0;
+}
+
+time_t __wrap_time(time_t *t)
+{
+	const time_t now = (time_t)(machine_us() / 1000000ull + EPOCH);
+	if (t)
+		*t = now;
+	return now;
+}
+
+int __wrap_gettimeofday(struct timeval *tv, void *tz)
+{
+	(void)tz;
+	const uint64_t us = machine_us();
+	tv->tv_sec = (time_t)(us / 1000000ull + EPOCH);
+	tv->tv_usec = (suseconds_t)(us % 1000000ull);
+	return 0;
+}
+
+clock_t __wrap_clock(void)
+{
+	return (clock_t)(machine_us() * (CLOCKS_PER_SEC / 1000000));
+}
+
+struct tm *__wrap_localtime(const time_t *t)
+{
+	static struct tm tm;
+	return gmtime_r(t, &tm);
+}
+
+/* rand: glibc's and musl's differ, so the core's own (C's example LCG) */
+static uint32_t g_rand = 1;
+int __wrap_rand(void)
+{
+	g_rand = g_rand * 1103515245u + 12345u;
+	return (int)((g_rand / 65536u) % 32768u);
+}
+void __wrap_srand(unsigned seed) { g_rand = seed; }
 
 /* ---- the end of the program: the machine's (the driver's) */
 

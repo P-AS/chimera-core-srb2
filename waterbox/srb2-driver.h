@@ -11,6 +11,8 @@ void srb2_frame(void);
 /* whether the engine has exited (I_Error, a quit), and I_Error's message */
 int srb2_halted(void);
 const char *srb2_error(void);
+/* the engine's tic counter */
+unsigned srb2_gametic(void);
 #ifdef __cplusplus
 }
 #endif

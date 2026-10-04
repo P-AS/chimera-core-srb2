@@ -7,6 +7,10 @@ extern "C" {
 #endif
 /* the machine's clock (platform/i_system.c), in I_GetPrecisePrecision() units */
 uint64_t chimera_clock_precise(void);
+/* a step of the machine: its clock moves one tic */
+void chimera_clock_step(void);
+/* nonzero: the host's clock instead (the native reference's diagnostic) */
+extern int chimera_host_clock;
 /* the engine's screen, through its palette, as BGRA (platform/i_video.c) */
 int chimera_video_width(void);
 int chimera_video_height(void);
