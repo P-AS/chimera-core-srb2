@@ -23,7 +23,9 @@ miniBox must be built first, with its C++ guest toolchain (GME is C++), in its c
 ```
 meson setup build/meson-cpp -Dguest_cpp=true && ninja -C build/meson-cpp
 ninja -C build/meson-cpp libstdcxx-installed.stamp source/guest/emulibc.c.o source/guest/cxxglue.c.o
-``` The patches go onto
+``` 
+
+The patches go onto
 `extern/SRB2` and `extern/openmpt` on the first build (`waterbox/apply-patches.sh [openmpt]`, each series all or
 nothing). `extern/openmpt` is shallow: `git submodule update --init` fetches only its pinned commit.
 
