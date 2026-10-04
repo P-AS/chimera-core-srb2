@@ -25,6 +25,8 @@
 #include "i_joy.h"
 
 #include "chimera-platform.h"
+#define SRB2_INPUT_TICCMD
+#include "srb2-input.h"
 
 int __real_clock_gettime(clockid_t clk, struct timespec *tp);
 
@@ -236,12 +238,13 @@ void I_GetEvent(void) {}
 INT32 I_GetKey(void) { return 0; }
 void I_OsPolling(void) {}
 /* the tic command G_BuildTiccmd starts from ("empty, or external driver"):
- * empty, for now. Asked for, the step has read input (player one's; the
- * second is splitscreen's) */
+ * the controller's axes (srb2-input.c). Asked for, the step has read input.
+ * The second is splitscreen's player, whom the controller does not drive. */
 static ticcmd_t g_basecmd, g_basecmd2;
 ticcmd_t *I_BaseTiccmd(void)
 {
 	chimera_input_read();
+	srb2_input_base(&g_basecmd);
 	return &g_basecmd;
 }
 ticcmd_t *I_BaseTiccmd2(void) { return &g_basecmd2; }

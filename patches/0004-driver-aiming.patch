@@ -1,0 +1,15 @@
+diff --git a/src/g_game.c b/src/g_game.c
+index 1c186ae03..11b1ff9c1 100644
+--- a/src/g_game.c
++++ b/src/g_game.c
+@@ -1539,6 +1539,10 @@ void G_BuildTiccmd(ticcmd_t *cmd, INT32 realtics, UINT8 ssplayer)
+ 				*myaiming = 0;
+ 		}
+ 
++		// an external driver's pitch (I_BaseTiccmd), when it gives one
++		if (cmd->aiming)
++			*myaiming = (INT32)((UINT32)cmd->aiming << 16);
++
+ 		// accept no mlook for network games
+ 		if (!cv_allowmlook.value)
+ 			*myaiming = 0;

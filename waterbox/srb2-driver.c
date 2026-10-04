@@ -11,6 +11,9 @@
  * frames is a step of its own, with its own picture, and a step in which no
  * tic command was built is lag: the game read no input.
  *
+ * The controller (srb2-input.c) is bound after the start, and its buttons
+ * that changed are posted as key events before each step.
+ *
  * An exit of the engine - I_Error, a quit - does not end a process: it halts
  * the machine where it stands. The engine's cothread is never resumed again,
  * and the machine keeps answering, silent and still, with I_Error's message
@@ -28,6 +31,7 @@
 
 #include "chimera-platform.h"
 #include "srb2-driver.h"
+#include "srb2-input.h"
 
 /* the engine's stack: its BSP walk, Lua and the netcode nest deep */
 #define ENGINE_STACK (16u << 20)
@@ -100,7 +104,10 @@ int srb2_start(int argc, char **argv)
 			break;
 		chimera_clock_step();
 	}
-	return g_halted ? -1 : 0;
+	if (g_halted)
+		return -1;
+	srb2_input_bind();
+	return 0;
 }
 
 void srb2_frame(void)
@@ -109,6 +116,7 @@ void srb2_frame(void)
 	if (g_halted)
 		return;
 	chimera_clock_step();
+	srb2_input_post();
 	co_switch(g_engine);
 }
 

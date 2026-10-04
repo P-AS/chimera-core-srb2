@@ -1,0 +1,5 @@
+# Greenflower Zone Act 1 (settings: warp 1), 260 steps: the entry is lag until
+# step 64; then run forward, jump, and turn right by the Turn axis
+80-260: Forward
+120-130: Jump
+180-220: Turn=-600

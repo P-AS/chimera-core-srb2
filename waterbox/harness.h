@@ -9,6 +9,11 @@
  *   --ppm FILE      write the last step's picture
  *   --stall-at F    stall the host before step F ...
  *   --stall-ms MS   ... for this long (default 300): the machine must not notice
+ *   --input FILE    the controller, a range of steps a line:
+ *                     FROM-TO: Button; Button; Axis=value
+ *                   (names as the core's GetButtonName/GetAxisName give them;
+ *                   '#' starts a comment); a step's buttons and axes are what
+ *                   the lines covering it say, the rest released and 0
  *   --savedata-out DIR  after the run, write the save data export (the files
  *                   the game wrote) under DIR, as chimera-run --export-savedata
  *
@@ -36,6 +41,13 @@ struct harness_core
 	uint32_t (*gametic)(void);
 	int (*input_was_read)(void);
 	uint64_t (*clock)(void);
+	/* the controller */
+	void (*set_button)(int32_t i, int32_t held);
+	void (*set_axis)(int32_t i, int32_t value);
+	int (*button_count)(void);
+	const char *(*button_name)(int32_t i);
+	int (*axis_count)(void);
+	const char *(*axis_name)(int32_t i);
 	/* the save data export group */
 	int32_t (*savedata_count)(void);
 	const char *(*savedata_name)(int32_t i);
@@ -50,6 +62,7 @@ struct harness_opts
 	long frames, every, stall_at, stall_ms;
 	const char *ppm;
 	const char *savedata_out;
+	const char *input;
 };
 
 /* parses argv[first..]; an option it does not know is left to the caller
@@ -62,6 +75,7 @@ static int harness_parse(int argc, char **argv, int first, struct harness_opts *
 	o->stall_ms = 300;
 	o->ppm = NULL;
 	o->savedata_out = NULL;
+	o->input = NULL;
 	for (int i = first; i < argc; i++)
 	{
 		if (!strcmp(argv[i], "-n") && i + 1 < argc)
@@ -70,6 +84,8 @@ static int harness_parse(int argc, char **argv, int first, struct harness_opts *
 			o->every = atol(argv[++i]);
 		else if (!strcmp(argv[i], "--ppm") && i + 1 < argc)
 			o->ppm = argv[++i];
+		else if (!strcmp(argv[i], "--input") && i + 1 < argc)
+			o->input = argv[++i];
 		else if (!strcmp(argv[i], "--savedata-out") && i + 1 < argc)
 			o->savedata_out = argv[++i];
 		else if (!strcmp(argv[i], "--stall-at") && i + 1 < argc)
@@ -153,11 +169,113 @@ static int harness_write_savedata(const struct harness_core *c, const char *dir)
 	return 0;
 }
 
+/* ---- the input file */
+struct harness_press
+{
+	long from, to;
+	int axis, index;
+	int32_t value;
+};
+static struct harness_press g_presses[4096];
+static int g_npresses;
+
+static char *harness_trim(char *s)
+{
+	while (*s == ' ' || *s == '\t')
+		s++;
+	char *e = s + strlen(s);
+	while (e > s && (e[-1] == ' ' || e[-1] == '\t' || e[-1] == '\n' || e[-1] == '\r'))
+		*--e = 0;
+	return s;
+}
+
+static int harness_load_input(const struct harness_core *c, const char *path)
+{
+	FILE *f = fopen(path, "r");
+	if (!f)
+	{
+		perror(path);
+		return 0;
+	}
+	char line[1024];
+	int lineno = 0;
+	while (fgets(line, sizeof line, f))
+	{
+		lineno++;
+		char *hash = strchr(line, '#');
+		if (hash)
+			*hash = 0;
+		char *body = strchr(line, ':');
+		if (!body)
+		{
+			if (*harness_trim(line))
+				goto bad;
+			continue;
+		}
+		*body++ = 0;
+		long from, to;
+		const int got = sscanf(line, "%ld-%ld", &from, &to);
+		if (got < 1)
+			goto bad;
+		if (got == 1)
+			to = from;
+		for (char *item = strtok(body, ";"); item; item = strtok(NULL, ";"))
+		{
+			char *name = harness_trim(item);
+			if (!*name)
+				continue;
+			char *eq = strchr(name, '=');
+			struct harness_press p = { from, to, eq != NULL, -1, 1 };
+			if (eq)
+			{
+				*eq = 0;
+				p.value = (int32_t)strtol(eq + 1, NULL, 0);
+				name = harness_trim(name);
+			}
+			const int n = p.axis ? c->axis_count() : c->button_count();
+			for (int i = 0; i < n; i++)
+				if (!strcmp(p.axis ? c->axis_name(i) : c->button_name(i), name))
+					p.index = i;
+			if (p.index < 0 || g_npresses == (int)(sizeof g_presses / sizeof g_presses[0]))
+			{
+				fprintf(stderr, "%s:%d: no %s \"%s\"\n", path, lineno, p.axis ? "axis" : "button", name);
+				fclose(f);
+				return 0;
+			}
+			g_presses[g_npresses++] = p;
+		}
+	}
+	fclose(f);
+	return 1;
+bad:
+	fprintf(stderr, "%s:%d: not FROM-TO: names\n", path, lineno);
+	fclose(f);
+	return 0;
+}
+
+static void harness_apply_input(const struct harness_core *c, long step)
+{
+	for (int i = 0; i < c->button_count(); i++)
+		c->set_button(i, 0);
+	for (int i = 0; i < c->axis_count(); i++)
+		c->set_axis(i, 0);
+	for (int i = 0; i < g_npresses; i++)
+		if (step >= g_presses[i].from && step <= g_presses[i].to)
+		{
+			if (g_presses[i].axis)
+				c->set_axis(g_presses[i].index, g_presses[i].value);
+			else
+				c->set_button(g_presses[i].index, 1);
+		}
+}
+
 /* Init has run (run-wbx seals the machine after it); the steps */
 static int harness_run(const struct harness_core *c, const struct harness_opts *o)
 {
 	uint64_t run = 0xcbf29ce484222325ull;
 	long lag = 0;
+	if (o->input && !harness_load_input(c, o->input))
+		return 2;
 	int w = 0, h = 0;
 	const uint32_t *px = NULL;
 	for (long f = 1; f <= o->frames; f++)
@@ -169,6 +287,7 @@ static int harness_run(const struct harness_core *c, const struct harness_opts *
 		}
 		if (c->pre_frame)
 			c->pre_frame(f);
+		harness_apply_input(c, f);
 		c->frame();
 		if (!c->input_was_read())
 			lag++;

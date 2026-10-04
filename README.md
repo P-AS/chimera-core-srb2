@@ -40,7 +40,15 @@ lines diff directly.
 `./waterbox/run-gate.sh [-d <SRB2 data folder>] [-m <miniBox>]`: the legs, each saying what it compared, each
 with teeth. `equivalence`: native == sandbox, step for step, on the intro and Greenflower Zone Act 1. `steps`:
 a step is a tic, a wipe's frames are lag steps, play is a tic a step. `savestates`: a save and load before
-every step, and a new host mid-wipe, change nothing. `time`: a host stall mid-run changes nothing.
+every step, and a new host mid-wipe, change nothing. `input`: movies through the menus and in Greenflower,
+the same every way. `files`: what the game writes is kept in the machine and exported identically. `time`: a
+host stall mid-run changes nothing.
+
+## The controller
+
+SRB2's default keyboard as buttons (Forward, Jump, Spin... and the menus' Enter and Escape), pressed as keys, so
+menus and play work as on a keyboard; plus axes for exact values: Forward Move, Side Move, Turn, Aim. The
+harnesses take a movie as text, `--input FILE` with `FROM-TO: Button; Axis=value` lines (`waterbox/tests/`).
 
 ## Licence
 
