@@ -1,3 +1,9 @@
 [submodule "extern/SRB2"]
 	path = extern/SRB2
 	url = https://github.com/STJr/SRB2.git
+[submodule "extern/ogg"]
+	path = extern/ogg
+	url = https://github.com/xiph/ogg.git
+[submodule "extern/vorbis"]
+	path = extern/vorbis
+	url = https://github.com/xiph/vorbis.git

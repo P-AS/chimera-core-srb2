@@ -31,6 +31,11 @@
 #                Zone) and gfz1-run.txt (Forward, Jump, the Turn axis in
 #                Greenflower); each the same native, sandboxed, rerecorded and
 #                in a new host. Its teeth - the run without the input is not
+#   audio        the core's mixer: the intro's music and Greenflower's sounds are
+#                heard (not silence), and the same native and sandboxed (every
+#                leg compares the sound too: the run line carries its hash);
+#                its teeth - the Greenflower run without its jump does not
+#                sound the same
 #   files        the machine's filesystem: a mounted autoexec.cfg writes a file
 #                at start (before seal) and one 20 tics into play (after it),
 #                and reads the first back; the save data export is those two
@@ -171,6 +176,22 @@ for m in "intro menu-to-tutorial 450" "gfz1 gfz1-run 260"; do
 	[ "$n" != "$none" ] && pass "input teeth: $2: the run without the input is not the run with it" \
 		|| bad "input teeth: $2: the input changed nothing - the leg cannot fail"
 done
+
+# ---- audio
+field() { echo "$1" | tail -1 | awk -v k="$2" '{for (i = 1; i < NF; i++) if ($i == k) print $(i + 1)}'; }
+ni="$(nat intro -n 700 -p 0)"
+bi="$(box intro -n 700 -p 0)"
+ng="$(nat gfz1 -n 200 -p 0 --input "$tests/gfz1-run.txt")"
+if [ "$(field "$ni" peak)" -gt 1000 ] && [ "$(field "$ng" peak)" -gt 1000 ] \
+	&& [ "$(field "$ni" audio)" = "$(field "$bi" audio)" ]; then
+	pass "audio: the intro's music (peak $(field "$ni" peak)) and Greenflower's sounds (peak $(field "$ng" peak)) are heard, native == sandbox"
+else
+	bad "audio: silent, or native != sandbox ('$ni' / '$bi' / '$ng')"
+fi
+printf '80-260: Forward\n180-220: Turn=-600\n' > "$root/build/gate/gfz1-nojump.txt"
+nj="$(nat gfz1 -n 200 -p 0 --input "$root/build/gate/gfz1-nojump.txt")"
+[ "$(field "$nj" audio)" != "$(field "$ng" audio)" ] && pass "audio teeth: without its jump, Greenflower does not sound the same" \
+	|| bad "audio teeth: the jump changed no sound - the leg cannot fail"
 
 # ---- files: the save data export of 200 steps, every way
 sd="$root/build/gate/savedata"

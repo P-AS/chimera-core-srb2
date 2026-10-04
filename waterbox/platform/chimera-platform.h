@@ -11,6 +11,8 @@ uint64_t chimera_clock_precise(void);
 void chimera_clock_step(void);
 /* nonzero: the host's clock instead (the native reference's diagnostic) */
 extern int chimera_host_clock;
+/* a step's sound: frames of 44.1 kHz stereo signed 16-bit (platform/i_sound.c) */
+void chimera_audio_mix(int16_t *out, int frames);
 /* the engine's screen, through its palette, as BGRA (platform/i_video.c) */
 int chimera_video_width(void);
 int chimera_video_height(void);

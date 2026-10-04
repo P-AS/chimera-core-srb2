@@ -5,6 +5,8 @@
 ROOT := ..
 SRB2 := $(ROOT)/extern/SRB2/src
 LIBS := $(ROOT)/extern/SRB2/libs
+OGG := $(ROOT)/extern/ogg
+VORBIS := $(ROOT)/extern/vorbis
 MB   ?= $(MINIBOX_DIR)
 # libpng's configuration header: its prebuilt one, copied beside the build
 PNGCONF_DIR := $(ROOT)/build/pngconf
@@ -20,15 +22,15 @@ PNGCONF := $(PNGCONF_DIR)/pnglibconf.h
 #   netcode/i_tcp.c      sockets: the machine has no network (dummy/i_net.c)
 #   hardware/            the OpenGL renderer: the core draws in software
 #   sdl/, dedicated/     upstream's platform layers
-# Taken from upstream's dummy/ interface as it is: i_sound.c (silence, until
-# the core mixes its own), i_net.c (no network), i_cdmus.c; and from sdl/,
+# Taken from upstream's dummy/ interface as it is: i_net.c (no network),
+# i_cdmus.c (no CD); the sound is the core's own (platform/i_sound.c); from sdl/,
 # dosstr.c (strupr, strlwr). md5.c and apng.c are upstream's optional files,
 # in as its Linux build has them.
 srb2_list = $(addprefix $(SRB2)/$(1),$(filter %.c,$(shell cat $(SRB2)/$(1)Sourcefile)))
 SRB2_EXCLUDE := $(SRB2)/comptime.c $(SRB2)/netcode/i_tcp.c
 SRB2_SRCS := $(filter-out $(SRB2_EXCLUDE), \
 	$(call srb2_list,) $(call srb2_list,blua/) $(call srb2_list,netcode/) \
-	$(SRB2)/md5.c $(SRB2)/apng.c $(SRB2)/sdl/dosstr.c $(SRB2)/dummy/i_sound.c $(SRB2)/dummy/i_net.c $(SRB2)/dummy/i_cdmus.c)
+	$(SRB2)/md5.c $(SRB2)/apng.c $(SRB2)/sdl/dosstr.c $(SRB2)/dummy/i_net.c $(SRB2)/dummy/i_cdmus.c)
 # upstream's defines (src/CMakeLists.txt, a Linux x86-64 build): software
 # renderer only (no HWRENDER), no threads, no curl, no UPnP, no Mumble, no
 # music libraries; zlib (the .pk3 files) and libpng (PNG graphics in them)
@@ -36,8 +38,18 @@ SRB2_SRCS := $(filter-out $(SRB2_EXCLUDE), \
 # signed arithmetic. NDEBUG, as upstream's release build and the guest have it.
 SRB2_DEFS := -DNDEBUG -DUNIXCOMMON -DLINUX -DLINUX64 -D_LARGEFILE64_SOURCE -DHAVE_ZLIB -DHAVE_PNG \
 	-DNOMUMBLE -DNOEXECINFO -DNOUPNP
-SRB2_INCS := -Iplatform -I$(SRB2) -I$(SRB2)/blua -I$(LIBS)/zlib -I$(LIBS)/libpng-src -I$(PNGCONF_DIR)
+SRB2_INCS := -Iplatform -Icompat -I$(OGG)/include -I$(VORBIS)/include -I$(SRB2) -I$(SRB2)/blua -I$(LIBS)/zlib -I$(LIBS)/libpng-src -I$(PNGCONF_DIR)
 SRB2_CFLAGS_COMMON := -std=gnu23 -O2 -fwrapv -fno-strict-aliasing $(SRB2_DEFS) $(SRB2_INCS)
+
+# ---- libogg and libvorbis (the submodules extern/ogg, v1.3.5, and
+# extern/vorbis, v1.3.7): Ogg Vorbis, the sounds' and the music's; the
+# decoder's files (no encoder, no tools). libogg's configure-made
+# config_types.h is compat/ogg/'s.
+OGG_SRCS := $(OGG)/src/bitwise.c $(OGG)/src/framing.c
+VORBIS_NAMES := analysis bitrate block codebook envelope floor0 floor1 info lookup lpc lsp mapping0 mdct psy \
+	registry res0 sharedbook smallft synthesis vorbisfile window
+VORBIS_SRCS := $(addprefix $(VORBIS)/lib/,$(addsuffix .c,$(VORBIS_NAMES)))
+XIPH_CFLAGS_COMMON := -std=gnu11 -O2 -DNDEBUG -Icompat -I$(OGG)/include -I$(VORBIS)/include -I$(VORBIS)/lib
 
 # ---- zlib (extern/SRB2/libs/zlib): the .pk3 files' deflate, and libpng's
 ZLIB_NAMES := adler32 compress crc32 deflate inffast inflate inftrees trees uncompr zutil
@@ -53,20 +65,23 @@ PNG_CFLAGS_COMMON := -std=gnu11 -O2 -DNDEBUG -DPNG_INTEL_SSE_OPT=0 -DPNG_ARM_NEO
 	-DPNG_MIPS_MSA_OPT=0 -DPNG_POWERPC_VSX_OPT=0 -I$(LIBS)/libpng-src -I$(PNGCONF_DIR) -I$(LIBS)/zlib
 
 # ---- the core: its platform layer (platform/) and the driver
-PLATFORM_NAMES := i_system i_video i_threads i_net files comptime
+PLATFORM_NAMES := i_system i_video i_sound i_threads i_net files detmath comptime
 CORE_C_NAMES := $(addprefix platform/,$(PLATFORM_NAMES)) srb2-driver srb2-input wbx-entry
 # libco (miniBox's extern/libco, public domain): the engine's cothread
 LIBCO_SRC := $(MB)/extern/libco/amd64.c
-CORE_HDRS := $(wildcard *.h) $(wildcard platform/*.h)
+CORE_HDRS := $(wildcard *.h) $(wildcard platform/*.h) $(wildcard compat/*/*.h)
 CORE_CFLAGS_COMMON := $(SRB2_CFLAGS_COMMON) -I$(MB)/extern/libco
 
 # the calls the core answers itself, the same in both builds: the libc clocks,
 # which are the machine's, and rand (platform/i_system.c); the files, which are
-# the mounts and the machine's memory (platform/files.c)
+# the mounts and the machine's memory (platform/files.c); the inexact math
+# (platform/detmath.c)
 WRAP_FLAGS := -Wl,--wrap=clock_gettime -Wl,--wrap=time -Wl,--wrap=gettimeofday -Wl,--wrap=clock \
 	-Wl,--wrap=localtime -Wl,--wrap=rand -Wl,--wrap=srand \
 	-Wl,--wrap=fopen -Wl,--wrap=access -Wl,--wrap=stat -Wl,--wrap=remove \
-	-Wl,--wrap=fileno -Wl,--wrap=fstat -Wl,--wrap=opendir
+	-Wl,--wrap=fileno -Wl,--wrap=fstat -Wl,--wrap=opendir \
+	-Wl,--wrap=sin -Wl,--wrap=cos -Wl,--wrap=acos -Wl,--wrap=atan -Wl,--wrap=exp -Wl,--wrap=log \
+	-Wl,--wrap=hypot -Wl,--wrap=sincos
 
 # the patch series goes onto the submodule before anything of SRB2 builds
 PATCH_STAMP := $(ROOT)/build/patches.stamp

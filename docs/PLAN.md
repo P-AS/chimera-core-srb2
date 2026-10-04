@@ -23,7 +23,13 @@ the guest build), following Chimera's `docs/porting-a-core.md` and `docs/game-co
 - [x] **4. Input** (`srb2-input.c`): SRB2's keyboard as buttons (key events: the menus work) plus axes into the
   tic command (`I_BaseTiccmd`) for exact values; lag = no tic command built. Gate leg `input`: a movie through
   the menus into the Tutorial Zone, and one running in Greenflower.
-- [ ] 5. Audio: a mixer of the core's own for the effects and music (music.pk3 is OGG/tracker/MIDI).
+- [ ] **5. Audio** (user-decided: a C mixer of the core's own; libvorbis, not stb_vorbis; GME and libopenmpt -
+  libxmp if libopenmpt proves impractical; no MIDI for now):
+  - [x] **5a.** The mixer (`platform/i_sound.c`): sound effects (DMX, WAV, Ogg Vorbis), Ogg Vorbis and WAV
+    music with loop points and fades. Gate leg `audio`; every leg's run line carries the sound's hash.
+  - [ ] 5b. GME (VGM/VGZ, NSF, SPC, GBS...): C++, so miniBox's C++ guest toolchain.
+  - [ ] 5c. libopenmpt (tracker modules; libxmp if libopenmpt is impractical): C++; its SIMD chosen by the
+    host's CPU at run time must be compiled out.
 - [ ] 6. Savestates: **rerecord and session pass** (gate leg `savestates`, ~32 MB a state), including a state
   taken mid-wipe with the engine suspended on its cothread. 7. the package, properties (`Game State`),
   settings.
@@ -138,6 +144,45 @@ spans a wipe makes several, and the next pass runs them all: what SRB2 does on a
 taken the time. Each of those tics' commands is built in a step (in the `NetUpdate` that made it, from that
 step's input), so the movie still says every tic; it is only not a tic a row for those few steps. In play every
 step is one tic (the gate checks).
+
+## The sound (milestone 5)
+
+**The mixer is the core's own and runs in the machine** (`platform/i_sound.c`, in place of upstream's
+`dummy/i_sound.c`): after each step it renders that step's 1260 frames (44.1 kHz stereo, 16-bit; 44100/35) into
+the buffer `GetAudio` returns. **Game logic reads the sound's state**, which is why it must be the machine's:
+a boss waits for its death sound (`p_enemy.c`, `S_SoundPlaying`), the change-music linedef seeks relative to
+the song's position and loop point (`p_spec.c`), the music stack keeps positions for jingles, and Lua has
+`S_SoundPlaying`, `S_IdPlaying`, `S_MusicPlaying`, `S_GetMusicPosition`, `S_GetMusicLength`. A movie through the
+menus into the Tutorial Zone drew different pictures once there was sound: silence would have made a movie's
+sync depend on whether the host could play sound.
+
+It does what upstream's SDL_mixer backend (`sdl/mixer_sound.c`) does:
+
+- **Sound effects**: DMX (upstream's `ds2chunk`, ported), PCM WAV and Ogg Vorbis, converted once at load to
+  44.1 kHz stereo (linear, 16.16 fixed point); volume and panning a channel as `Mix_Volume`/`Mix_SetPanning`
+  give them; **pitch ignored**, as SDL_mixer ignores it. 256 channels, the game's channel numbers.
+- **Music**: Ogg Vorbis (libvorbis) and WAV; the loop point from the song's `LOOPPOINT=` (samples, with
+  upstream's own `(44.1 + n) / 44100`) or `LOOPMS=` tag, or the game's (`I_SetSongLoopPoint`); at the end, a
+  looping song seeks to it, another stops (upstream's `music_loop`, its fade-timing hack included). Volume as
+  `get_real_volume`: the volume to a 128 scale, times the fade's percentage.
+- **Fades** step every 10 ms of output (441 frames), as upstream's SDL timer steps them, with the callback
+  deferred to `I_UpdateSound`. Rounding to 10 ms, the source and target logic: upstream's.
+- **Length and position** are the decoder's (as SDL_mixer_X, upstream's Windows builds, gives them; plain
+  SDL_mixer answers 0 for the length here, as this code never reads `LENGTHMS=`). No tempo for a stream
+  (`I_SetSongSpeed` false), as SDL_mixer has none.
+- **MIDI is not played** (user-decided, for now): the game prefers the digital songs (`O_` lumps), which the
+  base data has for every MIDI one (`D_`).
+
+Checked against independent decodes (ffmpeg): the intro's song is in the mix with a correlation of 1.0000
+(residual 0.04%: the volume's integer rounding), at the volume the game sets (16 of 31 → 66/128); the jump
+sound starts on the step Jump was pressed.
+
+**The math is the core's** (`platform/detmath.c`, from the DSDA core): libvorbis builds its tables with `sin`,
+`cos`, `acos`, `atan`, `exp` and `log`, and glibc and musl differ in their last bits, so the link answers them
+with functions built from IEEE-exact operations only, in both builds. The same wraps cover what SRB2 itself
+calls: **`hypot` in its slopes (play)** and `sincos` in its renderer (the picture), which the gate's
+Greenflower 1 has none of, and which would have split native and sandbox on a sloped level. `pow` stays the C
+library's: Lua's `^` takes integer powers of integers, which both give exactly.
 
 ## The game's home
 

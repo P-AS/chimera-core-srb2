@@ -22,6 +22,8 @@ extern uint32_t *GetVideoBgra(void);
 extern int GetVideoWidth(void);
 extern int GetVideoHeight(void);
 extern uint32_t GetGameTic(void);
+extern int16_t *GetAudio(void);
+extern int GetAudioSampleCount(void);
 extern int InputWasRead(void);
 extern uint64_t GetCycleCount(void);
 extern void SetButton(int32_t index, int32_t state);
@@ -41,6 +43,12 @@ static const uint32_t *video(int *w, int *h)
 	*w = GetVideoWidth();
 	*h = GetVideoHeight();
 	return GetVideoBgra();
+}
+
+static const int16_t *audio(int *n)
+{
+	*n = GetAudioSampleCount();
+	return GetAudio();
 }
 
 static int known(const char *arg)
@@ -83,6 +91,13 @@ int main(int argc, char **argv)
 		strcat(ppm_abs, o.ppm);
 		o.ppm = ppm_abs;
 	}
+	static char wav_abs[4096];
+	if (o.wav && o.wav[0] != '/' && getcwd(wav_abs, sizeof wav_abs - strlen(o.wav) - 2))
+	{
+		strcat(wav_abs, "/");
+		strcat(wav_abs, o.wav);
+		o.wav = wav_abs;
+	}
 	static char in_abs[4096];
 	if (o.input && o.input[0] != '/' && getcwd(in_abs, sizeof in_abs - strlen(o.input) - 2))
 	{
@@ -108,6 +123,7 @@ int main(int argc, char **argv)
 		.load_error = GetLoadError,
 		.frame = frame,
 		.video = video,
+		.audio = audio,
 		.gametic = GetGameTic,
 		.input_was_read = InputWasRead,
 		.clock = GetCycleCount,
