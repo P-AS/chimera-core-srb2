@@ -12,6 +12,7 @@
 #include <waterbox_settings.h>
 
 #include "srb2-driver.h"
+#include "srb2-input.h"
 #include "platform/chimera-platform.h"
 
 /* the largest picture the core reports (the engine's 320x200 for now; its
@@ -65,13 +66,35 @@ ECL_EXPORT int Init(void)
 	return 1;
 }
 
-/* no input yet: the engine reads none of the frontend's */
-ECL_EXPORT void SetButton(int32_t index, int32_t state) { (void)index; (void)state; }
-ECL_EXPORT void SetAxis(int32_t index, int32_t value) { (void)index; (void)value; }
+/* the controller (srb2-input.c): its buttons come through SetButton, and the
+ * first 64 also as FrameAdvance's mask; a step sees the union */
+static uint8_t g_set_buttons[64];
+
+ECL_EXPORT void SetButton(int32_t index, int32_t state)
+{
+	if (index >= 0 && index < (int32_t)sizeof g_set_buttons)
+		g_set_buttons[index] = state != 0;
+}
+ECL_EXPORT void SetAxis(int32_t index, int32_t value) { srb2_input_set_axis(index, value); }
+
+/* the controller's names, in its order (the declaration's; the harnesses') */
+ECL_EXPORT int GetButtonCount(void) { return srb2_input_button_count(); }
+ECL_EXPORT const char *GetButtonName(int32_t i)
+{
+	const struct srb2_button *b = srb2_input_button(i);
+	return b ? b->name : "";
+}
+ECL_EXPORT int GetAxisCount(void) { return srb2_input_axis_count(); }
+ECL_EXPORT const char *GetAxisName(int32_t i)
+{
+	const struct srb2_axis *a = srb2_input_axis(i);
+	return a ? a->name : "";
+}
 
 ECL_EXPORT void FrameAdvance(uint64_t packed)
 {
-	(void)packed;
+	for (int i = 0; i < srb2_input_button_count(); i++)
+		srb2_input_set_button(i, g_set_buttons[i] | (int)((packed >> i) & 1));
 	srb2_frame();
 	if (g_render)
 		chimera_video_bgra(g_video);

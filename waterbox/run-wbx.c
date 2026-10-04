@@ -49,6 +49,10 @@ typedef int64_t (MB_GUEST_ABI *i64fn_i32)(int32_t);
 static i32fn g_GetSaveDataFileCount;
 static ptrfn_i32 g_GetSaveDataFileName, g_GetSaveDataFileBuffer;
 static i64fn_i32 g_GetSaveDataFileSize;
+typedef void (MB_GUEST_ABI *setfn)(int32_t, int32_t);
+static setfn g_SetButton, g_SetAxis;
+static intfn g_GetButtonCount, g_GetAxisCount;
+static ptrfn_i32 g_GetButtonName, g_GetAxisName;
 
 static uintptr_t proc(const char *n)
 {
@@ -72,6 +76,12 @@ static uint32_t core_gametic(void) { return g_GetGameTic(); }
 static int core_input_was_read(void) { return g_InputWasRead(); }
 static uint64_t core_clock(void) { return g_GetCycleCount(); }
 static int32_t core_sd_count(void) { return g_GetSaveDataFileCount(); }
+static void core_set_button(int32_t i, int32_t s) { g_SetButton(i, s); }
+static void core_set_axis(int32_t i, int32_t v) { g_SetAxis(i, v); }
+static int core_button_count(void) { return g_GetButtonCount(); }
+static const char *core_button_name(int32_t i) { return (const char *)g_GetButtonName(i); }
+static int core_axis_count(void) { return g_GetAxisCount(); }
+static const char *core_axis_name(int32_t i) { return (const char *)g_GetAxisName(i); }
 static const char *core_sd_name(int32_t i) { return (const char *)g_GetSaveDataFileName(i); }
 static int64_t core_sd_size(int32_t i) { return g_GetSaveDataFileSize(i); }
 static const uint8_t *core_sd_buffer(int32_t i) { return (const uint8_t *)g_GetSaveDataFileBuffer(i); }
@@ -157,6 +167,12 @@ static void build_host(void)
 	g_GetGameTic = (u32fn)proc("GetGameTic");
 	g_InputWasRead = (intfn)proc("InputWasRead");
 	g_GetCycleCount = (u64fn)proc("GetCycleCount");
+	g_SetButton = (setfn)proc("SetButton");
+	g_SetAxis = (setfn)proc("SetAxis");
+	g_GetButtonCount = (intfn)proc("GetButtonCount");
+	g_GetButtonName = (ptrfn_i32)proc("GetButtonName");
+	g_GetAxisCount = (intfn)proc("GetAxisCount");
+	g_GetAxisName = (ptrfn_i32)proc("GetAxisName");
 	g_GetSaveDataFileCount = (i32fn)proc("GetSaveDataFileCount");
 	g_GetSaveDataFileName = (ptrfn_i32)proc("GetSaveDataFileName");
 	g_GetSaveDataFileSize = (i64fn_i32)proc("GetSaveDataFileSize");
@@ -253,6 +269,12 @@ int main(int argc, char **argv)
 		.gametic = core_gametic,
 		.input_was_read = core_input_was_read,
 		.clock = core_clock,
+		.set_button = core_set_button,
+		.set_axis = core_set_axis,
+		.button_count = core_button_count,
+		.button_name = core_button_name,
+		.axis_count = core_axis_count,
+		.axis_name = core_axis_name,
 		.savedata_count = core_sd_count,
 		.savedata_name = core_sd_name,
 		.savedata_size = core_sd_size,

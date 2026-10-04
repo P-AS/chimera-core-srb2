@@ -26,6 +26,11 @@
 #                (rerecord), and moved to a new host mid-wipe (session: the
 #                engine suspended on its own cothread), is the run without; its
 #                teeth - a stale state (a step run twice) is not
+#   input        the controller: waterbox/tests/menu-to-tutorial.txt (Enter
+#                through the intro, the title, the menus, into the Tutorial
+#                Zone) and gfz1-run.txt (Forward, Jump, the Turn axis in
+#                Greenflower); each the same native, sandboxed, rerecorded and
+#                in a new host. Its teeth - the run without the input is not
 #   files        the machine's filesystem: a mounted autoexec.cfg writes a file
 #                at start (before seal) and one 20 tics into play (after it),
 #                and reads the first back; the save data export is those two
@@ -148,6 +153,24 @@ ss="$(box gfz1 -n 150 -p 10 --session-at 30)"
 stale="$(box gfz1 -n 150 -p 10 --stale-state 100)"
 [ "$plain" != "$stale" ] && pass "savestates teeth: a stale state (step 100 run twice) changes the run" \
 	|| bad "savestates teeth: a stale state changed nothing - the legs cannot fail"
+
+# ---- input
+tests="$here/tests"
+for m in "intro menu-to-tutorial 450" "gfz1 gfz1-run 260"; do
+	set -- $m
+	n="$(nat "$1" -n "$3" -p 25 --input "$tests/$2.txt")"
+	b="$(box "$1" -n "$3" -p 25 --input "$tests/$2.txt")"
+	r="$(box "$1" -n "$3" -p 25 --input "$tests/$2.txt" --rerecord)"
+	s2="$(box "$1" -n "$3" -p 25 --input "$tests/$2.txt" --session-at 150)"
+	if [ -n "$n" ] && [ "$n" = "$b" ] && [ "$n" = "$r" ] && [ "$n" = "$s2" ]; then
+		pass "input: $2: native == sandbox == rerecord == session ($(echo "$n" | tail -1))"
+	else
+		bad "input: $2: the runs differ"
+	fi
+	none="$(nat "$1" -n "$3" -p 25)"
+	[ "$n" != "$none" ] && pass "input teeth: $2: the run without the input is not the run with it" \
+		|| bad "input teeth: $2: the input changed nothing - the leg cannot fail"
+done
 
 # ---- files: the save data export of 200 steps, every way
 sd="$root/build/gate/savedata"

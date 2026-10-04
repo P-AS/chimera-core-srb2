@@ -20,8 +20,9 @@ the guest build), following Chimera's `docs/porting-a-core.md` and `docs/game-co
   what the game writes is kept in the machine's memory, shadowing the read-only mounts; the files are the
   save data export (`GetSaveData*`). Gate leg `files`. Left for the package: the `savedata` slot to take an
   export back in (see "The machine's filesystem").
-- [ ] 4. Input (the base tic command, `I_BaseTiccmd`), lag. **Lag is done**: wipes are steps (below); the
-  controller and the tic command from it are next.
+- [x] **4. Input** (`srb2-input.c`): SRB2's keyboard as buttons (key events: the menus work) plus axes into the
+  tic command (`I_BaseTiccmd`) for exact values; lag = no tic command built. Gate leg `input`: a movie through
+  the menus into the Tutorial Zone, and one running in Greenflower.
 - [ ] 5. Audio: a mixer of the core's own for the effects and music (music.pk3 is OGG/tracker/MIDI).
 - [ ] 6. Savestates: **rerecord and session pass** (gate leg `savestates`, ~32 MB a state), including a state
   taken mid-wipe with the engine suspended on its cothread. 7. the package, properties (`Game State`),
@@ -48,6 +49,8 @@ the guest build), following Chimera's `docs/porting-a-core.md` and `docs/game-co
   that runs the loop itself.
 - `0002-no-curl.patch`: `d_netfil.c`'s HTTP download under `HAVE_CURL`, as its include already is (upstream's
   CMake makes curl mandatory, so nothing else guards it); without it, no download.
+- `0004-driver-aiming.patch`: a non-zero aiming in the base tic command (`I_BaseTiccmd`, the external driver's)
+  sets the look pitch; `G_BuildTiccmd` otherwise overwrites it with its own look state.
 - `0003-workdir-backport.patch`: upstream's `-workdir` (da1b35820, on `next` for 2.2.16), backported: it names
   SRB2's own folder, where `-home` names only the user's home it is otherwise derived from (`<home>/.srb2`).
   **Drop it when the submodule reaches 2.2.16**: `apply-patches.sh` will report it no longer applies.
@@ -81,6 +84,35 @@ the guest build), following Chimera's `docs/porting-a-core.md` and `docs/game-co
 - Not yet seen: a libm difference between glibc and musl (the DSDA core wraps five functions for its
   renderer). SRB2's game and renderer are fixed-point; the gate's contents agree. A longer run, other zones
   and the special stages will say more.
+
+## The controller (2026-10-04, user-decided: keys + analog axes)
+
+A movie row is **SRB2's own keyboard plus four axes**:
+
+- **The buttons are the game's controls in its default keyboard scheme** ("FPS", `gamecontroldefault[gcs_fps]`):
+  Forward (W), Backward (S), Strafe Left/Right (A/D), Turn Left/Right (←/→), Look Up/Down (↑/↓), Jump
+  (Space), Spin (Left Shift), Fire (Right Ctrl), Fire Normal (Right Alt), Toss Flag ('), Center View (Left Ctrl),
+  Camera Reset (R), Camera Toggle (V), Weapon Next/Prev (the wheel), Weapon 1-7, Custom 1-3 (Z/X/C), Pause (P),
+  and the menus' Enter and Escape. A button that changes is a key event (`D_PostEvent`), so the menus, the
+  title, a prompt and the game read it as a keyboard, and the game builds its tic command with all its own
+  logic (accelerative turning, the Simple style's camera, Lua's `PlayerCmd`). In menus the arrows are Look
+  Up/Down and Turn Left/Right, as on a keyboard; a yes/no prompt takes Enter as yes and Escape as no.
+- **The bindings are forced to that scheme after the start** (`srb2_input_bind`): a configuration or an
+  `autoexec.cfg` cannot change what a recorded button means.
+- **The axes** go in through upstream's seam for an external driver, `I_BaseTiccmd` ("empty, or external
+  driver"), the command `G_BuildTiccmd` starts from: Forward Move and Side Move (-50..50), Turn (an angle delta
+  in 1/65536 turns, added to the turn keys'), Aim (the look pitch; 0 leaves the game's own look). The game adds
+  its keys' movement to the base without clamping the sum, so a movement axis counts only while its keys are
+  not held. `G_BuildTiccmd` overwrites the command's aiming with its own look state (which springs back to
+  level), so **patch 0004** lets a non-zero base aiming set the pitch.
+- `FrameAdvance`'s mask is the first 64 buttons; `SetButton` and `SetAxis` the rest; `GetButtonName`/
+  `GetAxisName` name them, in the controller's order (for the declaration, and the harnesses' `--input`).
+- Not yet: player 2 (splitscreen), text entry (a name, the console), the joystick-style analog
+  configuration. The control style, the camera and the other options that shape the tic command are SRB2's
+  defaults until they are settings (milestone 7).
+
+The harnesses take a movie as text (`--input FILE`: `FROM-TO: Button; Axis=value` a line);
+`waterbox/tests/` holds the gate's two.
 
 ## Wipes are steps (2026-10-04)
 
