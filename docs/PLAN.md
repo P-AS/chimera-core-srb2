@@ -31,7 +31,7 @@ the guest build), following Chimera's `docs/porting-a-core.md` and `docs/game-co
     as upstream's mixer drives it. C++: the guest is built with miniBox's C++ toolchain.
   - [x] **5c.** libopenmpt 0.8.9 (tracker modules: MOD, S3M, XM, IT, MPTM...), as upstream's mixer drives it,
     its random seeding made deterministic (`patches/openmpt/0001`).
-- [ ] 7 (begun). **The declaration** (`waterbox/waterbox.config`): the controller, firmware, video, audio and
+- [ ] 7 (most). **The package and CI**: `build-package.sh`, `.github/workflows/chimera.yml` (see "CI"). **The declaration** (`waterbox/waterbox.config`): the controller, firmware, video, audio and
   the settings - Play Style (Manual), Camera Speed (1.0), Score/Time/Rings (Mania), Flip Camera (Yes), Start
   Map. Gate legs `declaration` and `settings`. Left: `build-package.sh`, file slots (add-ons, save data),
   keybinds, licences, the properties, CI.
@@ -295,6 +295,35 @@ Greenflower 1 has none of, and which would have split native and sandbox on a sl
 core's too (GME's equalizer and filters take fractional powers): an integer exponent is repeated squaring,
 exact wherever the result fits a double - so Lua's `^` (integer powers of integers) is what the C library
 gives - and a fractional one goes through `exp`/`log`.
+
+## CI (2026-10-04)
+
+`.github/workflows/chimera.yml`, modeled on the DSDA core's: one `gate` job and the `publish` job every core
+publishes with (Chimera's reusable `publish-core.yml`: a rolling `dev` on every green push to main, a dated
+`nightly-YYYY-MM-DD` from the 04:00 UTC schedule when main moved).
+
+The gate job checks out this repository (submodules; `extern/openmpt` shallow) and Chimera (`CHIMERA_REF`,
+main), builds Chimera's native libraries and solution, builds miniBox's host and C++ guest toolchain (cached;
+the toolchain's targets named, as they are not in miniBox's default target), **fetches SRB2 2.2.15's data from
+STJr's own release** (`waterbox/fetch-data.sh`: `SRB2-v2215-Full.zip` from github.com/STJr/SRB2, the four pk3s
+checked against `waterbox.config`'s SHA-1s - they match; cached), builds the native reference and the core,
+runs `run-gate.sh` with the engine leg on the checkout's installed `libchimera`, builds the package stamped with
+the commit, runs Chimera's contract tests on it (`InstalledCorePackagesTests`, `MnemonicUniquenessTests`), and
+uploads `srb2-<sha>`.
+
+**It depends on two Chimera commits** (branch `feat/srb2-core` in the local checkout, not pushed):
+`MnemonicLookup`'s SRB2 table (without it, `MnemonicUniquenessTests` fails: Strafe Left and Turn Left would
+share L, and the axis names are too wide), and the roster row (`official-cores.json`, the README). Run locally
+against that branch, all eight contract tests pass (`mono build/tests/Chimera.Tests.Client.Common.exe`, with
+Chimera's native libraries on `LD_LIBRARY_PATH`).
+
+Checked before any push: the job's core steps in an `ubuntu:24.04` container (GCC 13.3, as `ubuntu-latest`) -
+miniBox's C++ toolchain from scratch, the data fetched and checked, both builds, the whole gate, the package.
+GCC 13 knows C23 as `gnu2x`, so the engine is built `-std=gnu2x` (every later GCC accepts it too). Every hash the
+gate prints - pictures, sounds, game states, at every resolution - was the same there as on the GCC 16 host: two
+compilers, one machine. Two things that run surfaced, both fixed in the gate: a relative `-d` made the work
+folders' links to the data dangle (it is made absolute), and a run that printed nothing ended the gate silently
+under `set -e` (an empty run is now a leg's FAIL).
 
 ## The game's home
 

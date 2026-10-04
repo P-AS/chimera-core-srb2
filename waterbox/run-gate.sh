@@ -7,8 +7,9 @@
 #        core's to carry: the gate links it into build/gate/.
 #   -m   miniBox (default $MINIBOX_DIR): the sandbox legs run core.wbx through
 #        its host (build/native/run-wbx)
-#   -c   a Chimera bundle (the folder with Chimera.exe): the engine leg opens
-#        the package through its libchimera, as the frontend does
+#   -c   a Chimera bundle (the folder with Chimera.exe), or a Chimera checkout's
+#        installed build/ (meson install --libdir dll): the engine leg opens
+#        the package through its dll/libchimera.so, as the frontend does
 #
 # The content: the game's start (the intro, 700 steps: its wipes, a frame a
 # step) and Greenflower Zone Act 1 (-warp 1: its entry - the fade, the title
@@ -91,6 +92,11 @@ while getopts d:m:c: o; do
 	esac
 done
 
+# absolute: the work folders link the data in, and a relative link resolves
+# from the link's own folder
+[ -d "$data" ] || { echo "no data folder at $data (-d; waterbox/fetch-data.sh makes one)" >&2; exit 1; }
+data="$(cd "$data" && pwd)"
+
 native="$root/build/native/run-native"
 wbxhost="$root/build/native/run-wbx"
 core="$root/build/guest/core.wbx"
@@ -127,8 +133,10 @@ pass() { echo "PASS $*"; }
 bad() { echo "FAIL $*"; fail=1; }
 
 # a run's step lines and its last line ("run <hash> tic <n> clock <c>")
-nat() { w="$1"; shift; "$native" "$root/build/gate/$w" "$@" 2>/dev/null | grep -E '^(step|run) '; }
-box() { w="$1"; shift; "$wbxhost" "$core" "$root/build/gate/$w" "$@" 2>/dev/null | grep -E '^(step|run) '; }
+# a run that prints nothing (a crash, a missing file) is an empty answer the
+# legs then fail on - never a silent end of the gate (set -e)
+nat() { w="$1"; shift; "$native" "$root/build/gate/$w" "$@" 2>/dev/null | grep -E '^(step|run) ' || true; }
+box() { w="$1"; shift; "$wbxhost" "$core" "$root/build/gate/$w" "$@" 2>/dev/null | grep -E '^(step|run) ' || true; }
 
 # ---- equivalence
 for c in "intro 700" "gfz1 1000"; do
@@ -378,8 +386,12 @@ if [ -n "$bundle" ]; then
 	e="$(LD_LIBRARY_PATH="$bundle/dll" python3 "$here/tests/engine-open.py" "$bundle/dll/libchimera.so" \
 		"$root/build/gate/package/srb2.chimeraCore" "$data" 450 2>/dev/null | grep "^450 steps")"
 	nl="$(field "$(nat intro -n 450 -p 0 --input "$tests/menu-to-new-game.txt")" lag)"
+	# which Chimera: a bundle's BUILD.txt, or a checkout's commit (its build/ is
+	# the -c folder)
+	which="$(head -2 "$bundle/BUILD.txt" 2>/dev/null | tail -1 | awk '{print $2}' | cut -c1-8)"
+	[ -n "$which" ] || which="$(git -C "$bundle/.." rev-parse --short=8 HEAD 2>/dev/null || echo unknown)"
 	case "$e" in
-	"450 steps ($nl lag)"*) pass "engine: Chimera's engine ($(head -2 "$bundle/BUILD.txt" | tail -1 | awk '{print $2}' | cut -c1-8)) opens the package and runs the menus into a new game: $e" ;;
+	"450 steps ($nl lag)"*) pass "engine: Chimera's engine ($which) opens the package and runs the menus into a new game: $e" ;;
 	*) bad "engine: '$e' (run-native's lag: $nl)" ;;
 	esac
 fi

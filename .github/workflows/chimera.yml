@@ -1,0 +1,180 @@
+name: chimera waterbox core
+
+# The core as Chimera ships it: a sandboxed core.wbx package.
+#
+# SRB2's data is Sonic Team Junior's, freely distributed by them and never
+# carried here: the gate downloads STJr's own 2.2.15 release
+# (waterbox/fetch-data.sh, SRB2-v2215-Full.zip from github.com/STJr/SRB2) and
+# checks its four pk3s against the firmware the package declares. On it: the
+# native reference and the package build, fresh, from the pinned upstream with
+# the patch series applied; the equivalence, steps, savestates, input, audio
+# (Ogg Vorbis, GME, libopenmpt), files, exports, declaration, settings,
+# resolution and time legs; the package through Chimera's own engine (the
+# gate's engine leg) and Chimera's contract tests.
+
+on:
+  pull_request:
+    branches: [ "main" ]
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+    inputs:
+      kind:
+        description: 'dev (rolling) or nightly (dated). Blank means dev.'
+        required: false
+        default: ''
+        type: string
+  schedule:
+    # 04:00 UTC. A nightly is published only when main moved since the last one;
+    # the reusable workflow checks, so an unchanged core costs one idle run.
+    - cron: '0 4 * * *'
+
+# Keyed by the EVENT as well as the ref: the nightly schedule and a push to
+# main would otherwise cancel each other, and the publish that depends on the
+# cancelled gate is then skipped with nothing reporting a failure.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: true
+
+env:
+  CHIMERA_REF: main
+
+jobs:
+
+  gate:
+    name: gate (package, declaration, Chimera contract)
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          # extern/openmpt is shallow (.gitmodules): only its pinned commit
+          submodules: recursive
+
+      - name: Check out Chimera
+        uses: actions/checkout@v6
+        with:
+          repository: ToolAssisted-run/chimera
+          ref: ${{ env.CHIMERA_REF }}
+          path: chimera-checkout
+          submodules: recursive
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends meson ninja-build build-essential cmake pkg-config python3 mono-complete xvfb libgl1-mesa-dev libegl-dev libx11-dev libxext-dev libasound2-dev python3-pip curl
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0'
+
+      - name: Build Chimera native dependencies
+        working-directory: chimera-checkout
+        run: |
+          meson setup build/meson-linux --prefix "$PWD/build" --libdir dll
+          meson compile -C build/meson-linux
+          meson install -C build/meson-linux
+
+      - name: Build the Chimera solution
+        working-directory: chimera-checkout
+        run: dotnet build source/gui/Chimera.sln -c Release /nodeReuse:false -p:UseSharedCompilation=false
+
+      - name: Cache the guest toolchain
+        uses: actions/cache@v4
+        with:
+          path: |
+            chimera-checkout/extern/chimera-common-minibox/build/meson-linux
+            chimera-checkout/extern/chimera-common-minibox/build/meson-cpp
+          key: guest-cpp-${{ runner.os }}-${{ hashFiles('chimera-checkout/extern/chimera-common-minibox/.git') }}-${{ hashFiles('chimera-checkout/extern/chimera-common-minibox/meson.build') }}
+
+      - name: Build miniBox (host + C++ guest toolchain)
+        # GME and libopenmpt are C++: the guest links miniBox's libstdc++. Its
+        # guest toolchain is not in miniBox's default target, so it is named.
+        run: |
+          mb="$PWD/chimera-checkout/extern/chimera-common-minibox"
+          [ -f "$mb/build/meson-linux/build.ninja" ] || meson setup "$mb/build/meson-linux" "$mb"
+          meson compile -C "$mb/build/meson-linux"
+          ninja -C "$mb/build/meson-linux" source/guest/emulibc.c.o
+          [ -f "$mb/build/meson-cpp/build.ninja" ] || meson setup "$mb/build/meson-cpp" "$mb" -Dguest_cpp=true
+          meson compile -C "$mb/build/meson-cpp"
+          ninja -C "$mb/build/meson-cpp" libstdcxx-installed.stamp source/guest/emulibc.c.o source/guest/cxxglue.c.o
+
+      - name: Cache SRB2 2.2.15's data
+        uses: actions/cache@v4
+        with:
+          path: build/srb2-2.2.15
+          key: srb2-2.2.15-data-${{ hashFiles('waterbox/waterbox.config') }}
+
+      - name: Fetch SRB2 2.2.15's data
+        # STJr's own release, checked against the declared firmware's SHA-1s
+        run: ./waterbox/fetch-data.sh build/srb2-2.2.15
+
+      - name: Build the native reference and the core
+        env:
+          MINIBOX_DIR: ${{ github.workspace }}/chimera-checkout/extern/chimera-common-minibox
+        run: |
+          make -C waterbox -f native.mk -j"$(nproc)"
+          make -C waterbox -f guest.mk -j"$(nproc)"
+
+      - name: Core gate
+        env:
+          MINIBOX_DIR: ${{ github.workspace }}/chimera-checkout/extern/chimera-common-minibox
+        run: ./waterbox/run-gate.sh -d build/srb2-2.2.15 -c "$GITHUB_WORKSPACE/chimera-checkout/build"
+
+      - name: Build and install the package
+        # The commit is the core's authoritative version: this build is the one
+        # that publishes the artifact, so what it stamps is what a movie can
+        # cite. A package built by hand stamps "+local" instead.
+        env:
+          CORE_VERSION: ${{ github.sha }}
+          MINIBOX_DIR: ${{ github.workspace }}/chimera-checkout/extern/chimera-common-minibox
+        run: ./waterbox/build-package.sh -r chimera-checkout
+
+      - name: The package through the real frontend
+        # Chimera's own contract tests, run against THIS package: readable,
+        # built for an ABI this frontend runs, a working factory, binding only
+        # buttons its controller declares, stamping a version - and TAStudio's
+        # column letters distinct (MnemonicLookup's SRB2 table).
+        working-directory: chimera-checkout
+        env:
+          CHIMERA_CORES_DIR: ${{ github.workspace }}/chimera-checkout/build/Cores
+        run: |
+          dotnet test source/gui/Chimera.Tests.Client.Common/Chimera.Tests.Client.Common.csproj \
+            -c Release --nologo \
+            --filter "FullyQualifiedName~InstalledCorePackagesTests|FullyQualifiedName~MnemonicUniquenessTests"
+
+      - name: Publish the core package
+        uses: actions/upload-artifact@v7
+        with:
+          name: srb2-${{ github.sha }}
+          path: chimera-checkout/build/Cores/srb2.chimeraCore
+          if-no-files-found: error
+
+      - name: Upload the gate work dir on failure
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: gate-work
+          # the gate's outputs, not the game's data (build/gate holds links to it)
+          path: |
+            build/gate/*.txt
+            build/gate/savedata/
+            build/package-make.log
+
+  publish:
+    # What the gate passed, published as this core's own release: a rolling
+    # `dev` on every green push to main, an immutable `nightly-YYYY-MM-DD` from
+    # the scheduled run. The logic is Chimera's tools/publish-core.sh, through
+    # the one reusable workflow every core publishes with.
+    name: publish
+    needs: [ gate ]
+    if: github.event_name != 'pull_request'
+    permissions:
+      contents: write
+    uses: ToolAssisted-run/chimera/.github/workflows/publish-core.yml@main
+    with:
+      core-id: srb2
+      artifact: srb2-${{ github.sha }}
+      package: srb2.chimeraCore
+      kind: ${{ github.event.inputs.kind }}
