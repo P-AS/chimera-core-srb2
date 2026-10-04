@@ -42,14 +42,16 @@ PNG_CFLAGS := $(WBFLAGS) $(PNG_CFLAGS_COMMON) -w
 XIPH_CFLAGS := $(WBFLAGS) $(XIPH_CFLAGS_COMMON) -w
 GME_CXXFLAGS := $(WBFLAGS) $(GME_CXXFLAGS_COMMON) $(CXXINCS) -w
 GME_CFLAGS := $(WBFLAGS) $(GME_CFLAGS_COMMON) -w
+OPENMPT_CXXFLAGS := $(WBFLAGS) $(OPENMPT_CXXFLAGS_COMMON) $(CXXINCS) -w
 CORE_CFLAGS := $(WBFLAGS) $(CORE_CFLAGS_COMMON) $(MBINCS) -I. -Wall -Wno-unused-function
 
-$(call flags_stamp,$(B),$(CC) | $(CXX) | $(SRB2_CFLAGS) | $(ZLIB_CFLAGS) | $(PNG_CFLAGS) | $(XIPH_CFLAGS) | $(GME_CXXFLAGS) | $(GME_CFLAGS) | $(CORE_CFLAGS))
+$(call flags_stamp,$(B),$(CC) | $(CXX) | $(SRB2_CFLAGS) | $(ZLIB_CFLAGS) | $(PNG_CFLAGS) | $(XIPH_CFLAGS) | $(GME_CXXFLAGS) | $(GME_CFLAGS) | $(OPENMPT_CXXFLAGS) | $(CORE_CFLAGS))
 
 SRB2_OBJS := $(patsubst $(SRB2)/%.c,$(B)/srb2/%.o,$(SRB2_SRCS))
 ZLIB_OBJS := $(patsubst $(LIBS)/zlib/%.c,$(B)/zlib/%.o,$(ZLIB_SRCS))
 PNG_OBJS := $(patsubst $(LIBS)/libpng-src/%.c,$(B)/png/%.o,$(PNG_SRCS))
 XIPH_OBJS := $(patsubst $(OGG)/src/%.c,$(B)/ogg/%.o,$(OGG_SRCS)) $(patsubst $(VORBIS)/lib/%.c,$(B)/vorbis/%.o,$(VORBIS_SRCS))
+OPENMPT_OBJS := $(patsubst $(OPENMPT)/%.cpp,$(B)/openmpt/%.o,$(OPENMPT_SRCS))
 GME_OBJS := $(patsubst $(GME)/%.cpp,$(B)/gme/%.o,$(filter %.cpp,$(GME_SRCS))) $(patsubst $(GME)/%.c,$(B)/gme/%.o,$(filter %.c,$(GME_SRCS)))
 CORE_OBJS := $(addprefix $(B)/core/,$(addsuffix .o,$(CORE_C_NAMES))) $(B)/core/libco.o
 
@@ -61,7 +63,7 @@ $(LIBSTDCXX) $(EMULIBC) $(CXXGLUE):
 	@echo "  ninja -C $(MBUILD) libstdcxx-installed.stamp source/guest/emulibc.c.o source/guest/cxxglue.c.o" >&2
 	@false
 
-$(B)/srb2/%.o: $(SRB2)/%.c $(PATCH_STAMP) $(PNGCONF) $(B)/flags | $(LIBSTDCXX)
+$(B)/srb2/%.o: $(SRB2)/%.c $(PATCH_STAMP) $(OPENMPT_STAMP) $(PNGCONF) $(B)/flags | $(LIBSTDCXX)
 	@mkdir -p $(dir $@)
 	$(CC) $(SRB2_CFLAGS) -c -o $@ $<
 
@@ -81,6 +83,10 @@ $(B)/vorbis/%.o: $(VORBIS)/lib/%.c compat/ogg/config_types.h $(B)/flags | $(LIBS
 	@mkdir -p $(dir $@)
 	$(CC) $(XIPH_CFLAGS) -c -o $@ $<
 
+$(B)/openmpt/%.o: $(OPENMPT)/%.cpp $(OPENMPT_STAMP) $(B)/flags | $(LIBSTDCXX)
+	@mkdir -p $(dir $@)
+	$(CXX) $(OPENMPT_CXXFLAGS) -c -o $@ $<
+
 $(B)/gme/%.o: $(GME)/%.cpp $(B)/flags | $(LIBSTDCXX)
 	@mkdir -p $(dir $@)
 	$(CXX) $(GME_CXXFLAGS) -c -o $@ $<
@@ -89,7 +95,7 @@ $(B)/gme/%.o: $(GME)/%.c $(B)/flags | $(LIBSTDCXX)
 	@mkdir -p $(dir $@)
 	$(CC) $(GME_CFLAGS) -c -o $@ $<
 
-$(B)/core/%.o: %.c $(CORE_HDRS) $(PATCH_STAMP) $(PNGCONF) $(B)/flags | $(LIBSTDCXX)
+$(B)/core/%.o: %.c $(CORE_HDRS) $(PATCH_STAMP) $(OPENMPT_STAMP) $(PNGCONF) $(B)/flags | $(LIBSTDCXX)
 	@mkdir -p $(dir $@)
 	$(CC) $(CORE_CFLAGS) -c -o $@ $<
 
@@ -100,7 +106,7 @@ $(B)/core/libco.o: $(LIBCO_SRC) $(B)/flags | $(LIBSTDCXX)
 # miniBox's C++ guest link recipe (source/guest/meson.build): the large code
 # model's --no-relax, the weak pthread references libgcc_eh pulls, cxxglue
 # (__dso_handle, _dl_find_object), and the libraries in this order, libc last
-$(B)/core.wbx: $(CORE_OBJS) $(SRB2_OBJS) $(PNG_OBJS) $(XIPH_OBJS) $(GME_OBJS) $(ZLIB_OBJS) | $(EMULIBC) $(CXXGLUE)
+$(B)/core.wbx: $(CORE_OBJS) $(SRB2_OBJS) $(PNG_OBJS) $(XIPH_OBJS) $(GME_OBJS) $(OPENMPT_OBJS) $(ZLIB_OBJS) | $(EMULIBC) $(CXXGLUE)
 	$(CXX) -static -no-pie -Wl,--eh-frame-hdr,-O2,--no-relax -Wl,-z,stack-size=8388608 \
 		-T $(MB)/source/guest/linkscript.T \
 		-Wl,-u,pthread_once -Wl,-u,pthread_cond_wait -Wl,-u,pthread_cond_broadcast -Wl,-u,pthread_key_create \

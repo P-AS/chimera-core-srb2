@@ -34,10 +34,11 @@
 #   audio        the core's mixer: the intro's music and Greenflower's sounds are
 #                heard (not silence), and the same native and sandboxed (every
 #                leg compares the sound too: the run line carries its hash); a
-#                GME song (GME's own test.nsf, from SRB2's libs/gme, in a PWAD
-#                the gate makes, played with the console's tunes) the same
+#                GME song (GME's own test.nsf, from SRB2's libs/gme) and a
+#                tracker module (libopenmpt's own test.mod), each in a PWAD the
+#                gate makes and played with the console's tunes, the same
 #                native, sandboxed and rerecorded. Its teeth - the Greenflower
-#                run without its jump, and the start without the song, do not
+#                run without its jump, and the start without the songs, do not
 #                sound the same
 #   files        the machine's filesystem: a mounted autoexec.cfg writes a file
 #                at start (before seal) and one 20 tics into play (after it),
@@ -86,6 +87,9 @@ content files '{}'
 content gme '{}'
 python3 "$here/tests/make-wad.py" "$root/build/gate/gme/gmetest.wad" O_GMETST="$root/extern/SRB2/libs/gme/test.nsf"
 printf 'addfile gmetest.wad\ntunes gmetst\n' > "$root/build/gate/gme/autoexec.cfg"
+content mod '{}'
+python3 "$here/tests/make-wad.py" "$root/build/gate/mod/modtest.wad" O_MODTST="$root/extern/openmpt/test/test.mod"
+printf 'addfile modtest.wad\ntunes modtst\n' > "$root/build/gate/mod/autoexec.cfg"
 printf 'saveconfig mine.cfg\nexec mine.cfg\nwait 20\nsaveconfig late.cfg\n' > "$root/build/gate/files/autoexec.cfg"
 echo "data: $data"
 echo "core: $core"
@@ -199,16 +203,21 @@ nj="$(nat gfz1 -n 200 -p 0 --input "$root/build/gate/gfz1-nojump.txt")"
 [ "$(field "$nj" audio)" != "$(field "$ng" audio)" ] && pass "audio teeth: without its jump, Greenflower does not sound the same" \
 	|| bad "audio teeth: the jump changed no sound - the leg cannot fail"
 
-ngm="$(nat gme -n 300 -p 10)"
-bgm="$(box gme -n 300 -p 10)"
-rgm="$(box gme -n 300 -p 10 --rerecord)"
-if [ "$(field "$ngm" peak)" -gt 1000 ] && [ "$ngm" = "$bgm" ] && [ "$ngm" = "$rgm" ]; then
-	pass "audio: a GME song (test.nsf) is heard, native == sandbox == rerecord ($(echo "$ngm" | tail -1))"
-else
-	bad "audio: the GME song is silent or differs ('$(echo "$ngm" | tail -1)' / '$(echo "$bgm" | tail -1)' / '$(echo "$rgm" | tail -1)')"
-fi
-[ "$(field "$ngm" audio)" != "$(field "$ni" audio)" ] && pass "audio teeth: the start with the GME song does not sound like the start without it" \
-	|| bad "audio teeth: the GME song changed no sound - the leg cannot fail"
+for song in "gme GME song (test.nsf)" "mod tracker module (test.mod)"; do
+	set -- $song
+	c="$1"
+	shift
+	nc="$(nat "$c" -n 300 -p 10)"
+	bc="$(box "$c" -n 300 -p 10)"
+	rc="$(box "$c" -n 300 -p 10 --rerecord)"
+	if [ "$(field "$nc" peak)" -gt 1000 ] && [ "$nc" = "$bc" ] && [ "$nc" = "$rc" ]; then
+		pass "audio: a $* is heard, native == sandbox == rerecord ($(echo "$nc" | tail -1))"
+	else
+		bad "audio: the $* is silent or differs ('$(echo "$nc" | tail -1)' / '$(echo "$bc" | tail -1)' / '$(echo "$rc" | tail -1)')"
+	fi
+	[ "$(field "$nc" audio)" != "$(field "$ni" audio)" ] && pass "audio teeth: the start with the $* does not sound like the start without it" \
+		|| bad "audio teeth: the $* changed no sound - the leg cannot fail"
+done
 
 # ---- files: the save data export of 200 steps, every way
 sd="$root/build/gate/savedata"

@@ -8,6 +8,7 @@ LIBS := $(ROOT)/extern/SRB2/libs
 OGG := $(ROOT)/extern/ogg
 VORBIS := $(ROOT)/extern/vorbis
 GME := $(ROOT)/extern/gme/gme
+OPENMPT := $(ROOT)/extern/openmpt
 MB   ?= $(MINIBOX_DIR)
 # libpng's configuration header: its prebuilt one, copied beside the build
 PNGCONF_DIR := $(ROOT)/build/pngconf
@@ -33,13 +34,15 @@ SRB2_SRCS := $(filter-out $(SRB2_EXCLUDE), \
 	$(call srb2_list,) $(call srb2_list,blua/) $(call srb2_list,netcode/) \
 	$(SRB2)/md5.c $(SRB2)/apng.c $(SRB2)/sdl/dosstr.c $(SRB2)/dummy/i_net.c $(SRB2)/dummy/i_cdmus.c)
 # upstream's defines (src/CMakeLists.txt, a Linux x86-64 build): software
-# renderer only (no HWRENDER), no threads, no curl, no UPnP, no Mumble, no
-# music libraries; zlib (the .pk3 files) and libpng (PNG graphics in them)
-# from upstream's own libs/. C23, with -fwrapv: the game relies on wrapping
+# renderer only (no HWRENDER), no threads, no curl, no UPnP, no Mumble;
+# libopenmpt (HAVE_OPENMPT: s_sound.c's module handle and its filter setting,
+# the sound menu's OpenMPT section, as upstream's Linux builds have them);
+# zlib (the .pk3 files) and libpng (PNG graphics in them) from upstream's own
+# libs/. C23, with -fwrapv: the game relies on wrapping
 # signed arithmetic. NDEBUG, as upstream's release build and the guest have it.
-SRB2_DEFS := -DNDEBUG -DUNIXCOMMON -DLINUX -DLINUX64 -D_LARGEFILE64_SOURCE -DHAVE_ZLIB -DHAVE_PNG \
+SRB2_DEFS := -DNDEBUG -DUNIXCOMMON -DLINUX -DLINUX64 -D_LARGEFILE64_SOURCE -DHAVE_ZLIB -DHAVE_PNG -DHAVE_OPENMPT \
 	-DNOMUMBLE -DNOEXECINFO -DNOUPNP
-SRB2_INCS := -Iplatform -Icompat -I$(OGG)/include -I$(VORBIS)/include -I$(GME)/.. -I$(SRB2) -I$(SRB2)/blua -I$(LIBS)/zlib -I$(LIBS)/libpng-src -I$(PNGCONF_DIR)
+SRB2_INCS := -Iplatform -Icompat -I$(OGG)/include -I$(VORBIS)/include -I$(GME)/.. -I$(OPENMPT) -I$(SRB2) -I$(SRB2)/blua -I$(LIBS)/zlib -I$(LIBS)/libpng-src -I$(PNGCONF_DIR)
 SRB2_CFLAGS_COMMON := -std=gnu23 -O2 -fwrapv -fno-strict-aliasing $(SRB2_DEFS) $(SRB2_INCS)
 
 # ---- libogg and libvorbis (the submodules extern/ogg, v1.3.5, and
@@ -68,6 +71,27 @@ GME_DEFS := -DNDEBUG -DVGM_YM2612_NUKED -DBLARGG_LITTLE_ENDIAN=1
 # glibc's headers declare in passing and musl's do not
 GME_CXXFLAGS_COMMON := -std=gnu++17 -O2 -fno-exceptions -fno-rtti -include ctime $(GME_DEFS) -I$(GME)
 GME_CFLAGS_COMMON := -std=gnu11 -O2 $(GME_DEFS) -I$(GME)
+
+# ---- libopenmpt (the submodule extern/openmpt, libopenmpt-0.8.9, shallow;
+# its patches/openmpt/ series): tracker modules (MOD, S3M, XM, IT, MPTM and
+# the rest). The sources are its own Makefile's (the library, its common and
+# sound code, the DMO plugins it emulates); C++17 with exceptions and RTTI, as
+# it is built; its own settings leave the SIMD intrinsics out. Ogg Vorbis and
+# zlib (MO3's compressed samples, archives) are the core's. Its random
+# seeding is deterministic (MPT_BUILD_DETERMINISTIC_RANDOM, patch 0001).
+OPENMPT_DIRS := src/openmpt/all src/openmpt/base src/openmpt/logging src/openmpt/random common \
+	src/openmpt/fileformat_base src/openmpt/soundbase src/openmpt/soundfile_data soundlib soundlib/plugins \
+	soundlib/plugins/dmo sounddsp libopenmpt
+OPENMPT_SRCS := $(foreach d,$(OPENMPT_DIRS),$(sort $(wildcard $(OPENMPT)/$(d)/*.cpp)))
+OPENMPT_DEFS := -DNDEBUG -DLIBOPENMPT_BUILD -DMPT_BUILD_DETERMINISTIC_RANDOM -DMPT_WITH_ZLIB -DMPT_WITH_OGG \
+	-DMPT_WITH_VORBIS -DMPT_WITH_VORBISFILE
+OPENMPT_CXXFLAGS_COMMON := -std=gnu++17 -O2 -fexceptions -frtti $(OPENMPT_DEFS) -I$(OPENMPT)/src -I$(OPENMPT)/common \
+	-I$(OPENMPT) -Icompat -I$(OGG)/include -I$(VORBIS)/include -I$(LIBS)/zlib
+OPENMPT_STAMP := $(ROOT)/build/patches-openmpt.stamp
+$(OPENMPT_STAMP): $(wildcard $(ROOT)/patches/openmpt/*.patch) apply-patches.sh
+	sh apply-patches.sh openmpt
+	@mkdir -p $(dir $@)
+	@touch $@
 
 # ---- zlib (extern/SRB2/libs/zlib): the .pk3 files' deflate, and libpng's
 ZLIB_NAMES := adler32 compress crc32 deflate inffast inflate inftrees trees uncompr zutil
@@ -99,7 +123,8 @@ WRAP_FLAGS := -Wl,--wrap=clock_gettime -Wl,--wrap=time -Wl,--wrap=gettimeofday -
 	-Wl,--wrap=fopen -Wl,--wrap=access -Wl,--wrap=stat -Wl,--wrap=remove \
 	-Wl,--wrap=fileno -Wl,--wrap=fstat -Wl,--wrap=opendir \
 	-Wl,--wrap=sin -Wl,--wrap=cos -Wl,--wrap=acos -Wl,--wrap=atan -Wl,--wrap=exp -Wl,--wrap=log \
-	-Wl,--wrap=hypot -Wl,--wrap=sincos -Wl,--wrap=pow
+	-Wl,--wrap=hypot -Wl,--wrap=sincos -Wl,--wrap=pow -Wl,--wrap=log2 -Wl,--wrap=sinf -Wl,--wrap=cosf \
+	-Wl,--wrap=tanf -Wl,--wrap=logf -Wl,--wrap=log10f -Wl,--wrap=powf -Wl,--wrap=sincosf
 
 # the patch series goes onto the submodule before anything of SRB2 builds
 PATCH_STAMP := $(ROOT)/build/patches.stamp

@@ -6,6 +6,9 @@
  *                  sin and a cos of one angle): the picture
  *   sin, cos, acos, atan, exp, log
  *                  libvorbis's tables (mdct, window, floor0's LSP): the sound
+ *   sinf, cosf, sincosf, tanf, logf, log10f, log2, powf
+ *                  libopenmpt's resampler tables, filters and DMO plugins
+ *                  (each through the double versions, then rounded)
  *   pow            GME's equalizer and filters (fractional powers), libvorbis's
  *                  codebook, and SRB2's Lua (luai_numpow: integer powers of
  *                  integers, which must stay exact - an integer exponent is
@@ -37,6 +40,28 @@ double __wrap_pow(double x, double y)
 		return y < 0.0 ? 1.0 / r : r;
 	}
 	return dm_pow(x, y);
+}
+
+/* log2: exact on a power of two, which callers count on */
+static double dm_log2(double x)
+{
+	int e;
+	if (x > 0.0 && frexp(x, &e) == 0.5)
+		return (double)(e - 1);
+	return dm_log(x) / DM_LN2;
+}
+
+double __wrap_log2(double x) { return dm_log2(x); }
+float __wrap_sinf(float x) { return (float)dm_sin(x); }
+float __wrap_cosf(float x) { return (float)dm_cos(x); }
+float __wrap_tanf(float x) { return (float)dm_tan(x); }
+float __wrap_logf(float x) { return (float)dm_log(x); }
+float __wrap_log10f(float x) { return (float)dm_log10(x); }
+float __wrap_powf(float x, float y) { return (float)__wrap_pow(x, y); }
+void __wrap_sincosf(float x, float *s, float *c)
+{
+	*s = (float)dm_sin(x);
+	*c = (float)dm_cos(x);
 }
 
 void __wrap_sincos(double x, double *s, double *c)

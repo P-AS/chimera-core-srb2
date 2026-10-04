@@ -18,14 +18,16 @@ PNG_CFLAGS := $(PNG_CFLAGS_COMMON) -w
 XIPH_CFLAGS := $(XIPH_CFLAGS_COMMON) -w
 GME_CXXFLAGS := $(GME_CXXFLAGS_COMMON) -w
 GME_CFLAGS := $(GME_CFLAGS_COMMON) -w
+OPENMPT_CXXFLAGS := $(OPENMPT_CXXFLAGS_COMMON) -w
 CORE_CFLAGS := $(CORE_CFLAGS_COMMON) -Inative-shim -I$(MB)/source/guest/include -I$(MB)/extern/jsmn -I. -g -Wall -Wno-unused-function
 
-$(call flags_stamp,$(B),$(SRB2_CFLAGS) | $(ZLIB_CFLAGS) | $(PNG_CFLAGS) | $(XIPH_CFLAGS) | $(GME_CXXFLAGS) | $(GME_CFLAGS) | $(CORE_CFLAGS))
+$(call flags_stamp,$(B),$(SRB2_CFLAGS) | $(ZLIB_CFLAGS) | $(PNG_CFLAGS) | $(XIPH_CFLAGS) | $(GME_CXXFLAGS) | $(GME_CFLAGS) | $(OPENMPT_CXXFLAGS) | $(CORE_CFLAGS))
 
 SRB2_OBJS := $(patsubst $(SRB2)/%.c,$(B)/srb2/%.o,$(SRB2_SRCS))
 ZLIB_OBJS := $(patsubst $(LIBS)/zlib/%.c,$(B)/zlib/%.o,$(ZLIB_SRCS))
 PNG_OBJS := $(patsubst $(LIBS)/libpng-src/%.c,$(B)/png/%.o,$(PNG_SRCS))
 XIPH_OBJS := $(patsubst $(OGG)/src/%.c,$(B)/ogg/%.o,$(OGG_SRCS)) $(patsubst $(VORBIS)/lib/%.c,$(B)/vorbis/%.o,$(VORBIS_SRCS))
+OPENMPT_OBJS := $(patsubst $(OPENMPT)/%.cpp,$(B)/openmpt/%.o,$(OPENMPT_SRCS))
 GME_OBJS := $(patsubst $(GME)/%.cpp,$(B)/gme/%.o,$(filter %.cpp,$(GME_SRCS))) $(patsubst $(GME)/%.c,$(B)/gme/%.o,$(filter %.c,$(GME_SRCS)))
 CORE_OBJS := $(addprefix $(B)/core/,$(addsuffix .o,$(CORE_C_NAMES))) $(B)/core/libco.o
 
@@ -35,7 +37,7 @@ endif
 
 all: $(B)/run-native $(B)/run-wbx
 
-$(B)/srb2/%.o: $(SRB2)/%.c $(PATCH_STAMP) $(PNGCONF) $(B)/flags
+$(B)/srb2/%.o: $(SRB2)/%.c $(PATCH_STAMP) $(OPENMPT_STAMP) $(PNGCONF) $(B)/flags
 	@mkdir -p $(dir $@)
 	gcc $(SRB2_CFLAGS) -c -o $@ $<
 
@@ -46,6 +48,10 @@ $(B)/zlib/%.o: $(LIBS)/zlib/%.c $(B)/flags
 $(B)/png/%.o: $(LIBS)/libpng-src/%.c $(PNGCONF) $(B)/flags
 	@mkdir -p $(dir $@)
 	gcc $(PNG_CFLAGS) -c -o $@ $<
+
+$(B)/openmpt/%.o: $(OPENMPT)/%.cpp $(OPENMPT_STAMP) $(B)/flags
+	@mkdir -p $(dir $@)
+	g++ $(OPENMPT_CXXFLAGS) -c -o $@ $<
 
 $(B)/gme/%.o: $(GME)/%.cpp $(B)/flags
 	@mkdir -p $(dir $@)
@@ -63,7 +69,7 @@ $(B)/vorbis/%.o: $(VORBIS)/lib/%.c compat/ogg/config_types.h $(B)/flags
 	@mkdir -p $(dir $@)
 	gcc $(XIPH_CFLAGS) -c -o $@ $<
 
-$(B)/core/%.o: %.c $(CORE_HDRS) $(PATCH_STAMP) $(PNGCONF) $(B)/flags
+$(B)/core/%.o: %.c $(CORE_HDRS) $(PATCH_STAMP) $(OPENMPT_STAMP) $(PNGCONF) $(B)/flags
 	@mkdir -p $(dir $@)
 	gcc $(CORE_CFLAGS) -c -o $@ $<
 
@@ -71,7 +77,7 @@ $(B)/core/run-native.o: run-native.c harness.h platform/chimera-platform.h $(B)/
 	@mkdir -p $(dir $@)
 	gcc -O2 -g -Wall -I. -c -o $@ $<
 
-$(B)/run-native: $(CORE_OBJS) $(SRB2_OBJS) $(PNG_OBJS) $(XIPH_OBJS) $(GME_OBJS) $(ZLIB_OBJS) $(B)/core/run-native.o
+$(B)/run-native: $(CORE_OBJS) $(SRB2_OBJS) $(PNG_OBJS) $(XIPH_OBJS) $(GME_OBJS) $(OPENMPT_OBJS) $(ZLIB_OBJS) $(B)/core/run-native.o
 	g++ -rdynamic -o $@ $^ $(WRAP_FLAGS) -lm
 
 # run-wbx links the miniBox host library
