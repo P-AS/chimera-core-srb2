@@ -11,8 +11,13 @@ the guest build), following Chimera's `docs/porting-a-core.md` and `docs/game-co
 - [x] **1. Virtual time.** The machine's clock instead of the host's (`platform/i_system.c`): a step is a
   tic, sleeps jump to the next tic's deadline, the libc clocks and `rand` are wrapped. Gate leg `time`: a
   300 ms host stall mid-run changes nothing; on `--host-clock` the same stall changes the run (teeth).
-- [ ] **2. Guest build.** `core.wbx` through miniBox's musl toolchain (`MINIBOX_DIR`), native == sandbox.
-- [ ] 3. The machine's filesystem (config, game data, saves inside the machine).
+- [x] **2. Guest build.** `core.wbx` through miniBox's C guest toolchain (`MINIBOX_DIR`; plain C, no
+  libstdc++), `check-wbx` clean. The exports (`wbx-entry.c`) are the same code in both builds: run-native calls
+  them directly, run-wbx through miniBox's host, over one harness loop (`harness.h`). Gate leg `equivalence`:
+  native == sandbox on the intro (700 steps) and Greenflower Zone Act 1 (`warp` 1, 1000 steps), every step's
+  picture, tic and clock; teeth: native on the host's clock is not the sandbox. `time` runs in both builds.
+- [ ] 3. The machine's filesystem (config, game data, saves inside the machine). Until then nothing is
+  written, in either build (`platform/files.c`).
 - [ ] 4. Input (the base tic command, `I_BaseTiccmd`), lag.
 - [ ] 5. Audio: a mixer of the core's own for the effects and music (music.pk3 is OGG/tracker/MIDI).
 - [ ] 6. Savestates, 7. the package, properties (`Game State`), settings.
@@ -51,6 +56,23 @@ the guest build), following Chimera's `docs/porting-a-core.md` and `docs/game-co
 - `comptime.c`: the build's date and git state fixed, so both builds draw the same console.
 - From upstream as they are: `dummy/i_sound.c` (silence, for now), `dummy/i_net.c`, `dummy/i_cdmus.c`,
   `sdl/dosstr.c`.
+
+## The guest (milestone 2)
+
+- **The files are the mounts, by name**: miniBox finds a file by its exact name, and the engine opens
+  `./srb2.pk3` (its WAD folder is "."). `platform/files.c` wraps `fopen`, `access`, `stat` and `remove` in both
+  builds: a leading `./` goes, nothing is written (a write-mode `fopen` fails, `remove` does nothing), and
+  `access` is answered by opening (miniBox has none). The harnesses write their pictures with `open`/`write`,
+  which the link does not wrap.
+- **The settings** are miniBox's `settings` JSON (`waterbox_settings.h`), read in `Init` in both builds. So far
+  `warp`: a map to start in (`-warp`); empty, the game's own start.
+- **Memory**: `run-wbx`'s layout is sbrk 256, sealed 4, invisible 32, plain 4, mmap 1024 MiB (the picture and
+  the audio buffer are invisible: output, not the machine). Not yet measured against a whole game.
+- **miniBox's guest toolchain is not in its default target**: `ninja -C <miniBox>/build/meson-linux
+  source/guest/emulibc.c.o` builds musl-gcc, the sysroot and emulibc (`guest.mk` says so when they are missing).
+- Not yet seen: a libm difference between glibc and musl (the DSDA core wraps five functions for its
+  renderer). SRB2's game and renderer are fixed-point; the gate's contents agree. A longer run, other zones
+  and the special stages will say more.
 
 ## What the engine asks of the host, and what the core must answer
 
