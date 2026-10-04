@@ -1,12 +1,12 @@
-# From the start (default settings: no tutorial prompt), 450 steps: Enter skips
+# From the start (default settings: no tutorial prompt), 450 steps: Select skips
 # the intro, opens the title's menu, picks 1 Player, Start Game, the save
 # select's first choice and the character select's (Sonic & Tails): a new game
 # in Greenflower Zone. Each press is one step, released after.
-20: Enter
-70: Enter
-120: Enter
-170: Enter
-220: Enter
-270: Enter
-320: Enter
-370: Enter
+20: Select
+70: Select
+120: Select
+170: Select
+220: Select
+270: Select
+320: Select
+370: Select

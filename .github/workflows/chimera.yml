@@ -1,6 +1,9 @@
 name: chimera waterbox core
 
-# The core as Chimera ships it: a sandboxed core.wbx package.
+# The core as Chimera ships it: a sandboxed core.wbx package. An unofficial
+# core (github.com/P-AS/chimera-core-srb2), not in Chimera's roster: it builds
+# against Chimera's public main and publishes into this repository's own
+# releases through Chimera's public reusable publish workflow.
 #
 # SRB2's data is Sonic Team Junior's, freely distributed by them and never
 # carried here: the gate downloads STJr's own 2.2.15 release
@@ -135,7 +138,9 @@ jobs:
         # Chimera's own contract tests, run against THIS package: readable,
         # built for an ABI this frontend runs, a working factory, binding only
         # buttons its controller declares, stamping a version - and TAStudio's
-        # column letters distinct (MnemonicLookup's SRB2 table).
+        # column letters distinct: this is an unofficial core, so Chimera has no
+        # table for it, and the button names are chosen so its fallback letters
+        # differ (waterbox/srb2-input.c).
         working-directory: chimera-checkout
         env:
           CHIMERA_CORES_DIR: ${{ github.workspace }}/chimera-checkout/build/Cores

@@ -167,9 +167,9 @@ A movie row is **SRB2's own keyboard plus four axes**:
   Fire Normal, Toss Flag, Weapon Next/Prev, Weapon 1-7 - are commented out for now** (user-decided, 2026-10-04:
   multiplayer's, and they crowded the UI); their keys keep SRB2's bindings and are never pressed.
 - **TAStudio's letters** are Chimera's (`MnemonicLookup.cs`, keyed by the system ID `SRB2`), not the
-  declaration's: without a table each name's last word was used, so Strafe Left and Turn Left were both L. Chimera
-  branch `feat/srb2-core` (2087b79) adds the table: Doom's directions (^ v < > { }), and distinct letters for
-  the rest (Enter E, Escape X, Yes Y, No N); axes Fwd, Side, Turn, Aim.
+  declaration's, and an unofficial core has no table there: each name's last word is used, so the names are
+  chosen to differ (see "CI"). Turn Left/Right became Turn left/right, Camera Reset Reset Camera, the Enter
+  button Select.
 - **Default keys** (`default_keybinds.json`) are Chimera's merged modifiers: Spin is Shift and Center View Ctrl
   (Chimera binds Shift, not LeftShift, unless asked to tell them apart). A button that changes is a key event (`D_PostEvent`), so the menus, the
   title, a prompt and the game read it as a keyboard, and the game builds its tic command with all its own
@@ -311,11 +311,15 @@ runs `run-gate.sh` with the engine leg on the checkout's installed `libchimera`,
 the commit, runs Chimera's contract tests on it (`InstalledCorePackagesTests`, `MnemonicUniquenessTests`), and
 uploads `srb2-<sha>`.
 
-**It depends on two Chimera commits** (branch `feat/srb2-core` in the local checkout, not pushed):
-`MnemonicLookup`'s SRB2 table (without it, `MnemonicUniquenessTests` fails: Strafe Left and Turn Left would
-share L, and the axis names are too wide), and the roster row (`official-cores.json`, the README). Run locally
-against that branch, all eight contract tests pass (`mono build/tests/Chimera.Tests.Client.Common.exe`, with
-Chimera's native libraries on `LD_LIBRARY_PATH`).
+**It depends on no Chimera change.** This is an unofficial core (github.com/P-AS/chimera-core-srb2,
+user-decided 2026-10-04): it is not in Chimera's roster (`official-cores.json`), which is the Chimera project's
+to grant, and installs by hand. TAStudio's column letters come from Chimera's own `MnemonicLookup` table, which
+has no SRB2 entry, so **the button names are chosen so that its fallback (a name's last word) differs for every
+one**: Turn left/right (l, r) beside Strafe Left/Right (L, R), Reset Camera (C), Select - the Enter key - (s,
+Chimera's base table) beside Spin (S), Escape (E), Pause (p); the axes abbreviate to FM, SM, T, A. Chimera's
+contract tests built from its stock main pass on the package, all eight, the mnemonic uniqueness and axis-width
+checks among them. `docs/chimera-mnemonics.patch` is a table Chimera could adopt instead (Doom's direction
+symbols), for proposing upstream; nothing depends on it.
 
 Checked before any push: the job's core steps in an `ubuntu:24.04` container (GCC 13.3, as `ubuntu-latest`) -
 miniBox's C++ toolchain from scratch, the data fetched and checked, both builds, the whole gate, the package.
