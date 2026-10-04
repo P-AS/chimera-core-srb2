@@ -29,13 +29,15 @@ MBINCS := -I$(MB)/extern/emulibc -I$(MB)/source/guest/include -I$(MB)/extern/jsm
 SRB2_CFLAGS := $(WBFLAGS) $(SRB2_CFLAGS_COMMON) -w
 ZLIB_CFLAGS := $(WBFLAGS) $(ZLIB_CFLAGS_COMMON) -w
 PNG_CFLAGS := $(WBFLAGS) $(PNG_CFLAGS_COMMON) -w
+XIPH_CFLAGS := $(WBFLAGS) $(XIPH_CFLAGS_COMMON) -w
 CORE_CFLAGS := $(WBFLAGS) $(CORE_CFLAGS_COMMON) $(MBINCS) -I. -Wall -Wno-unused-function
 
-$(call flags_stamp,$(B),$(CC) | $(SRB2_CFLAGS) | $(ZLIB_CFLAGS) | $(PNG_CFLAGS) | $(CORE_CFLAGS))
+$(call flags_stamp,$(B),$(CC) | $(SRB2_CFLAGS) | $(ZLIB_CFLAGS) | $(PNG_CFLAGS) | $(XIPH_CFLAGS) | $(CORE_CFLAGS))
 
 SRB2_OBJS := $(patsubst $(SRB2)/%.c,$(B)/srb2/%.o,$(SRB2_SRCS))
 ZLIB_OBJS := $(patsubst $(LIBS)/zlib/%.c,$(B)/zlib/%.o,$(ZLIB_SRCS))
 PNG_OBJS := $(patsubst $(LIBS)/libpng-src/%.c,$(B)/png/%.o,$(PNG_SRCS))
+XIPH_OBJS := $(patsubst $(OGG)/src/%.c,$(B)/ogg/%.o,$(OGG_SRCS)) $(patsubst $(VORBIS)/lib/%.c,$(B)/vorbis/%.o,$(VORBIS_SRCS))
 CORE_OBJS := $(addprefix $(B)/core/,$(addsuffix .o,$(CORE_C_NAMES))) $(B)/core/libco.o
 
 all: $(B)/core.wbx
@@ -57,12 +59,20 @@ $(B)/png/%.o: $(LIBS)/libpng-src/%.c $(PNGCONF) $(B)/flags | $(CC)
 	@mkdir -p $(dir $@)
 	$(CC) $(PNG_CFLAGS) -c -o $@ $<
 
+$(B)/ogg/%.o: $(OGG)/src/%.c compat/ogg/config_types.h $(B)/flags | $(CC)
+	@mkdir -p $(dir $@)
+	$(CC) $(XIPH_CFLAGS) -c -o $@ $<
+
+$(B)/vorbis/%.o: $(VORBIS)/lib/%.c compat/ogg/config_types.h $(B)/flags | $(CC)
+	@mkdir -p $(dir $@)
+	$(CC) $(XIPH_CFLAGS) -c -o $@ $<
+
 $(B)/core/%.o: %.c $(CORE_HDRS) $(PATCH_STAMP) $(PNGCONF) $(B)/flags | $(CC)
 	@mkdir -p $(dir $@)
 	$(CC) $(CORE_CFLAGS) -c -o $@ $<
 
 # miniBox's C guest link: static, no PIE, at the guest base (linkscript.T)
-$(B)/core.wbx: $(CORE_OBJS) $(SRB2_OBJS) $(PNG_OBJS) $(ZLIB_OBJS) | $(EMULIBC)
+$(B)/core.wbx: $(CORE_OBJS) $(SRB2_OBJS) $(PNG_OBJS) $(XIPH_OBJS) $(ZLIB_OBJS) | $(EMULIBC)
 	$(CC) -static -no-pie -Wl,--eh-frame-hdr,-O2 -Wl,-z,stack-size=8388608 -T $(MB)/source/guest/linkscript.T \
 		-o $@.tmp $^ $(EMULIBC) $(WRAP_FLAGS) -lm -lgcc
 	sh $(MB)/source/guest/check-wbx.sh $@.tmp

@@ -14,12 +14,14 @@
  *                   (names as the core's GetButtonName/GetAxisName give them;
  *                   '#' starts a comment); a step's buttons and axes are what
  *                   the lines covering it say, the rest released and 0
+ *   --wav FILE      write the run's sound (every step's samples) as a WAVE
  *   --savedata-out DIR  after the run, write the save data export (the files
  *                   the game wrote) under DIR, as chimera-run --export-savedata
  *
- * It ends with "run <hash> tic <n> clock <c> lag <l>": the hash of every step's
- * picture in order, the engine's tic counter, the machine's clock and the
- * steps that read no input - the whole run.
+ * It ends with "run <hash> tic <n> clock <c> lag <l> audio <hash> peak <p>": the
+ * hash of every step's picture in order, the engine's tic counter, the
+ * machine's clock, the steps that read no input, the hash of every step's
+ * sound and its loudest sample - the whole run.
  */
 #ifndef HARNESS_H
 #define HARNESS_H
@@ -38,6 +40,8 @@ struct harness_core
 	const char *(*load_error)(void);
 	void (*frame)(void);
 	const uint32_t *(*video)(int *w, int *h);
+	/* the step's sound: n stereo frames of signed 16-bit */
+	const int16_t *(*audio)(int *n);
 	uint32_t (*gametic)(void);
 	int (*input_was_read)(void);
 	uint64_t (*clock)(void);
@@ -63,6 +67,7 @@ struct harness_opts
 	const char *ppm;
 	const char *savedata_out;
 	const char *input;
+	const char *wav;
 };
 
 /* parses argv[first..]; an option it does not know is left to the caller
@@ -76,6 +81,7 @@ static int harness_parse(int argc, char **argv, int first, struct harness_opts *
 	o->ppm = NULL;
 	o->savedata_out = NULL;
 	o->input = NULL;
+	o->wav = NULL;
 	for (int i = first; i < argc; i++)
 	{
 		if (!strcmp(argv[i], "-n") && i + 1 < argc)
@@ -84,6 +90,8 @@ static int harness_parse(int argc, char **argv, int first, struct harness_opts *
 			o->every = atol(argv[++i]);
 		else if (!strcmp(argv[i], "--ppm") && i + 1 < argc)
 			o->ppm = argv[++i];
+		else if (!strcmp(argv[i], "--wav") && i + 1 < argc)
+			o->wav = argv[++i];
 		else if (!strcmp(argv[i], "--input") && i + 1 < argc)
 			o->input = argv[++i];
 		else if (!strcmp(argv[i], "--savedata-out") && i + 1 < argc)
@@ -272,8 +280,23 @@ static void harness_apply_input(const struct harness_core *c, long step)
 /* Init has run (run-wbx seals the machine after it); the steps */
 static int harness_run(const struct harness_core *c, const struct harness_opts *o)
 {
-	uint64_t run = 0xcbf29ce484222325ull;
+	uint64_t run = 0xcbf29ce484222325ull, sound = 0xcbf29ce484222325ull;
 	long lag = 0;
+	int peak = 0;
+	int wav = -1;
+	uint32_t wav_bytes = 0;
+	if (o->wav)
+	{
+		wav = open(o->wav, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+		if (wav < 0)
+		{
+			perror(o->wav);
+			return 1;
+		}
+		static const uint8_t head[44] = { 0 };
+		if (write(wav, head, 44) != 44)
+			return 1;
+	}
 	if (o->input && !harness_load_input(c, o->input))
 		return 2;
 	int w = 0, h = 0;
@@ -292,14 +315,41 @@ static int harness_run(const struct harness_core *c, const struct harness_opts *
 		if (!c->input_was_read())
 			lag++;
 		px = c->video(&w, &h);
+		int an;
+		const int16_t *as = c->audio(&an);
+		sound = (sound ^ harness_fnv1a(as, (size_t)an * 4)) * 0x100000001b3ull;
+		for (int i = 0; i < an * 2; i++)
+			if (abs(as[i]) > peak)
+				peak = abs(as[i]);
+		if (wav >= 0 && write(wav, as, (size_t)an * 4) == (ssize_t)an * 4)
+			wav_bytes += (uint32_t)an * 4;
 		const uint64_t pic = harness_fnv1a(px, sizeof(uint32_t) * (size_t)w * (size_t)h);
 		run = (run ^ pic) * 0x100000001b3ull;
 		if (o->every > 0 && (f % o->every == 0 || f == o->frames))
 			printf("step %ld tic %u clock %llu lag %ld picture %016llx\n", f, c->gametic(),
 				(unsigned long long)c->clock(), lag, (unsigned long long)pic);
 	}
-	printf("run %016llx tic %u clock %llu lag %ld\n", (unsigned long long)run, c->gametic(),
-		(unsigned long long)c->clock(), lag);
+	printf("run %016llx tic %u clock %llu lag %ld audio %016llx peak %d\n", (unsigned long long)run, c->gametic(),
+		(unsigned long long)c->clock(), lag, (unsigned long long)sound, peak);
+	if (wav >= 0)
+	{
+		/* the header, now the length is known: 44.1 kHz stereo 16-bit PCM */
+		uint8_t h[44];
+		const uint32_t v[] = { 36 + wav_bytes, 16, 0x00020001, 44100, 44100 * 4, 0x00100004, wav_bytes };
+		memcpy(h, "RIFF", 4);
+		memcpy(h + 4, &v[0], 4);
+		memcpy(h + 8, "WAVEfmt ", 8);
+		memcpy(h + 16, &v[1], 4);
+		memcpy(h + 20, &v[2], 4);
+		memcpy(h + 24, &v[3], 4);
+		memcpy(h + 28, &v[4], 4);
+		memcpy(h + 32, &v[5], 4);
+		memcpy(h + 36, "data", 4);
+		memcpy(h + 40, &v[6], 4);
+		if (lseek(wav, 0, SEEK_SET) != 0 || write(wav, h, 44) != 44)
+			perror(o->wav);
+		close(wav);
+	}
 	fflush(stdout);
 	if (o->ppm && px && harness_write_ppm(o->ppm, px, w, h) != 0)
 	{

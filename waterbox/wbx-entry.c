@@ -96,6 +96,7 @@ ECL_EXPORT void FrameAdvance(uint64_t packed)
 	for (int i = 0; i < srb2_input_button_count(); i++)
 		srb2_input_set_button(i, g_set_buttons[i] | (int)((packed >> i) & 1));
 	srb2_frame();
+	chimera_audio_mix(g_audio, SAMPLES_PER_STEP);
 	if (g_render)
 		chimera_video_bgra(g_video);
 }
@@ -108,7 +109,7 @@ ECL_EXPORT uint32_t *GetVideoBgra(void) { return g_video; }
 ECL_EXPORT int GetVideoWidth(void) { return chimera_video_width(); }
 ECL_EXPORT int GetVideoHeight(void) { return chimera_video_height(); }
 
-/* silence, a step's worth, until the core mixes the engine's sound */
+/* a step's sound, mixed after it (platform/i_sound.c) */
 ECL_EXPORT int16_t *GetAudio(void) { return g_audio; }
 ECL_EXPORT int GetAudioSampleCount(void) { return SAMPLES_PER_STEP; }
 

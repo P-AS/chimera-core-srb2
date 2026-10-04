@@ -38,7 +38,8 @@ typedef uint32_t (MB_GUEST_ABI *u32fn)(void);
 typedef uint64_t (MB_GUEST_ABI *u64fn)(void);
 
 static mb_host *g_host;
-static intfn g_Init, g_GetVideoWidth, g_GetVideoHeight, g_InputWasRead;
+static intfn g_Init, g_GetVideoWidth, g_GetVideoHeight, g_InputWasRead, g_GetAudioSampleCount;
+static ptrfn g_GetAudio;
 static ptrfn g_GetLoadError, g_GetVideoBgra;
 static framefn g_FrameAdvance;
 static u32fn g_GetGameTic;
@@ -73,6 +74,11 @@ static const uint32_t *core_video(int *w, int *h)
 	return (const uint32_t *)g_GetVideoBgra();
 }
 static uint32_t core_gametic(void) { return g_GetGameTic(); }
+static const int16_t *core_audio(int *n)
+{
+	*n = g_GetAudioSampleCount();
+	return (const int16_t *)g_GetAudio();
+}
 static int core_input_was_read(void) { return g_InputWasRead(); }
 static uint64_t core_clock(void) { return g_GetCycleCount(); }
 static int32_t core_sd_count(void) { return g_GetSaveDataFileCount(); }
@@ -166,6 +172,8 @@ static void build_host(void)
 	g_GetVideoHeight = (intfn)proc("GetVideoHeight");
 	g_GetGameTic = (u32fn)proc("GetGameTic");
 	g_InputWasRead = (intfn)proc("InputWasRead");
+	g_GetAudio = (ptrfn)proc("GetAudio");
+	g_GetAudioSampleCount = (intfn)proc("GetAudioSampleCount");
 	g_GetCycleCount = (u64fn)proc("GetCycleCount");
 	g_SetButton = (setfn)proc("SetButton");
 	g_SetAxis = (setfn)proc("SetAxis");
@@ -266,6 +274,7 @@ int main(int argc, char **argv)
 		.load_error = core_load_error,
 		.frame = core_frame,
 		.video = core_video,
+		.audio = core_audio,
 		.gametic = core_gametic,
 		.input_was_read = core_input_was_read,
 		.clock = core_clock,

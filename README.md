@@ -5,8 +5,8 @@
 `docs/game-cores.md`). Work in progress: see `docs/PLAN.md` for the milestones and decisions.
 
 The engine is upstream SRB2 (`extern/SRB2`, master, net-compatible with 2.2.15), compiled from source with a
-platform layer of the core's own (`waterbox/platform/`) in place of SDL: no window, no audio device, no
-network, no threads. The game's data - srb2.pk3, zones.pk3, characters.pk3, music.pk3 - is firmware: the
+platform layer of the core's own (`waterbox/platform/`) in place of SDL: no window, no audio device (the core
+mixes the sound itself, in the machine), no network, no threads. The game's data - srb2.pk3, zones.pk3, characters.pk3, music.pk3 - is firmware: the
 core carries none of it.
 
 ## Building
@@ -42,7 +42,10 @@ with teeth. `equivalence`: native == sandbox, step for step, on the intro and Gr
 a step is a tic, a wipe's frames are lag steps, play is a tic a step. `savestates`: a save and load before
 every step, and a new host mid-wipe, change nothing. `input`: movies through the menus and in Greenflower,
 the same every way. `files`: what the game writes is kept in the machine and exported identically. `time`: a
-host stall mid-run changes nothing.
+host stall mid-run changes nothing. `audio`: the music and sounds are heard, and every leg's run line carries
+the sound's hash too.
+
+The harnesses' `--wav FILE` writes a run's sound.
 
 ## The controller
 
@@ -53,5 +56,6 @@ harnesses take a movie as text, `--input FILE` with `FROM-TO: Button; Axis=value
 ## Licence
 
 GPL-2.0, as SRB2 is (`LICENSE`). zlib and libpng are compiled from the copies in SRB2's `libs/`, under their
-own licences; libco (miniBox's `extern/libco`) is public domain. Sonic the Hedgehog and related characters are trademarks of SEGA; this repository carries
+own licences; libco (miniBox's `extern/libco`) is public domain; libogg and libvorbis (`extern/ogg`,
+`extern/vorbis`) are BSD-3-Clause. Sonic the Hedgehog and related characters are trademarks of SEGA; this repository carries
 none of the game's data.
