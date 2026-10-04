@@ -103,5 +103,14 @@ ECL_EXPORT int64_t GetMemoryDomainSize(int i) { (void)i; return 0; }
 /* the machine's clock, in I_GetPrecisePrecision() units */
 ECL_EXPORT uint64_t GetCycleCount(void) { return chimera_clock_precise(); }
 
+/* ---- save data (Chimera's docs/save-data.md): every file the game wrote -
+ * gamedata.dat (unlocks, emblems, records), the save slots (srb2sav*.ssg),
+ * record attack's replays (replay/...), Lua's files - but its configuration,
+ * which is the settings'. In the machine's memory (platform/files.c). */
+ECL_EXPORT int32_t GetSaveDataFileCount(void) { return chimera_savedata_count(); }
+ECL_EXPORT const char *GetSaveDataFileName(int32_t index) { return chimera_savedata_name(index); }
+ECL_EXPORT int64_t GetSaveDataFileSize(int32_t index) { return chimera_savedata_size(index); }
+ECL_EXPORT const uint8_t *GetSaveDataFileBuffer(int32_t index) { return chimera_savedata_buffer(index); }
+
 /* the engine's tic counter, for the harnesses */
 ECL_EXPORT uint32_t GetGameTic(void) { return srb2_gametic(); }

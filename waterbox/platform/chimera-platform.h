@@ -22,6 +22,13 @@ void chimera_exit(int rc, const char *msg) __attribute__((noreturn));
 void chimera_wait(void);
 /* a tic command was built: the step read input (the driver) */
 void chimera_input_read(void);
+/* the machine's filesystem (platform/files.c): a folder made, and the save
+ * data - every file the game wrote but its configuration */
+void chimera_mkdir(const char *path);
+int chimera_savedata_count(void);
+const char *chimera_savedata_name(int index);
+int64_t chimera_savedata_size(int index);
+const uint8_t *chimera_savedata_buffer(int index);
 /* the seed of the bytes I_GetRandomBytes answers (the driver's) */
 extern uint64_t chimera_random_seed;
 #ifdef __cplusplus

@@ -62,10 +62,11 @@ CORE_CFLAGS_COMMON := $(SRB2_CFLAGS_COMMON) -I$(MB)/extern/libco
 
 # the calls the core answers itself, the same in both builds: the libc clocks,
 # which are the machine's, and rand (platform/i_system.c); the files, which are
-# the mounts (platform/files.c)
+# the mounts and the machine's memory (platform/files.c)
 WRAP_FLAGS := -Wl,--wrap=clock_gettime -Wl,--wrap=time -Wl,--wrap=gettimeofday -Wl,--wrap=clock \
 	-Wl,--wrap=localtime -Wl,--wrap=rand -Wl,--wrap=srand \
-	-Wl,--wrap=fopen -Wl,--wrap=access -Wl,--wrap=stat -Wl,--wrap=remove
+	-Wl,--wrap=fopen -Wl,--wrap=access -Wl,--wrap=stat -Wl,--wrap=remove \
+	-Wl,--wrap=fileno -Wl,--wrap=fstat -Wl,--wrap=opendir
 
 # the patch series goes onto the submodule before anything of SRB2 builds
 PATCH_STAMP := $(ROOT)/build/patches.stamp
