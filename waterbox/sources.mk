@@ -7,6 +7,7 @@ SRB2 := $(ROOT)/extern/SRB2/src
 LIBS := $(ROOT)/extern/SRB2/libs
 OGG := $(ROOT)/extern/ogg
 VORBIS := $(ROOT)/extern/vorbis
+GME := $(ROOT)/extern/gme/gme
 MB   ?= $(MINIBOX_DIR)
 # libpng's configuration header: its prebuilt one, copied beside the build
 PNGCONF_DIR := $(ROOT)/build/pngconf
@@ -38,7 +39,7 @@ SRB2_SRCS := $(filter-out $(SRB2_EXCLUDE), \
 # signed arithmetic. NDEBUG, as upstream's release build and the guest have it.
 SRB2_DEFS := -DNDEBUG -DUNIXCOMMON -DLINUX -DLINUX64 -D_LARGEFILE64_SOURCE -DHAVE_ZLIB -DHAVE_PNG \
 	-DNOMUMBLE -DNOEXECINFO -DNOUPNP
-SRB2_INCS := -Iplatform -Icompat -I$(OGG)/include -I$(VORBIS)/include -I$(SRB2) -I$(SRB2)/blua -I$(LIBS)/zlib -I$(LIBS)/libpng-src -I$(PNGCONF_DIR)
+SRB2_INCS := -Iplatform -Icompat -I$(OGG)/include -I$(VORBIS)/include -I$(GME)/.. -I$(SRB2) -I$(SRB2)/blua -I$(LIBS)/zlib -I$(LIBS)/libpng-src -I$(PNGCONF_DIR)
 SRB2_CFLAGS_COMMON := -std=gnu23 -O2 -fwrapv -fno-strict-aliasing $(SRB2_DEFS) $(SRB2_INCS)
 
 # ---- libogg and libvorbis (the submodules extern/ogg, v1.3.5, and
@@ -50,6 +51,23 @@ VORBIS_NAMES := analysis bitrate block codebook envelope floor0 floor1 info look
 	registry res0 sharedbook smallft synthesis vorbisfile window
 VORBIS_SRCS := $(addprefix $(VORBIS)/lib/,$(addsuffix .c,$(VORBIS_NAMES)))
 XIPH_CFLAGS_COMMON := -std=gnu11 -O2 -DNDEBUG -Icompat -I$(OGG)/include -I$(VORBIS)/include -I$(VORBIS)/lib
+
+# ---- Game_Music_Emu (the submodule extern/gme, libgme 0.6.5): VGM/VGZ, NSF,
+# SPC, GBS, HES, KSS, AY, SAP, GYM music and sounds. Every emulator, as its
+# CMake builds them by default; the Nuked YM2612 (its default); no zlib of its
+# own (SRB2 inflates a VGZ itself). C++, without exceptions or RTTI (it uses
+# neither: blargg's allocations are new (std::nothrow)).
+GME_NAMES := Blip_Buffer Classic_Emu Data_Reader Dual_Resampler Effects_Buffer Fir_Resampler gme Gme_File \
+	M3u_Playlist Multi_Buffer Music_Emu Ay_Apu Ym2612_Nuked Sms_Apu Ay_Cpu Ay_Emu Gb_Apu Gb_Cpu Gb_Oscs \
+	Gbs_Emu Gym_Emu Hes_Apu Hes_Apu_Adpcm Hes_Cpu Hes_Emu Kss_Cpu Kss_Emu Kss_Scc_Apu Nes_Apu Nes_Cpu \
+	Nes_Fme7_Apu Nes_Namco_Apu Nes_Oscs Nes_Vrc6_Apu Nes_Fds_Apu Nes_Vrc7_Apu Nsf_Emu Nsfe_Emu Sap_Apu \
+	Sap_Cpu Sap_Emu Snes_Spc Spc_Cpu Spc_Dsp Spc_Emu Spc_Filter Vgm_Emu Vgm_Emu_Impl Ym2413_Emu
+GME_SRCS := $(addprefix $(GME)/,$(addsuffix .cpp,$(GME_NAMES))) $(GME)/ext/emu2413.c
+GME_DEFS := -DNDEBUG -DVGM_YM2612_NUKED -DBLARGG_LITTLE_ENDIAN=1
+# -include ctime: Hes_Emu.cpp names time_t (for its emulated time), which
+# glibc's headers declare in passing and musl's do not
+GME_CXXFLAGS_COMMON := -std=gnu++17 -O2 -fno-exceptions -fno-rtti -include ctime $(GME_DEFS) -I$(GME)
+GME_CFLAGS_COMMON := -std=gnu11 -O2 $(GME_DEFS) -I$(GME)
 
 # ---- zlib (extern/SRB2/libs/zlib): the .pk3 files' deflate, and libpng's
 ZLIB_NAMES := adler32 compress crc32 deflate inffast inflate inftrees trees uncompr zutil
@@ -81,7 +99,7 @@ WRAP_FLAGS := -Wl,--wrap=clock_gettime -Wl,--wrap=time -Wl,--wrap=gettimeofday -
 	-Wl,--wrap=fopen -Wl,--wrap=access -Wl,--wrap=stat -Wl,--wrap=remove \
 	-Wl,--wrap=fileno -Wl,--wrap=fstat -Wl,--wrap=opendir \
 	-Wl,--wrap=sin -Wl,--wrap=cos -Wl,--wrap=acos -Wl,--wrap=atan -Wl,--wrap=exp -Wl,--wrap=log \
-	-Wl,--wrap=hypot -Wl,--wrap=sincos
+	-Wl,--wrap=hypot -Wl,--wrap=sincos -Wl,--wrap=pow
 
 # the patch series goes onto the submodule before anything of SRB2 builds
 PATCH_STAMP := $(ROOT)/build/patches.stamp

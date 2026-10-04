@@ -18,8 +18,12 @@ make -C waterbox -f native.mk -j$(nproc)    # the native reference and the harne
 make -C waterbox -f guest.mk -j$(nproc)     # the core: build/guest/core.wbx
 ```
 
-miniBox must be built first, with its guest toolchain: `meson setup build/meson-linux && ninja -C
-build/meson-linux && ninja -C build/meson-linux source/guest/emulibc.c.o` in its checkout. The patches go onto
+miniBox must be built first, with its C++ guest toolchain (GME is C++), in its checkout:
+
+```
+meson setup build/meson-cpp -Dguest_cpp=true && ninja -C build/meson-cpp
+ninja -C build/meson-cpp libstdcxx-installed.stamp source/guest/emulibc.c.o source/guest/cxxglue.c.o
+``` The patches go onto
 `extern/SRB2` on the first build (`waterbox/apply-patches.sh`, all or nothing).
 
 ## Running the native reference
@@ -57,5 +61,5 @@ harnesses take a movie as text, `--input FILE` with `FROM-TO: Button; Axis=value
 
 GPL-2.0, as SRB2 is (`LICENSE`). zlib and libpng are compiled from the copies in SRB2's `libs/`, under their
 own licences; libco (miniBox's `extern/libco`) is public domain; libogg and libvorbis (`extern/ogg`,
-`extern/vorbis`) are BSD-3-Clause. Sonic the Hedgehog and related characters are trademarks of SEGA; this repository carries
+`extern/vorbis`) are BSD-3-Clause; Game_Music_Emu (`extern/gme`) is LGPL-2.1-or-later (its Nuked YM2612 too). Sonic the Hedgehog and related characters are trademarks of SEGA; this repository carries
 none of the game's data.

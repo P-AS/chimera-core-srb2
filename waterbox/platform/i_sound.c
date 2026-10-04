@@ -7,11 +7,12 @@
  * It does what upstream's SDL_mixer backend (sdl/mixer_sound.c) does, as
  * nearly as that can be said of a mixer:
  *
- *   - sound effects: DMX (ds2chunk, ported), WAV (PCM) and Ogg Vorbis
- *     (libvorbis), converted at load to 44.1 kHz stereo; volume and panning a
+ *   - sound effects: DMX (ds2chunk, ported), GME's formats (rendered for their
+ *     length), WAV (PCM) and Ogg Vorbis (libvorbis), converted at load to 44.1 kHz stereo; volume and panning a
  *     channel as Mix_Volume and Mix_SetPanning give them; pitch ignored, as
  *     SDL_mixer ignores it;
- *   - music: Ogg Vorbis and WAV, with the loop point of the song's
+ *   - music: GME's formats (VGM/VGZ, NSF, SPC, GBS, HES, KSS, AY, SAP, GYM),
+ *     Ogg Vorbis and WAV, tried in upstream's order, with the loop point of the song's
  *     LOOPPOINT= (samples, read as upstream reads it) or LOOPMS= tag, or the
  *     one the game sets; fades stepped every 10 ms of output, as upstream's
  *     SDL timer steps them, with the callback run from I_UpdateSound; the
@@ -26,6 +27,8 @@
 
 #define OV_EXCLUDE_STATIC_CALLBACKS
 #include <vorbis/vorbisfile.h>
+#include <gme/gme.h>
+#include <zlib.h>
 
 #include "doomdef.h"
 #include "doomtype.h"
@@ -284,6 +287,71 @@ static int ogg_pcm(struct pcm *out, const UINT8 *data, size_t len)
 	return ok;
 }
 
+/* a VGZ: upstream inflates it itself (its last 4 bytes are the inflated
+ * size, typically) and gives GME the result */
+static UINT8 *inflate_vgz(const UINT8 *data, size_t len, size_t *outlen)
+{
+	if (len < 8 || data[0] != 0x1F || data[1] != 0x8B)
+		return NULL;
+	const size_t inflated = (size_t)data[len - 4] | (size_t)data[len - 3] << 8 | (size_t)data[len - 2] << 16
+		| (size_t)data[len - 1] << 24;
+	UINT8 *out = calloc(inflated ? inflated : 1, 1);
+	z_stream stream;
+	memset(&stream, 0, sizeof stream);
+	stream.avail_in = (uInt)len;
+	stream.next_in = (Bytef *)data;
+	stream.avail_out = (uInt)inflated;
+	stream.next_out = out;
+	int ok = out && inflateInit2(&stream, 32 + MAX_WBITS) == Z_OK;
+	if (ok)
+	{
+		ok = inflate(&stream, Z_FINISH) == Z_STREAM_END;
+		if (!ok)
+			CONS_Alert(CONS_ERROR, "Encountered an error when running inflate: %s\n", stream.msg ? stream.msg : "");
+		inflateEnd(&stream);
+	}
+	if (!ok)
+	{
+		free(out);
+		return NULL;
+	}
+	*outlen = inflated;
+	return out;
+}
+
+/* GME's equalizer, as upstream sets it (sdl/mixer_sound.c's values) */
+#define GME_TREBLE 5.0f
+#define GME_BASS 1.0f
+static void gme_eq(Music_Emu *emu)
+{
+	gme_equalizer_t eq = { GME_TREBLE, GME_BASS, 0, 0, 0, 0, 0, 0, 0, 0 };
+	gme_set_equalizer(emu, &eq);
+}
+
+/* a GME sound effect: its first track for its play length, as upstream renders it */
+static int gme_pcm(struct pcm *out, const UINT8 *data, size_t len)
+{
+	size_t vlen = 0;
+	UINT8 *vgz = inflate_vgz(data, len, &vlen);
+	Music_Emu *emu;
+	const int opened = vgz ? !gme_open_data(vgz, (long)vlen, &emu, RATE) : !gme_open_data(data, (long)len, &emu, RATE);
+	free(vgz);
+	if (!opened)
+		return 0;
+	gme_info_t *info;
+	gme_start_track(emu, 0);
+	gme_eq(emu);
+	gme_track_info(emu, &info, 0);
+	const UINT32 bytes = (UINT32)((info->play_length * 441 / 10) << 2);
+	gme_free_info(info);
+	out->frames = bytes / 4;
+	out->data = malloc((size_t)bytes + 4);
+	if (out->data)
+		gme_play(emu, (int)(out->frames * 2), out->data);
+	gme_delete(emu);
+	return out->data != NULL;
+}
+
 /* ------------------------------------------------------------ sound effects */
 
 struct channel
@@ -308,7 +376,7 @@ void *I_GetSfx(sfxinfo_t *sfx)
 	if (pcm)
 	{
 		struct wave w;
-		ok = dmx_pcm(pcm, lump, sfx->length) || ogg_pcm(pcm, lump, sfx->length);
+		ok = dmx_pcm(pcm, lump, sfx->length) || gme_pcm(pcm, lump, sfx->length) || ogg_pcm(pcm, lump, sfx->length);
 		if (!ok && wave_parse(&w, lump, sfx->length))
 		{
 			UINT32 frames;
@@ -403,6 +471,9 @@ struct song
 	/* Vorbis */
 	struct membuf mem;
 	OggVorbis_File vf;
+	/* GME */
+	Music_Emu *gme;
+	int track;
 	/* WAV */
 	INT16 *pcm;
 	UINT64 frames, pos;
@@ -457,6 +528,9 @@ static UINT64 wave_length(struct song *s) { return s->frames; }
 static void wave_close(struct song *s) { free(s->pcm); }
 
 static struct song *g_song;
+/* a song loaded and started: upstream keeps a loaded one stopped until
+ * I_PlaySong (and I_SongPlaying says a loaded one is playing) */
+static boolean g_playing;
 static UINT8 *g_song_data; /* the lump, which the decoder reads from */
 static UINT8 music_volume, internal_volume;
 static float loop_point; /* seconds, as upstream keeps it */
@@ -518,22 +592,49 @@ boolean I_SongPlaying(void) { return g_song != NULL; }
 boolean I_SongPaused(void) { return songpaused; }
 
 /* SDL_mixer has no tempo for a stream: neither has this */
+/* a stream has no tempo in SDL_mixer; GME's has (upstream's) */
 boolean I_SetSongSpeed(float speed)
 {
-	(void)speed;
+	if (speed > 250.0f)
+		speed = 250.0f;
+	if (g_song && g_song->type == MU_GME)
+	{
+		gme_set_tempo(g_song->gme, speed);
+		return true;
+	}
 	return false;
+}
+
+/* GME's length: intro + one loop, as upstream reconstructs it */
+static INT32 gme_length(void)
+{
+	gme_info_t *info;
+	INT32 length;
+	if (gme_track_info(g_song->gme, &info, g_song->track))
+		return 0;
+	length = info->length;
+	if (length <= 0)
+	{
+		length = info->intro_length + info->loop_length;
+		if (length <= 0)
+			length = 150 * 1000;
+	}
+	gme_free_info(info);
+	return max(length, 0);
 }
 
 UINT32 I_GetSongLength(void)
 {
 	if (!g_song)
 		return 0;
+	if (g_song->type == MU_GME)
+		return (UINT32)gme_length();
 	return (UINT32)(g_song->length(g_song) * 1000 / g_song->rate);
 }
 
 boolean I_SetSongLoopPoint(UINT32 looppoint)
 {
-	if (!g_song || !is_looping)
+	if (!g_song || g_song->type == MU_GME || !is_looping)
 		return false;
 	const UINT32 length = I_GetSongLength();
 	if (length > 0)
@@ -542,12 +643,28 @@ boolean I_SetSongLoopPoint(UINT32 looppoint)
 	return true;
 }
 
-UINT32 I_GetSongLoopPoint(void) { return g_song ? (UINT32)(loop_point * 1000) : 0; }
+UINT32 I_GetSongLoopPoint(void)
+{
+	if (g_song && g_song->type == MU_GME)
+	{
+		gme_info_t *info;
+		INT32 looppoint = 0;
+		if (!gme_track_info(g_song->gme, &info, g_song->track))
+		{
+			looppoint = info->intro_length > 0 ? info->intro_length : 0;
+			gme_free_info(info);
+		}
+		return (UINT32)max(looppoint, 0);
+	}
+	return g_song ? (UINT32)(loop_point * 1000) : 0;
+}
 
 boolean I_SetSongPosition(UINT32 position)
 {
 	if (!g_song)
 		return false;
+	if (g_song->type == MU_GME)
+		return true; /* upstream: "this is unstable, so fail silently" */
 	const UINT32 length = I_GetSongLength();
 	const UINT32 looppoint = I_GetSongLoopPoint();
 	if (length && position >= length)
@@ -559,6 +676,22 @@ boolean I_SetSongPosition(UINT32 position)
 
 UINT32 I_GetSongPosition(void)
 {
+	if (g_song && g_song->type == MU_GME)
+	{
+		INT32 position = gme_tell(g_song->gme);
+		gme_info_t *info;
+		if (gme_track_info(g_song->gme, &info, g_song->track))
+			return (UINT32)position;
+		/* GME's counter keeps going past the loop */
+		if (info->length > 0)
+			position %= info->length;
+		else if (info->intro_length + info->loop_length > 0)
+			position = position >= (info->intro_length + info->loop_length) ? (position % info->loop_length) : position;
+		else
+			position %= 150 * 1000;
+		gme_free_info(info);
+		return (UINT32)max(position, 0);
+	}
 	return g_song ? (UINT32)(g_song->tell(g_song) * 1000 / g_song->rate) : 0;
 }
 
@@ -606,7 +739,23 @@ boolean I_LoadSong(char *data, size_t len)
 	memcpy(copy, data, len);
 	struct wave w;
 	s->mem = (struct membuf){ copy, len, 0 };
-	if (len >= 4 && !memcmp(copy, "OggS", 4) && ov_open_callbacks(&s->mem, &s->vf, NULL, 0, mem_callbacks) == 0)
+	size_t vlen = 0;
+	UINT8 *vgz = inflate_vgz(copy, len, &vlen);
+	if (len >= 2 && copy[0] == 0x1F && copy[1] == 0x8B && !vgz)
+	{
+		/* a VGZ that does not inflate: upstream gives up on it */
+		free(s);
+		free(copy);
+		return false;
+	}
+	if (vgz ? !gme_open_data(vgz, (long)vlen, &s->gme, RATE) : !gme_open_data(copy, (long)len, &s->gme, RATE))
+	{
+		s->type = MU_GME;
+		s->rate = RATE;
+		s->channels = 2;
+		s->track = -1;
+	}
+	else if (len >= 4 && !memcmp(copy, "OggS", 4) && ov_open_callbacks(&s->mem, &s->vf, NULL, 0, mem_callbacks) == 0)
 	{
 		const vorbis_info *vi = ov_info(&s->vf, -1);
 		s->type = MU_OGG;
@@ -637,9 +786,10 @@ boolean I_LoadSong(char *data, size_t len)
 		s->length = wave_length;
 		s->close = wave_close;
 	}
+	free(vgz);
 	if (s->type == MU_NONE || !s->rate)
 	{
-		CONS_Alert(CONS_ERROR, "I_LoadSong: not a song the core plays (Ogg Vorbis or WAV)\n");
+		CONS_Alert(CONS_ERROR, "I_LoadSong: not a song the core plays (GME's formats, Ogg Vorbis or WAV)\n");
 		free(s);
 		free(copy);
 		return false;
@@ -655,7 +805,10 @@ void I_UnloadSong(void)
 	I_StopSong();
 	if (g_song)
 	{
-		g_song->close(g_song);
+		if (g_song->type == MU_GME)
+			gme_delete(g_song->gme);
+		else
+			g_song->close(g_song);
 		free(g_song);
 		g_song = NULL;
 	}
@@ -663,14 +816,20 @@ void I_UnloadSong(void)
 	g_song_data = NULL;
 }
 
-/* a song "playing" is a song loaded and started; upstream keeps a loaded
- * one stopped until I_PlaySong */
-static boolean g_playing;
-
 boolean I_PlaySong(boolean looping)
 {
 	if (!g_song)
 		return false;
+	if (g_song->type == MU_GME)
+	{
+		if (looping)
+			gme_set_autoload_playback_limit(g_song->gme, 0);
+		gme_eq(g_song->gme);
+		gme_start_track(g_song->gme, 0);
+		g_song->track = 0;
+		g_playing = true;
+		return true;
+	}
 	g_song->seek(g_song, 0);
 	g_song->primed = 0;
 	is_looping = looping;
@@ -683,6 +842,8 @@ void I_StopSong(void)
 {
 	if (!fading_nocleanup)
 		I_StopFadingSong();
+	if (g_song && g_song->type == MU_GME)
+		g_song->track = -1;
 	g_playing = false;
 	var_cleanup();
 }
@@ -699,7 +860,19 @@ void I_SetMusicVolume(UINT8 volume)
 
 boolean I_SetSongTrack(INT32 track)
 {
-	(void)track;
+	if (!g_song || g_song->type != MU_GME || g_song->track == track)
+		return false;
+	if (track >= 0 && track < gme_track_count(g_song->gme) - 1)
+	{
+		gme_err_t e = gme_start_track(g_song->gme, track);
+		if (e)
+		{
+			CONS_Alert(CONS_ERROR, "GME error: %s\n", e);
+			return false;
+		}
+		g_song->track = track;
+		return true;
+	}
 	return false;
 }
 
@@ -864,22 +1037,59 @@ static int music_frame(INT32 *l, INT32 *r)
 
 static INT16 clip(INT32 v) { return (INT16)(v > 32767 ? 32767 : v < -32768 ? -32768 : v); }
 
+/* the step's raw music: frames of the song at 44.1 kHz, before volume;
+ * returns how many it gave (fewer when a song stops) */
+static INT16 g_raw[2 * RATE];
+static int music_raw(int frames)
+{
+	if (!g_song || !g_playing || songpaused)
+		return 0;
+	if (g_song->type == MU_GME)
+	{
+		/* upstream's mix_gme: nothing once the track has ended */
+		if (gme_track_ended(g_song->gme))
+			return 0;
+		gme_play(g_song->gme, frames * 2, g_raw);
+		return frames;
+	}
+	for (int i = 0; i < frames; i++)
+	{
+		INT32 l, r;
+		if (!g_song || !g_playing || !music_frame(&l, &r))
+			return i;
+		g_raw[2 * i] = (INT16)l;
+		g_raw[2 * i + 1] = (INT16)r;
+	}
+	return frames;
+}
+
+/* a raw music sample at the volume of the moment: get_real_volume for a
+ * stream (Mix_VolumeMusic), upstream's own scale for GME (which SDL_mixer
+ * hooks past the music volume, limiting it to 18) */
+static INT32 music_gain(INT32 sample, musictype_t type)
+{
+	if (type == MU_GME)
+	{
+		if (music_volume >= 18)
+			music_volume = 18;
+		return (INT32)(INT16)(sample * music_volume * internal_volume / 100 / 20);
+	}
+	const INT32 mv = (INT32)((UINT32)music_volume * 128 / 31) * (INT32)internal_volume / 100;
+	return sample * mv / 128;
+}
+
 /* a step's output: the music, then every channel, summed and clipped */
 void chimera_audio_mix(INT16 *out, int frames)
 {
+	const musictype_t type = g_song ? g_song->type : MU_NONE;
+	const int music = music_raw(frames);
 	for (int i = 0; i < frames; i++)
 	{
 		INT32 l = 0, r = 0;
-		if (g_song && g_playing && !songpaused)
+		if (i < music)
 		{
-			INT32 ml, mr;
-			/* get_real_volume: the volume to a 128 scale, then the fade's percentage */
-			const INT32 mv = (INT32)((UINT32)music_volume * 128 / 31) * (INT32)internal_volume / 100;
-			if (music_frame(&ml, &mr))
-			{
-				l += ml * mv / 128;
-				r += mr * mv / 128;
-			}
+			l += music_gain(g_raw[2 * i], type);
+			r += music_gain(g_raw[2 * i + 1], type);
 		}
 		for (int c = 0; c < CHANNELS; c++)
 		{
