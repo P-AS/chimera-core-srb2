@@ -6,11 +6,13 @@
  *                  sin and a cos of one angle): the picture
  *   sin, cos, acos, atan, exp, log
  *                  libvorbis's tables (mdct, window, floor0's LSP): the sound
+ *   pow            GME's equalizer and filters (fractional powers), libvorbis's
+ *                  codebook, and SRB2's Lua (luai_numpow: integer powers of
+ *                  integers, which must stay exact - an integer exponent is
+ *                  repeated squaring, exact wherever the result fits a double,
+ *                  as the C libraries' correctly rounded results are)
  *
- * pow is left to the C library: SRB2's Lua takes integer powers of integers
- * (luai_numpow), which both libraries give exactly, and libvorbis corrects its
- * one use (the codebook's quantvals) with an integer search. sqrt, floor,
- * ldexp, frexp, modf, round and trunc are exact everywhere. */
+ * sqrt, floor, fmod, ldexp, frexp, modf, round and trunc are exact everywhere. */
 #define _GNU_SOURCE
 #include "detmath.h"
 
@@ -21,6 +23,22 @@ double __wrap_atan(double x) { return dm_atan(x); }
 double __wrap_exp(double x) { return dm_exp(x); }
 double __wrap_log(double x) { return dm_log(x); }
 double __wrap_hypot(double x, double y) { return dm_hypot(x, y); }
+double __wrap_pow(double x, double y)
+{
+	if (y == floor(y) && fabs(y) <= 4096.0 && !isinf(x) && x == x)
+	{
+		double r = 1.0, b = x;
+		for (unsigned long long n = (unsigned long long)fabs(y); n; n >>= 1)
+		{
+			if (n & 1)
+				r *= b;
+			b *= b;
+		}
+		return y < 0.0 ? 1.0 / r : r;
+	}
+	return dm_pow(x, y);
+}
+
 void __wrap_sincos(double x, double *s, double *c)
 {
 	*s = dm_sin(x);

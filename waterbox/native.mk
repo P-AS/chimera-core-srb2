@@ -16,14 +16,17 @@ SRB2_CFLAGS := $(SRB2_CFLAGS_COMMON) -g -w
 ZLIB_CFLAGS := $(ZLIB_CFLAGS_COMMON) -w
 PNG_CFLAGS := $(PNG_CFLAGS_COMMON) -w
 XIPH_CFLAGS := $(XIPH_CFLAGS_COMMON) -w
+GME_CXXFLAGS := $(GME_CXXFLAGS_COMMON) -w
+GME_CFLAGS := $(GME_CFLAGS_COMMON) -w
 CORE_CFLAGS := $(CORE_CFLAGS_COMMON) -Inative-shim -I$(MB)/source/guest/include -I$(MB)/extern/jsmn -I. -g -Wall -Wno-unused-function
 
-$(call flags_stamp,$(B),$(SRB2_CFLAGS) | $(ZLIB_CFLAGS) | $(PNG_CFLAGS) | $(XIPH_CFLAGS) | $(CORE_CFLAGS))
+$(call flags_stamp,$(B),$(SRB2_CFLAGS) | $(ZLIB_CFLAGS) | $(PNG_CFLAGS) | $(XIPH_CFLAGS) | $(GME_CXXFLAGS) | $(GME_CFLAGS) | $(CORE_CFLAGS))
 
 SRB2_OBJS := $(patsubst $(SRB2)/%.c,$(B)/srb2/%.o,$(SRB2_SRCS))
 ZLIB_OBJS := $(patsubst $(LIBS)/zlib/%.c,$(B)/zlib/%.o,$(ZLIB_SRCS))
 PNG_OBJS := $(patsubst $(LIBS)/libpng-src/%.c,$(B)/png/%.o,$(PNG_SRCS))
 XIPH_OBJS := $(patsubst $(OGG)/src/%.c,$(B)/ogg/%.o,$(OGG_SRCS)) $(patsubst $(VORBIS)/lib/%.c,$(B)/vorbis/%.o,$(VORBIS_SRCS))
+GME_OBJS := $(patsubst $(GME)/%.cpp,$(B)/gme/%.o,$(filter %.cpp,$(GME_SRCS))) $(patsubst $(GME)/%.c,$(B)/gme/%.o,$(filter %.c,$(GME_SRCS)))
 CORE_OBJS := $(addprefix $(B)/core/,$(addsuffix .o,$(CORE_C_NAMES))) $(B)/core/libco.o
 
 ifeq ($(MB),)
@@ -44,6 +47,14 @@ $(B)/png/%.o: $(LIBS)/libpng-src/%.c $(PNGCONF) $(B)/flags
 	@mkdir -p $(dir $@)
 	gcc $(PNG_CFLAGS) -c -o $@ $<
 
+$(B)/gme/%.o: $(GME)/%.cpp $(B)/flags
+	@mkdir -p $(dir $@)
+	g++ $(GME_CXXFLAGS) -c -o $@ $<
+
+$(B)/gme/%.o: $(GME)/%.c $(B)/flags
+	@mkdir -p $(dir $@)
+	gcc $(GME_CFLAGS) -c -o $@ $<
+
 $(B)/ogg/%.o: $(OGG)/src/%.c compat/ogg/config_types.h $(B)/flags 
 	@mkdir -p $(dir $@)
 	gcc $(XIPH_CFLAGS) -c -o $@ $<
@@ -60,8 +71,8 @@ $(B)/core/run-native.o: run-native.c harness.h platform/chimera-platform.h $(B)/
 	@mkdir -p $(dir $@)
 	gcc -O2 -g -Wall -I. -c -o $@ $<
 
-$(B)/run-native: $(CORE_OBJS) $(SRB2_OBJS) $(PNG_OBJS) $(XIPH_OBJS) $(ZLIB_OBJS) $(B)/core/run-native.o
-	gcc -rdynamic -o $@ $^ $(WRAP_FLAGS) -lm
+$(B)/run-native: $(CORE_OBJS) $(SRB2_OBJS) $(PNG_OBJS) $(XIPH_OBJS) $(GME_OBJS) $(ZLIB_OBJS) $(B)/core/run-native.o
+	g++ -rdynamic -o $@ $^ $(WRAP_FLAGS) -lm
 
 # run-wbx links the miniBox host library
 MBHOST := $(MB)/build/meson-linux/source/host

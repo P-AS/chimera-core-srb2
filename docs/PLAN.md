@@ -27,7 +27,8 @@ the guest build), following Chimera's `docs/porting-a-core.md` and `docs/game-co
   libxmp if libopenmpt proves impractical; no MIDI for now):
   - [x] **5a.** The mixer (`platform/i_sound.c`): sound effects (DMX, WAV, Ogg Vorbis), Ogg Vorbis and WAV
     music with loop points and fades. Gate leg `audio`; every leg's run line carries the sound's hash.
-  - [ ] 5b. GME (VGM/VGZ, NSF, SPC, GBS...): C++, so miniBox's C++ guest toolchain.
+  - [x] **5b.** GME (libgme 0.6.5: VGM/VGZ, NSF, SPC, GBS, HES, KSS, AY, SAP, GYM), music and sound effects,
+    as upstream's mixer drives it. C++: the guest is built with miniBox's C++ toolchain.
   - [ ] 5c. libopenmpt (tracker modules; libxmp if libopenmpt is impractical): C++; its SIMD chosen by the
     host's CPU at run time must be compiled out.
 - [ ] 6. Savestates: **rerecord and session pass** (gate leg `savestates`, ~32 MB a state), including a state
@@ -177,12 +178,33 @@ Checked against independent decodes (ffmpeg): the intro's song is in the mix wit
 (residual 0.04%: the volume's integer rounding), at the volume the game sets (16 of 31 → 66/128); the jump
 sound starts on the step Jump was pressed.
 
+**GME** (`extern/gme`, libgme 0.6.5, every emulator, the Nuked YM2612, its CMake defaults) does what upstream's
+mixer does with it: tried first for a song (a VGZ inflated by SRB2's own code, `inflate_vgz`), then Vorbis; a
+sound effect rendered for its `play_length`; the equalizer at treble 5, bass 1; looping by
+`gme_set_autoload_playback_limit(0)`; length as intro + one loop, position folded past the loop, seeking
+refused silently ("unstable"), tempo and tracks; and its volume upstream's own (`music_volume * internal / 100 /
+20`, the volume limited to 18), because SDL_mixer hooks it past the music volume. Checked against the system's
+libgme 0.6.5 through ctypes: sample-exact (correlation 1.000000) from the step after `tunes`, gain 0.80 at the
+default volume. Upstream SRB2 vendors GME 0.6.1 for Windows and links the system's (0.6.3+) on Linux; 0.6.5 is
+the current release. The gate plays GME's own `test.nsf` (from SRB2's `libs/gme`) from a PWAD it makes
+(`waterbox/tests/make-wad.py`), through the console's `addfile` and `tunes`.
+
+**The C++ guest toolchain** (miniBox `-Dguest_cpp=true`, `build/meson-cpp`): libstdc++ for the guest, linked
+with miniBox's recipe (`--no-relax`, the weak `pthread` pulls, `cxxglue`). GME is built without exceptions or
+RTTI (it uses neither), and with `-include ctime` (its `Hes_Emu.cpp` names `time_t` for an emulated time, which
+glibc's headers declare in passing and musl's do not). On this host two workarounds were needed to build
+miniBox's toolchain, both outside this repository: the system GCC is an Arch snapshot (16.2.1) with no release
+tarball, so the build was seeded with 16.2.0's source; and libstdc++'s `std::stacktrace` (libbacktrace) fails
+under GCC 16's C23 against musl's `basename()`, so it was configured `--disable-libstdcxx-backtrace`.
+
 **The math is the core's** (`platform/detmath.c`, from the DSDA core): libvorbis builds its tables with `sin`,
 `cos`, `acos`, `atan`, `exp` and `log`, and glibc and musl differ in their last bits, so the link answers them
 with functions built from IEEE-exact operations only, in both builds. The same wraps cover what SRB2 itself
 calls: **`hypot` in its slopes (play)** and `sincos` in its renderer (the picture), which the gate's
-Greenflower 1 has none of, and which would have split native and sandbox on a sloped level. `pow` stays the C
-library's: Lua's `^` takes integer powers of integers, which both give exactly.
+Greenflower 1 has none of, and which would have split native and sandbox on a sloped level. **`pow`** is the
+core's too (GME's equalizer and filters take fractional powers): an integer exponent is repeated squaring,
+exact wherever the result fits a double - so Lua's `^` (integer powers of integers) is what the C library
+gives - and a fractional one goes through `exp`/`log`.
 
 ## The game's home
 

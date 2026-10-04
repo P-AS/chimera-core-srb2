@@ -7,3 +7,6 @@
 [submodule "extern/vorbis"]
 	path = extern/vorbis
 	url = https://github.com/xiph/vorbis.git
+[submodule "extern/gme"]
+	path = extern/gme
+	url = https://github.com/libgme/game-music-emu.git
