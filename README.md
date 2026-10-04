@@ -13,25 +13,33 @@ core carries none of it.
 
 ```
 git submodule update --init
-make -C waterbox -f native.mk -j$(nproc)    # the native reference: build/native/run-native
+export MINIBOX_DIR=<a Chimera checkout>/extern/chimera-common-minibox
+make -C waterbox -f native.mk -j$(nproc)    # the native reference and the harnesses: build/native/
+make -C waterbox -f guest.mk -j$(nproc)     # the core: build/guest/core.wbx
 ```
 
-The patches go onto `extern/SRB2` on the first build (`waterbox/apply-patches.sh`, all or nothing).
+miniBox must be built first, with its guest toolchain: `meson setup build/meson-linux && ninja -C
+build/meson-linux && ninja -C build/meson-linux source/guest/emulibc.c.o` in its checkout. The patches go onto
+`extern/SRB2` on the first build (`waterbox/apply-patches.sh`, all or nothing).
 
 ## Running the native reference
 
 ```
 mkdir -p build/work && ln -s /usr/share/games/SRB2/*.pk3 build/work/
+echo '{"warp": "1"}' > build/work/settings          # optional: start in Greenflower Zone Act 1
 build/native/run-native build/work -n 400 --ppm frame.ppm
+build/native/run-wbx build/guest/core.wbx build/work -n 400   # the same, in the sandbox
 ```
 
-It runs the engine's loop `-n` times, printing a hash of the picture every `-p` frames, and writes the last
-picture with `--ppm`. A step is a tic, on the machine's own clock.
+Both run `-n` steps (a step is a tic, on the machine's own clock), print the picture's hash, the tic and the
+clock every `-p` steps and a hash of the whole run at the end, and `--ppm` writes the last picture. Their
+lines diff directly.
 
 ## The gate
 
-`./waterbox/run-gate.sh [-d <SRB2 data folder>]`: the legs, each saying what it compared. So far `time`: a
-host stall mid-run changes nothing, and on the host's clock it would (the leg's teeth).
+`./waterbox/run-gate.sh [-d <SRB2 data folder>] [-m <miniBox>]`: the legs, each saying what it compared, each
+with teeth. `equivalence`: native == sandbox, step for step, on the intro and Greenflower Zone Act 1. `time`: a
+host stall mid-run changes nothing, in either build.
 
 ## Licence
 

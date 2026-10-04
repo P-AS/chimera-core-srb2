@@ -33,8 +33,8 @@ SRB2_SRCS := $(filter-out $(SRB2_EXCLUDE), \
 # renderer only (no HWRENDER), no threads, no curl, no UPnP, no Mumble, no
 # music libraries; zlib (the .pk3 files) and libpng (PNG graphics in them)
 # from upstream's own libs/. C23, with -fwrapv: the game relies on wrapping
-# signed arithmetic.
-SRB2_DEFS := -DUNIXCOMMON -DLINUX -DLINUX64 -D_LARGEFILE64_SOURCE -DHAVE_ZLIB -DHAVE_PNG \
+# signed arithmetic. NDEBUG, as upstream's release build and the guest have it.
+SRB2_DEFS := -DNDEBUG -DUNIXCOMMON -DLINUX -DLINUX64 -D_LARGEFILE64_SOURCE -DHAVE_ZLIB -DHAVE_PNG \
 	-DNOMUMBLE -DNOEXECINFO -DNOUPNP
 SRB2_INCS := -Iplatform -I$(SRB2) -I$(SRB2)/blua -I$(LIBS)/zlib -I$(LIBS)/libpng-src -I$(PNGCONF_DIR)
 SRB2_CFLAGS_COMMON := -std=gnu23 -O2 -fwrapv -fno-strict-aliasing $(SRB2_DEFS) $(SRB2_INCS)
@@ -53,15 +53,17 @@ PNG_CFLAGS_COMMON := -std=gnu11 -O2 -DNDEBUG -DPNG_INTEL_SSE_OPT=0 -DPNG_ARM_NEO
 	-DPNG_MIPS_MSA_OPT=0 -DPNG_POWERPC_VSX_OPT=0 -I$(LIBS)/libpng-src -I$(PNGCONF_DIR) -I$(LIBS)/zlib
 
 # ---- the core: its platform layer (platform/) and the driver
-PLATFORM_NAMES := i_system i_video i_threads i_net comptime
-CORE_C_NAMES := $(addprefix platform/,$(PLATFORM_NAMES)) srb2-driver
+PLATFORM_NAMES := i_system i_video i_threads i_net files comptime
+CORE_C_NAMES := $(addprefix platform/,$(PLATFORM_NAMES)) srb2-driver wbx-entry
 CORE_HDRS := $(wildcard *.h) $(wildcard platform/*.h)
 CORE_CFLAGS_COMMON := $(SRB2_CFLAGS_COMMON)
 
-# the calls the core answers itself (platform/i_system.c): the libc clocks,
-# which are the machine's, and rand, which is the same in both builds
+# the calls the core answers itself, the same in both builds: the libc clocks,
+# which are the machine's, and rand (platform/i_system.c); the files, which are
+# the mounts (platform/files.c)
 WRAP_FLAGS := -Wl,--wrap=clock_gettime -Wl,--wrap=time -Wl,--wrap=gettimeofday -Wl,--wrap=clock \
-	-Wl,--wrap=localtime -Wl,--wrap=rand -Wl,--wrap=srand
+	-Wl,--wrap=localtime -Wl,--wrap=rand -Wl,--wrap=srand \
+	-Wl,--wrap=fopen -Wl,--wrap=access -Wl,--wrap=stat -Wl,--wrap=remove
 
 # the patch series goes onto the submodule before anything of SRB2 builds
 PATCH_STAMP := $(ROOT)/build/patches.stamp
