@@ -30,15 +30,19 @@ ECL_INVISIBLE static int g_render = 1;
 
 ECL_EXPORT const char *GetLoadError(void) { return g_load_error; }
 
-/* the engine started as upstream's main starts it; its home (configuration,
- * game data) is the machine's "." - nothing is written there yet. Settings:
+/* the engine started as upstream's main starts it. Its folder (-workdir,
+ * patches/0003: configuration, game data, saves, replays) is the machine's
+ * own root, so its files are the machine's names - "config.cfg",
+ * "gamedata.dat" - never a folder of the host's; -home, the user's home it
+ * otherwise derives that from (the host's $HOME, which the core never
+ * answers), is required and unused. Nothing is written yet. Settings:
  *   warp   a map to start in, as the game's -warp takes it (a number, or
  *          MAPxx); empty: the game's own start, the intro and the title */
 ECL_EXPORT int Init(void)
 {
 	static char warp[16];
-	static char *argv[8] = { "srb2", "-home", "." };
-	int argc = 3;
+	static char *argv[10] = { "srb2", "-home", ".", "-workdir", "." };
+	int argc = 5;
 	g_load_error[0] = '\0';
 	if (wbx_setting_str("warp", warp, (int)sizeof warp) > 0 && warp[0])
 	{

@@ -16,8 +16,9 @@ the guest build), following Chimera's `docs/porting-a-core.md` and `docs/game-co
   them directly, run-wbx through miniBox's host, over one harness loop (`harness.h`). Gate leg `equivalence`:
   native == sandbox on the intro (700 steps) and Greenflower Zone Act 1 (`warp` 1, 1000 steps), every step's
   picture, tic and clock; teeth: native on the host's clock is not the sandbox. `time` runs in both builds.
-- [ ] 3. The machine's filesystem (config, game data, saves inside the machine). Until then nothing is
-  written, in either build (`platform/files.c`).
+- [ ] 3. The machine's filesystem: SRB2's folder is already the machine's root (`-workdir .`, see "The game's
+  home"); what it holds (config from the settings, game data as a project file, saves in memory) is next.
+  Until then nothing is written, in either build (`platform/files.c`).
 - [ ] 4. Input (the base tic command, `I_BaseTiccmd`), lag.
 - [ ] 5. Audio: a mixer of the core's own for the effects and music (music.pk3 is OGG/tracker/MIDI).
 - [ ] 6. Savestates, 7. the package, properties (`Game State`), settings.
@@ -43,6 +44,9 @@ the guest build), following Chimera's `docs/porting-a-core.md` and `docs/game-co
   that runs the loop itself.
 - `0002-no-curl.patch`: `d_netfil.c`'s HTTP download under `HAVE_CURL`, as its include already is (upstream's
   CMake makes curl mandatory, so nothing else guards it); without it, no download.
+- `0003-workdir-backport.patch`: upstream's `-workdir` (da1b35820, on `next` for 2.2.16), backported: it names
+  SRB2's own folder, where `-home` names only the user's home it is otherwise derived from (`<home>/.srb2`).
+  **Drop it when the submodule reaches 2.2.16**: `apply-patches.sh` will report it no longer applies.
 
 ## The platform layer (`waterbox/platform/`)
 
@@ -74,6 +78,29 @@ the guest build), following Chimera's `docs/porting-a-core.md` and `docs/game-co
   renderer). SRB2's game and renderer are fixed-point; the gate's contents agree. A longer run, other zones
   and the special stages will say more.
 
+## The game's home
+
+**SRB2's folder is the machine's root, never a folder of the host's.** `Init` starts the engine with
+`-workdir .` (patch 0003) and `-home .`. Everything SRB2 keeps is built from that folder (`srb2home`), so its
+files are the machine's own top-level names: `config.cfg`, `gamedata.dat` (unlocks, records), `srb2sav*.ssg`
+(saves), `autoexec.cfg`, `replay/<folder>/MAPxx-*.lmp` (record attack), `luafiles/`, `addons/`. Without
+`-workdir`, the folder would be `./.srb2/`, a subfolder the flat, name-matched mounts of miniBox would have to
+spell. `-home` is still required (SRB2 stops without a user home) and is otherwise unused.
+
+Nothing can reach the host's `~/.srb2` in either build. The core's `I_GetEnv` answers no `$HOME`, and paths
+are relative to the machine's root: the mounts in the sandbox, the harness's work folder natively. Writes are
+refused (`platform/files.c`) and `I_mkdir` makes nothing. Verified: a `config.cfg` at the work folder's root
+is executed (`Executing ./config.cfg`) and changes the picture identically in both builds.
+
+**Milestone 3** decides what that folder holds in Chimera's terms. The likely shape:
+- `config.cfg` is not the user's: settings that shape the machine come from the project. The core writes its
+  own config from the settings, or none, so a host's SRB2 configuration can never leak in.
+- `gamedata.dat` is a project file (unlocked characters, emblems and levels change what the game offers). It
+  is mounted read-only from the project or starts empty, and written back as save data
+  (Chimera's `docs/save-data.md`).
+- Saves and replays are written into the machine's memory, so they are part of the savestate. That is
+  porting-a-core.md's "serve the machine's drives out of its own memory".
+
 ## What the engine asks of the host, and what the core must answer
 
 Found reading the engine, for the milestones ahead:
@@ -94,5 +121,5 @@ Found reading the engine, for the milestones ahead:
   `localtime` as UTC, and a `rand` of the core's own (glibc's and musl's differ).
 - The frame-rate cap sleeps (`I_SleepDuration`) and interpolation (`cv_fpscap`, `rendertimefrac`) read the
   precise clock: interpolation must be off (one picture per tic).
-- The configuration (`config.cfg`) and game data (`gamedata.dat`) are written under `-home`: inside the
-  machine at milestone 3.
+- The configuration (`config.cfg`) and game data (`gamedata.dat`) live in SRB2's folder, the machine's root
+  (above, "The game's home").

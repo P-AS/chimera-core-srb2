@@ -1,0 +1,53 @@
+Backport of upstream da1b35820a185f9fb207bd795283c7c6d9cead22 (next, for 2.2.16):
+-workdir names SRB2's own folder, -home only the user's home. Drop this patch
+when the submodule reaches a release that has it.
+
+diff --git a/src/d_main.c b/src/d_main.c
+index 43bd1741a..d40832896 100644
+--- a/src/d_main.c
++++ b/src/d_main.c
+@@ -1363,8 +1363,14 @@ void D_SRB2Main(void)
+ 		else
+ 		{
+ 			// use user specific config file
++			if (M_CheckParm("-workdir") && M_IsNextParm())
++				snprintf(srb2home, sizeof srb2home, "%s", M_GetNextParm());
++			else
+ #ifdef DEFAULTDIR
+-			snprintf(srb2home, sizeof srb2home, "%s" PATHSEP DEFAULTDIR, userhome);
++				snprintf(srb2home, sizeof srb2home, "%s" PATHSEP DEFAULTDIR, userhome);
++#else // DEFAULTDIR
++				snprintf(srb2home, sizeof srb2home, "%s", userhome);
++#endif // DEFAULTDIR
+ 			snprintf(downloaddir, sizeof downloaddir, "%s" PATHSEP "DOWNLOAD", srb2home);
+ 			if (dedicated)
+ 				snprintf(configfile, sizeof configfile, "%s" PATHSEP "d"CONFIGFILENAME, srb2home);
+@@ -1376,25 +1382,14 @@ void D_SRB2Main(void)
+ 			strcatbf(liveeventbackup, srb2home, PATHSEP);
+ 
+ 			snprintf(luafiledir, sizeof luafiledir, "%s" PATHSEP "luafiles", srb2home);
+-#else // DEFAULTDIR
+-			snprintf(srb2home, sizeof srb2home, "%s", userhome);
+-			snprintf(downloaddir, sizeof downloaddir, "%s", userhome);
+-			if (dedicated)
+-				snprintf(configfile, sizeof configfile, "%s" PATHSEP "d"CONFIGFILENAME, userhome);
+-			else
+-				snprintf(configfile, sizeof configfile, "%s" PATHSEP CONFIGFILENAME, userhome);
+-
+-			// can't use sprintf since there is %u in savegamename
+-			strcatbf(savegamename, userhome, PATHSEP);
+-			strcatbf(liveeventbackup, userhome, PATHSEP);
+-
+-			snprintf(luafiledir, sizeof luafiledir, "%s" PATHSEP "luafiles", userhome);
+-#endif // DEFAULTDIR
+ 		}
+ 
+ 		configfile[sizeof configfile - 1] = '\0';
+ 	}
+ 
++	// make sure workdir exists
++	I_mkdir(srb2home, 0755);
++
+ 	// Create addons dir
+ 	snprintf(addonsdir, sizeof addonsdir, "%s%s%s", srb2home, PATHSEP, "addons");
+ 	I_mkdir(addonsdir, 0755);
