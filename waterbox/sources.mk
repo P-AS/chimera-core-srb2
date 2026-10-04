@@ -55,8 +55,10 @@ PNG_CFLAGS_COMMON := -std=gnu11 -O2 -DNDEBUG -DPNG_INTEL_SSE_OPT=0 -DPNG_ARM_NEO
 # ---- the core: its platform layer (platform/) and the driver
 PLATFORM_NAMES := i_system i_video i_threads i_net files comptime
 CORE_C_NAMES := $(addprefix platform/,$(PLATFORM_NAMES)) srb2-driver wbx-entry
+# libco (miniBox's extern/libco, public domain): the engine's cothread
+LIBCO_SRC := $(MB)/extern/libco/amd64.c
 CORE_HDRS := $(wildcard *.h) $(wildcard platform/*.h)
-CORE_CFLAGS_COMMON := $(SRB2_CFLAGS_COMMON)
+CORE_CFLAGS_COMMON := $(SRB2_CFLAGS_COMMON) -I$(MB)/extern/libco
 
 # the calls the core answers itself, the same in both builds: the libc clocks,
 # which are the machine's, and rand (platform/i_system.c); the files, which are

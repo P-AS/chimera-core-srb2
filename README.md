@@ -38,11 +38,12 @@ lines diff directly.
 ## The gate
 
 `./waterbox/run-gate.sh [-d <SRB2 data folder>] [-m <miniBox>]`: the legs, each saying what it compared, each
-with teeth. `equivalence`: native == sandbox, step for step, on the intro and Greenflower Zone Act 1. `time`: a
-host stall mid-run changes nothing, in either build.
+with teeth. `equivalence`: native == sandbox, step for step, on the intro and Greenflower Zone Act 1. `steps`:
+a step is a tic, a wipe's frames are lag steps, play is a tic a step. `savestates`: a save and load before
+every step, and a new host mid-wipe, change nothing. `time`: a host stall mid-run changes nothing.
 
 ## Licence
 
 GPL-2.0, as SRB2 is (`LICENSE`). zlib and libpng are compiled from the copies in SRB2's `libs/`, under their
-own licences. Sonic the Hedgehog and related characters are trademarks of SEGA; this repository carries
+own licences; libco (miniBox's `extern/libco`) is public domain. Sonic the Hedgehog and related characters are trademarks of SEGA; this repository carries
 none of the game's data.

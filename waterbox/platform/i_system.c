@@ -34,11 +34,12 @@ UINT8 keyboard_started = 0;
  *
  * The precise clock counts TIC_UNITS a tic (35 MHz: a microsecond is 35 units,
  * as m_anigif and Lua's getTimeMicros divide by I_GetPrecisePrecision()/1e6).
- * It moves only when the machine does: a tic a step (chimera_clock_step, the
- * driver's), and to the next tic's deadline when the engine sleeps - the
- * loops that wait inside a tic (the wipe, the level's fade, the intro) sleep
- * until I_GetTime moves, and idle must jump to the next deadline. The frame
- * cap's sleep (I_SleepDuration) is pacing, which is the frontend's: nothing.
+ * It moves only when the machine does, a tic a step (chimera_clock_step, the
+ * driver's). When the engine sleeps - the loops that wait inside a tic for
+ * I_GetTime to move: the wipes, the title card, the intro - the step ends
+ * there (chimera_wait), and the next one brings the tic it waits for: each
+ * frame of a wipe is a step. The frame cap's sleep (I_SleepDuration) is
+ * pacing, which is the frontend's: nothing.
  *
  * It starts half a tic in and stays on half-tics: I_UpdateTime turns deltas
  * into tics with a double accumulator and a strict ">", and a clock on whole
@@ -82,7 +83,7 @@ void I_Sleep(UINT32 ms)
 		nanosleep(&ts, NULL);
 		return;
 	}
-	g_clock += TIC_UNITS;
+	chimera_wait();
 }
 
 void I_SleepDuration(precise_t duration)
@@ -232,9 +233,14 @@ void I_GetEvent(void) {}
 INT32 I_GetKey(void) { return 0; }
 void I_OsPolling(void) {}
 /* the tic command G_BuildTiccmd starts from ("empty, or external driver"):
- * empty, for now */
+ * empty, for now. Asked for, the step has read input (player one's; the
+ * second is splitscreen's) */
 static ticcmd_t g_basecmd, g_basecmd2;
-ticcmd_t *I_BaseTiccmd(void) { return &g_basecmd; }
+ticcmd_t *I_BaseTiccmd(void)
+{
+	chimera_input_read();
+	return &g_basecmd;
+}
 ticcmd_t *I_BaseTiccmd2(void) { return &g_basecmd2; }
 void I_Tactile(FFType Type, const JoyFF_t *Effect) { (void)Type; (void)Effect; }
 void I_Tactile2(FFType Type, const JoyFF_t *Effect) { (void)Type; (void)Effect; }

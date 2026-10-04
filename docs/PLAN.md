@@ -19,9 +19,12 @@ the guest build), following Chimera's `docs/porting-a-core.md` and `docs/game-co
 - [ ] 3. The machine's filesystem: SRB2's folder is already the machine's root (`-workdir .`, see "The game's
   home"); what it holds (config from the settings, game data as a project file, saves in memory) is next.
   Until then nothing is written, in either build (`platform/files.c`).
-- [ ] 4. Input (the base tic command, `I_BaseTiccmd`), lag.
+- [ ] 4. Input (the base tic command, `I_BaseTiccmd`), lag. **Lag is done**: wipes are steps (below); the
+  controller and the tic command from it are next.
 - [ ] 5. Audio: a mixer of the core's own for the effects and music (music.pk3 is OGG/tracker/MIDI).
-- [ ] 6. Savestates, 7. the package, properties (`Game State`), settings.
+- [ ] 6. Savestates: **rerecord and session pass** (gate leg `savestates`, ~32 MB a state), including a state
+  taken mid-wipe with the engine suspended on its cothread. 7. the package, properties (`Game State`),
+  settings.
 
 ## Upstream
 
@@ -78,6 +81,31 @@ the guest build), following Chimera's `docs/porting-a-core.md` and `docs/game-co
   renderer). SRB2's game and renderer are fixed-point; the gate's contents agree. A longer run, other zones
   and the special stages will say more.
 
+## Wipes are steps (2026-10-04)
+
+SRB2 draws its wipes in loops that run a frame a tic without running the game: the fade to and from black on
+every game-state change (`D_Display`), the fade before a level loads and the special stage's white
+(`P_LoadLevel`, inside `G_Ticker`), the level's title card (`G_PreLevelTitleCard`, 24 tics), the intro's and the
+custom cutscenes' (`f_finale.c`). Each waits for the next tic with `I_Sleep`. At milestone 1 a sleep moved the
+clock, so a whole wipe passed inside one step: invisible, and a movie shorter than play by every wipe.
+
+Now **the engine runs on a cothread of its own** (libco, miniBox's `extern/libco`, public domain;
+`srb2-driver.c`). A step moves the clock one tic and resumes it, and `I_Sleep` hands back to the host: **each
+wipe frame is a step**, with its own picture. **A step that built no tic command is lag** (`InputWasRead`: set
+when `G_BuildTiccmd` asks for the base command, `I_BaseTiccmd`). No game logic runs in a wipe, so nothing about
+sync changes; the movie is as long as play. No upstream patch: it covers every wait loop, an add-on's cutscenes
+and 2.2.16's too. An exit (`I_Error`) leaves the cothread for good instead of longjmp'ing.
+
+Entering Greenflower Zone Act 1 is 64 lag steps (fade, title card, fade in); the intro is 193 of its first
+700.
+
+**After a wipe, a step can run up to three tics**: SRB2 calls `NetUpdate` three times a pass (`TryRunTics`,
+`R_RenderView`, the end of `D_Display`), and each makes a tic for the time passed since the last. A pass that
+spans a wipe makes several, and the next pass runs them all: what SRB2 does on any machine, the wipe having
+taken the time. Each of those tics' commands is built in a step (in the `NetUpdate` that made it, from that
+step's input), so the movie still says every tic; it is only not a tic a row for those few steps. In play every
+step is one tic (the gate checks).
+
 ## The game's home
 
 **SRB2's folder is the machine's root, never a folder of the host's.** `Init` starts the engine with
@@ -111,11 +139,8 @@ Found reading the engine, for the milestones ahead:
 - **Time** (done, milestone 1): `I_UpdateTime` turns `I_GetPreciseTime` deltas into tics with a double accumulator and a strict
   `>` - a clock that moves exactly one tic per step yields no tic on the first (1/35 is not more than 1/35)
   and one per step after. The clock starts half a tic in and stays on half-tics, clear of the threshold.
-- **Four loops wait inside a tic** on `I_Sleep` + `I_UpdateTime`: the wipe (`f_wipe.c`), the level load's
-  fade (`p_setup.c`), the intro/finale (`f_finale.c`), `g_game.c`'s. `I_Sleep` moves the clock to the next
-  tic's deadline, so each ends; **its tics pass inside one step** (the intro's wipes: 704 tics in 700
-  steps). Whether a wipe should instead be steps of its own, lag frames as DSDA's stepped melt is, is
-  milestone 4's question (input and lag).
+- **Loops wait inside a tic** on `I_Sleep` + `I_UpdateTime`: the wipes, the title card, the intro: each frame
+  is a step (above, "Wipes are steps").
 - `time()`, `clock()`, `localtime()` in Lua's `os` library (`loslib.c`) and `d_netfil.c`; `rand()` in
   `d_netfil.c` and `d_net.c`'s packet drop: wrapped (`WRAP_FLAGS`): the machine's time since 2000-01-01 UTC,
   `localtime` as UTC, and a `rand` of the core's own (glibc's and musl's differ).

@@ -36,7 +36,7 @@ $(call flags_stamp,$(B),$(CC) | $(SRB2_CFLAGS) | $(ZLIB_CFLAGS) | $(PNG_CFLAGS) 
 SRB2_OBJS := $(patsubst $(SRB2)/%.c,$(B)/srb2/%.o,$(SRB2_SRCS))
 ZLIB_OBJS := $(patsubst $(LIBS)/zlib/%.c,$(B)/zlib/%.o,$(ZLIB_SRCS))
 PNG_OBJS := $(patsubst $(LIBS)/libpng-src/%.c,$(B)/png/%.o,$(PNG_SRCS))
-CORE_OBJS := $(addprefix $(B)/core/,$(addsuffix .o,$(CORE_C_NAMES)))
+CORE_OBJS := $(addprefix $(B)/core/,$(addsuffix .o,$(CORE_C_NAMES))) $(B)/core/libco.o
 
 all: $(B)/core.wbx
 
@@ -67,6 +67,10 @@ $(B)/core.wbx: $(CORE_OBJS) $(SRB2_OBJS) $(PNG_OBJS) $(ZLIB_OBJS) | $(EMULIBC)
 		-o $@.tmp $^ $(EMULIBC) $(WRAP_FLAGS) -lm -lgcc
 	sh $(MB)/source/guest/check-wbx.sh $@.tmp
 	mv $@.tmp $@
+
+$(B)/core/libco.o: $(LIBCO_SRC) $(B)/flags
+	@mkdir -p $(dir $@)
+	$(CC) $(CORE_CFLAGS) -std=gnu11 -c -o $@ $<
 
 clean:
 	rm -rf $(B)

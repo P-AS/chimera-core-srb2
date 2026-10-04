@@ -22,6 +22,7 @@ extern uint32_t *GetVideoBgra(void);
 extern int GetVideoWidth(void);
 extern int GetVideoHeight(void);
 extern uint32_t GetGameTic(void);
+extern int InputWasRead(void);
 extern uint64_t GetCycleCount(void);
 
 static void frame(void) { FrameAdvance(0); }
@@ -84,6 +85,7 @@ int main(int argc, char **argv)
 		.frame = frame,
 		.video = video,
 		.gametic = GetGameTic,
+		.input_was_read = InputWasRead,
 		.clock = GetCycleCount,
 	};
 	if (c.init() != 1)

@@ -18,6 +18,10 @@ void chimera_video_bgra(uint32_t *out);
 /* the engine's exit - I_Error or a quit - which halts the machine (the driver);
  * it does not return. msg is I_Error's message, or NULL for a quit. */
 void chimera_exit(int rc, const char *msg) __attribute__((noreturn));
+/* the engine waits for time inside a tic (I_Sleep): the step ends (the driver) */
+void chimera_wait(void);
+/* a tic command was built: the step read input (the driver) */
+void chimera_input_read(void);
 /* the seed of the bytes I_GetRandomBytes answers (the driver's) */
 extern uint64_t chimera_random_seed;
 #ifdef __cplusplus
