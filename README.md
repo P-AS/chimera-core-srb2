@@ -63,12 +63,13 @@ The harnesses' `--wav FILE` writes a run's sound.
 
 Declared in `waterbox/waterbox.config`, so Chimera shows them as the core's options; each is SRB2's own option,
 given to the engine at start: Play Style (default Manual), Camera Speed (1.0), Score/Time/Rings (Mania), Flip
-Camera with Gravity (Yes), Start Map (empty: the intro and the title).
+Camera with Gravity (Yes), Resolution (1280x800: SRB2's video modes, and 2560x1440 and 3840x2160, shown with square
+pixels; the game plays the same at every one), Start Map (empty: the intro and the title).
 
 ## The controller
 
-SRB2's default keyboard as buttons (Forward, Jump, Spin... and the menus' Enter and Escape), pressed as keys, so
-menus and play work as on a keyboard; plus axes for exact values: Forward Move, Side Move, Turn, Aim. The
+SRB2's default keyboard as buttons (Forward, Jump, Spin... the menus' Enter and Escape, a prompt's Yes and No),
+pressed as keys, so menus and play work as on a keyboard (the ring-slinger controls are left out for now); plus axes for exact values: Forward Move, Side Move, Turn, Aim. The
 harnesses take a movie as text, `--input FILE` with `FROM-TO: Button; Axis=value` lines (`waterbox/tests/`).
 
 ## Licence

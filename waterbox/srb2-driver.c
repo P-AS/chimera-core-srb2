@@ -29,6 +29,10 @@
 #include "doomstat.h"
 #include "netcode/d_clisrv.h"
 #include "command.h"
+#include "g_game.h"
+#include "p_local.h"
+#include "p_tick.h"
+#include "m_random.h"
 
 #include "chimera-platform.h"
 #include "srb2-driver.h"
@@ -131,4 +135,59 @@ const char *chimera_cvar_string(const char *name)
 {
 	consvar_t *v = CV_FindVar(name);
 	return v ? v->string : "(none)";
+}
+
+/* ---- the game's state, as a digest: what the game IS, apart from how it is
+ * drawn or heard - the tic, the level's time, the RNG, the game state and map,
+ * the player, the camera (the tic command is built from it), and every object
+ * in the level. The same at every resolution (the gate's resolution leg). */
+static UINT64 g_digest;
+static void mix(const void *p, size_t n)
+{
+	const UINT8 *b = p;
+	for (size_t i = 0; i < n; i++)
+		g_digest = (g_digest ^ b[i]) * 0x100000001b3ull;
+}
+#define MIX(v) do { __typeof__(v) mix_v = (v); mix(&mix_v, sizeof mix_v); } while (0)
+
+UINT64 chimera_state_digest(void)
+{
+	g_digest = 0xcbf29ce484222325ull;
+	MIX(gametic);
+	MIX(leveltime);
+	MIX(P_GetRandSeed());
+	MIX(gamestate);
+	MIX(gamemap);
+	const player_t *p = &players[consoleplayer];
+	MIX(p->rings);
+	MIX(p->score);
+	MIX(p->lives);
+	MIX(p->pflags);
+	MIX(p->speed);
+	MIX(p->playerstate);
+	MIX(camera.x);
+	MIX(camera.y);
+	MIX(camera.z);
+	MIX(camera.angle);
+	MIX(camera.aiming);
+	if (gamestate == GS_LEVEL)
+	{
+		for (thinker_t *th = thlist[THINK_MOBJ].next; th && th != &thlist[THINK_MOBJ]; th = th->next)
+		{
+			if (th->function == (actionf_p1)P_RemoveThinkerDelayed)
+				continue;
+			const mobj_t *mo = (const mobj_t *)th;
+			MIX(mo->x);
+			MIX(mo->y);
+			MIX(mo->z);
+			MIX(mo->momx);
+			MIX(mo->momy);
+			MIX(mo->momz);
+			MIX(mo->angle);
+			MIX(mo->type);
+			MIX(mo->health);
+			MIX((INT32)(mo->state ? mo->state - states : -1));
+		}
+	}
+	return g_digest;
 }

@@ -31,6 +31,7 @@ extern int16_t *GetAudio(void);
 extern int GetAudioSampleCount(void);
 extern int InputWasRead(void);
 extern uint64_t GetCycleCount(void);
+extern uint64_t GetStateDigest(void);
 extern void SetButton(int32_t index, int32_t state);
 extern void SetAxis(int32_t index, int32_t value);
 extern int GetButtonCount(void);
@@ -156,6 +157,7 @@ int main(int argc, char **argv)
 		.gametic = GetGameTic,
 		.input_was_read = InputWasRead,
 		.clock = GetCycleCount,
+		.state_digest = GetStateDigest,
 		.set_button = SetButton,
 		.set_axis = SetAxis,
 		.button_count = GetButtonCount,

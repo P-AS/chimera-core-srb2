@@ -7,7 +7,9 @@
  * (D_PostEvent) when a button changes, so the menus, the title screen and the
  * game all read it as they read a keyboard, and the game builds its tic
  * command from the held keys with all its own logic (accelerative turning, the
- * Simple control style's camera). Enter and Escape are the menus' own keys.
+ * Simple control style's camera). Enter and Escape are the menus' own keys,
+ * Yes and No a prompt's (y, n). The ring-slinger controls - Fire, Fire
+ * Normal, Toss Flag, the weapons - are left out for now (commented below).
  * The bindings are forced to that scheme at start (srb2_input_bind), so no
  * configuration can change what a button means.
  *
@@ -48,12 +50,16 @@ static const struct srb2_button g_buttons[] = {
 	{ "Look Down", GC_LOOKDOWN, KEY_DOWNARROW },
 	{ "Jump", GC_JUMP, KEY_SPACE },
 	{ "Spin", GC_SPIN, KEY_LSHIFT },
+	/* the ring-slinger controls (match, CTF): left out for now, to keep the
+	 * controller to what a single-player game reads (user-decided 2026-10-04)
 	{ "Fire", GC_FIRE, KEY_RCTRL },
 	{ "Fire Normal", GC_FIRENORMAL, KEY_RALT },
 	{ "Toss Flag", GC_TOSSFLAG, '\'' },
+	*/
 	{ "Center View", GC_CENTERVIEW, KEY_LCTRL },
 	{ "Camera Reset", GC_CAMRESET, 'r' },
 	{ "Camera Toggle", GC_CAMTOGGLE, 'v' },
+	/* the ring-slinger weapons, left out with them
 	{ "Weapon Next", GC_WEAPONNEXT, KEY_MOUSEWHEELUP },
 	{ "Weapon Prev", GC_WEAPONPREV, KEY_MOUSEWHEELDOWN },
 	{ "Weapon 1", GC_WEPSLOT1, '1' },
@@ -63,13 +69,16 @@ static const struct srb2_button g_buttons[] = {
 	{ "Weapon 5", GC_WEPSLOT5, '5' },
 	{ "Weapon 6", GC_WEPSLOT6, '6' },
 	{ "Weapon 7", GC_WEPSLOT7, '7' },
+	*/
 	{ "Custom 1", GC_CUSTOM1, 'z' },
 	{ "Custom 2", GC_CUSTOM2, 'x' },
 	{ "Custom 3", GC_CUSTOM3, 'c' },
 	{ "Pause", GC_PAUSE, 'p' },
-	/* the menus' own keys */
+	/* the menus' own keys, and a prompt's yes and no (M_Responder) */
 	{ "Enter", GC_NULL, KEY_ENTER },
 	{ "Escape", GC_NULL, KEY_ESCAPE },
+	{ "Yes", GC_NULL, 'y' },
+	{ "No", GC_NULL, 'n' },
 };
 #define NBUTTONS ((int)(sizeof g_buttons / sizeof g_buttons[0]))
 

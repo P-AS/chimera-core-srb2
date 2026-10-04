@@ -40,7 +40,8 @@ SRB2_SRCS := $(filter-out $(SRB2_EXCLUDE), \
 # zlib (the .pk3 files) and libpng (PNG graphics in them) from upstream's own
 # libs/. C23, with -fwrapv: the game relies on wrapping
 # signed arithmetic. NDEBUG, as upstream's release build and the guest have it.
-SRB2_DEFS := -DNDEBUG -DUNIXCOMMON -DLINUX -DLINUX64 -D_LARGEFILE64_SOURCE -DHAVE_ZLIB -DHAVE_PNG -DHAVE_OPENMPT \
+# MAXVIDWIDTH/HEIGHT 3840x2160 (patches/0005): the resolution setting's largest.
+SRB2_DEFS := -DNDEBUG -DMAXVIDWIDTH=3840 -DMAXVIDHEIGHT=2160 -DUNIXCOMMON -DLINUX -DLINUX64 -D_LARGEFILE64_SOURCE -DHAVE_ZLIB -DHAVE_PNG -DHAVE_OPENMPT \
 	-DNOMUMBLE -DNOEXECINFO -DNOUPNP
 SRB2_INCS := -Iplatform -Icompat -I$(OGG)/include -I$(VORBIS)/include -I$(GME)/.. -I$(OPENMPT) -I$(SRB2) -I$(SRB2)/blua -I$(LIBS)/zlib -I$(LIBS)/libpng-src -I$(PNGCONF_DIR)
 SRB2_CFLAGS_COMMON := -std=gnu23 -O2 -fwrapv -fno-strict-aliasing $(SRB2_DEFS) $(SRB2_INCS)
