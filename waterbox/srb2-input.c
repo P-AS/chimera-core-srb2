@@ -7,8 +7,15 @@
  * (D_PostEvent) when a button changes, so the menus, the title screen and the
  * game all read it as they read a keyboard, and the game builds its tic
  * command from the held keys with all its own logic (accelerative turning, the
- * Simple control style's camera). Enter and Escape are the menus' own keys,
- * Yes and No a prompt's (y, n). The ring-slinger controls - Fire, Fire
+ * Simple control style's camera). Select (Enter) and Escape are the menus'
+ * own keys, Yes and No a prompt's (y, n).
+ *
+ * The names are chosen so that Chimera's TAStudio, which takes a control's
+ * letter from a table of its own or else from the name's last word, tells
+ * every one apart without a table for SRB2: Turn left/right (l, r) beside
+ * Strafe Left/Right (L, R), Reset Camera (C), Select (s, Chimera's own) beside
+ * Spin (S), Escape (E). docs/chimera-mnemonics.patch is a table Chimera could
+ * adopt (proposed upstream, not required). The ring-slinger controls - Fire, Fire
  * Normal, Toss Flag, the weapons - are left out for now (commented below).
  * The bindings are forced to that scheme at start (srb2_input_bind), so no
  * configuration can change what a button means.
@@ -44,8 +51,8 @@ static const struct srb2_button g_buttons[] = {
 	{ "Backward", GC_BACKWARD, 's' },
 	{ "Strafe Left", GC_STRAFELEFT, 'a' },
 	{ "Strafe Right", GC_STRAFERIGHT, 'd' },
-	{ "Turn Left", GC_TURNLEFT, KEY_LEFTARROW },
-	{ "Turn Right", GC_TURNRIGHT, KEY_RIGHTARROW },
+	{ "Turn left", GC_TURNLEFT, KEY_LEFTARROW },
+	{ "Turn right", GC_TURNRIGHT, KEY_RIGHTARROW },
 	{ "Look Up", GC_LOOKUP, KEY_UPARROW },
 	{ "Look Down", GC_LOOKDOWN, KEY_DOWNARROW },
 	{ "Jump", GC_JUMP, KEY_SPACE },
@@ -57,7 +64,7 @@ static const struct srb2_button g_buttons[] = {
 	{ "Toss Flag", GC_TOSSFLAG, '\'' },
 	*/
 	{ "Center View", GC_CENTERVIEW, KEY_LCTRL },
-	{ "Camera Reset", GC_CAMRESET, 'r' },
+	{ "Reset Camera", GC_CAMRESET, 'r' },
 	{ "Camera Toggle", GC_CAMTOGGLE, 'v' },
 	/* the ring-slinger weapons, left out with them
 	{ "Weapon Next", GC_WEAPONNEXT, KEY_MOUSEWHEELUP },
@@ -74,8 +81,9 @@ static const struct srb2_button g_buttons[] = {
 	{ "Custom 2", GC_CUSTOM2, 'x' },
 	{ "Custom 3", GC_CUSTOM3, 'c' },
 	{ "Pause", GC_PAUSE, 'p' },
-	/* the menus' own keys, and a prompt's yes and no (M_Responder) */
-	{ "Enter", GC_NULL, KEY_ENTER },
+	/* the menus' own keys (Select is Enter's), and a prompt's yes and no
+	 * (M_Responder) */
+	{ "Select", GC_NULL, KEY_ENTER },
 	{ "Escape", GC_NULL, KEY_ESCAPE },
 	{ "Yes", GC_NULL, 'y' },
 	{ "No", GC_NULL, 'n' },

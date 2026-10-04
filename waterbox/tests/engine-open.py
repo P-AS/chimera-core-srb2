@@ -6,7 +6,7 @@ usage: engine-open.py <libchimera.so> <srb2.chimeraCore> <data folder> [steps] [
 Chimera's engine (libchimera, a bundle's dll/) opens the package with the four
 pk3s as firmware and the settings as overrides - every check the frontend's
 session makes: the required exports, the declaration, Init - then steps it,
-pressing Enter every 50 steps (through the intro, the title, the menus, into a new game), and
+pressing Select (Enter) every 50 steps (through the intro, the title, the menus, into a new game), and
 reports each failure the engine names. With --ppm, the last picture."""
 import ctypes
 import hashlib
@@ -64,7 +64,7 @@ if not s:
     sys.exit("open failed: " + (err.value.decode() if err.value else "(no message)"))
 print("opened:", cfg["coreName"], cfg.get("version", "?"))
 
-enter = 1 << cfg["input"]["buttons"].index("Enter")
+enter = 1 << cfg["input"]["buttons"].index("Select")  # the Enter key
 run = hashlib.sha1()
 lag = 0
 for step in range(1, steps + 1):

@@ -7,10 +7,10 @@
     {
       "name": "chimera-core-srb2 (integration)",
       "license": "GPL-2.0",
-      "url": "https://github.com/ToolAssisted-run/chimera-core-srb2",
+      "url": "https://github.com/P-AS/chimera-core-srb2",
       "commit": "{selfCommit}",
       "file": "LICENSE",
-      "sourceUrl": "https://github.com/ToolAssisted-run/chimera-core-srb2/archive/{commit}.tar.gz"
+      "sourceUrl": "https://github.com/P-AS/chimera-core-srb2/archive/{commit}.tar.gz"
     },
     {
       "name": "Sonic Robo Blast 2",
