@@ -118,8 +118,21 @@ which differ from SRB2's own:
 | Camera Speed | `cam_speed`, 0..1, clamped, printed at 5 places | **1.0** (0.3) |
 | Score/Time/Rings | `timerres`: Classic, Centiseconds, **Mania**, Tics | **Mania** (Classic) |
 | Flip Camera with Gravity | `flipcam` | **Yes** (No) |
+| Tutorial Prompt | `tutorialprompt` (the title's "play the tutorial?") | **Off** (On) |
+| Unlock Record Attack, NiGHTS Mode and Marathon Run | the game data's `SECRET_RECORDATTACK` and `SECRET_NIGHTSMODE` unlockables (SRB2 offers Marathon Run whenever Record Attack is unlocked, `m_menu.c`) | **Off** |
+| Unlock All Characters | the `SECRET_SKIN` unlockables (Amy, Fang, Metal Sonic) | **Off** |
+| Unlock All Secrets | every unlockable (24 in 2.2.15) | **Off** |
 | Resolution | the engine's one video mode (see "Resolution") | **1280x800** (1280x800) |
 | Start Map | `-warp` (empty: the intro and the title) | empty |
+
+**The unlocks** (user-decided, 2026-10-04: so a verification movie need not be made for each run) are set in
+the game data the engine has loaded, client's and server's (`srb2-driver.c`), at the start and before every
+step: an add-on that loads game data of its own (`dehacked.c`) reloads it, and SRB2's own updates only ever
+unlock, so re-setting them is idempotent. They are not cheats to SRB2 (`usedCheats` is untouched): a game with
+them saves its game data, and the save data export carries them. The 1 Player menu shows Record Attack, NiGHTS
+Mode and Marathon Run with the first on, `???` without it. With the tutorial prompt off, the gate's menu movie
+(`tests/menu-to-new-game.txt`) goes from the title through Start Game, the save and character selects, into a new
+game in Greenflower Zone.
 
 Manual is the Standard control style (`PF_DIRECTIONCHAR`, no `PF_ANALOGMODE`): the player faces where it moves
 and the camera does not turn by itself. The gate's `settings` leg reads the engine's options back

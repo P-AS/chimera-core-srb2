@@ -52,6 +52,15 @@ ECL_EXPORT const char *GetLoadError(void) { return g_load_error; }
  *   cameraSpeed     cam_speed, 0 to 1; the core's default 1.0
  *   scoreTimeRings  timerres: Classic, Centiseconds, Mania, Tics; default Mania
  *   flipCamera      flipcam: the camera flips with gravity; default Yes
+ *   tutorialPrompt  tutorialprompt: the title's "play the tutorial?"
+ *                   question on a first start; default Off
+ *   unlockModes     Record Attack and NiGHTS Mode unlocked from the start
+ *                   (SRB2 offers Marathon Run whenever Record Attack is); Off
+ *   unlockCharacters every character unlocked; Off
+ *   unlockAll       every unlockable (the modes, the characters, level select,
+ *                   sound test, Pandora's Box, the emblem hints and radar...);
+ *                   Off. The unlocks are the game data's (srb2-driver.c), so
+ *                   a movie needs no run that earns them
  *   resolution      the picture's size, WxH: SRB2's own video modes
  *                   (sdl/i_video.c's windowedModes) and 2560x1440, 3840x2160;
  *                   default 1280x800, SRB2's own. The picture's alone: the
@@ -128,6 +137,12 @@ static void settings_args(void)
 
 	arg("+flipcam");
 	arg(wbx_setting_bool("flipCamera", 1) ? "Yes" : "No");
+
+	arg("+tutorialprompt");
+	arg(wbx_setting_bool("tutorialPrompt", 0) ? "On" : "Off");
+
+	srb2_set_unlocks(wbx_setting_bool("unlockModes", 0), wbx_setting_bool("unlockCharacters", 0),
+		wbx_setting_bool("unlockAll", 0));
 
 	char res[32];
 	int w = 1280, h = 800;

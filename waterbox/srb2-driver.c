@@ -33,6 +33,7 @@
 #include "p_local.h"
 #include "p_tick.h"
 #include "m_random.h"
+#include "m_cond.h"
 
 #include "chimera-platform.h"
 #include "srb2-driver.h"
@@ -48,6 +49,7 @@ static int g_input_read;
 static char g_error[1024];
 
 static void to_host(void) { co_switch(g_host); }
+static void unlocks(void);
 
 static void engine_main(void)
 {
@@ -112,7 +114,68 @@ int srb2_start(int argc, char **argv)
 	if (g_halted)
 		return -1;
 	srb2_input_bind();
+	unlocks();
 	return 0;
+}
+
+/* ---- the unlocks a project starts with (its settings): set in the game data
+ * the game has loaded, client's and server's, before every step - so a
+ * reload of it (an add-on's own game data, dehacked.c) keeps them. The
+ * game's own updates only ever unlock, so nothing takes them back. */
+static int g_unlock_modes, g_unlock_skins, g_unlock_all;
+
+void srb2_set_unlocks(int modes, int skins, int all)
+{
+	g_unlock_modes = modes;
+	g_unlock_skins = skins;
+	g_unlock_all = all;
+}
+
+static void apply_unlocks(gamedata_t *d)
+{
+	if (!d)
+		return;
+	for (int i = 0; i < MAXUNLOCKABLES; i++)
+	{
+		const INT16 t = unlockables[i].type;
+		if (g_unlock_all
+			|| (g_unlock_modes && (t == SECRET_RECORDATTACK || t == SECRET_NIGHTSMODE))
+			|| (g_unlock_skins && t == SECRET_SKIN))
+			d->unlocked[i] = true;
+	}
+}
+
+static void unlocks(void)
+{
+	if (!g_unlock_modes && !g_unlock_skins && !g_unlock_all)
+		return;
+	apply_unlocks(clientGamedata);
+	apply_unlocks(serverGamedata);
+}
+
+/* what is unlocked, for the native reference's diagnostics */
+const char *chimera_unlocks_summary(void)
+{
+	static char out[128];
+	int ra = 0, nights = 0, skins = 0, skinsall = 0, n = 0, all = 0;
+	for (int i = 0; i < MAXUNLOCKABLES; i++)
+	{
+		const INT16 t = unlockables[i].type;
+		const int u = clientGamedata && clientGamedata->unlocked[i];
+		if (!unlockables[i].name[0])
+			continue;
+		all++;
+		n += u;
+		ra |= t == SECRET_RECORDATTACK && u;
+		nights |= t == SECRET_NIGHTSMODE && u;
+		if (t == SECRET_SKIN)
+		{
+			skinsall++;
+			skins += u;
+		}
+	}
+	snprintf(out, sizeof out, "recordattack %d nights %d skins %d/%d all %d/%d", ra, nights, skins, skinsall, n, all);
+	return out;
 }
 
 void srb2_frame(void)
@@ -120,6 +183,7 @@ void srb2_frame(void)
 	g_input_read = 0;
 	if (g_halted)
 		return;
+	unlocks();
 	chimera_clock_step();
 	srb2_input_post();
 	co_switch(g_engine);

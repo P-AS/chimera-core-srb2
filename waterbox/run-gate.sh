@@ -28,9 +28,8 @@
 #                (rerecord), and moved to a new host mid-wipe (session: the
 #                engine suspended on its own cothread), is the run without; its
 #                teeth - a stale state (a step run twice) is not
-#   input        the controller: waterbox/tests/menu-to-tutorial.txt (Enter
-#                through the intro, the title, the menus, into the Tutorial
-#                Zone) and gfz1-run.txt (Forward, Jump, the Turn axis in
+#   input        the controller: waterbox/tests/menu-to-new-game.txt (Enter
+#                through the intro, the title, the menus, into a new game) and gfz1-run.txt (Forward, Jump, the Turn axis in
 #                Greenflower); each the same native, sandboxed, rerecorded and
 #                in a new host. Its teeth - the run without the input is not
 #   audio        the core's mixer: the intro's music and Greenflower's sounds are
@@ -60,7 +59,8 @@
 #   settings     the declared settings reach the engine as its options: with no
 #                setting given, and with every declared default given, the
 #                engine plays Manual (directionchar Movement, configanalog
-#                Off), cam_speed 1.0, timerres Mania, flipcam Yes; each other
+#                Off), cam_speed 1.0, timerres Mania, flipcam Yes, tutorialprompt
+#                Off, nothing unlocked; each other
 #                value of each setting is the engine's option (read back with
 #                run-native --print-cvar). Its teeth - another value is not the
 #                default's
@@ -71,7 +71,7 @@
 #                teeth - another input is another state
 #   engine       (with -c) Chimera's own engine opens the package, as the
 #                frontend's session does (the required exports, the declaration,
-#                the firmware, Init), and runs the menus-to-Tutorial movie's
+#                the firmware, Init), and runs the menus-to-new-game movie's
 #                presses for 450 steps: the same lag count as run-native's
 #   time         the machine's clock is its own: a 300 ms host stall mid-run
 #                changes nothing, native and sandbox; its teeth - on the host's
@@ -199,7 +199,7 @@ stale="$(box gfz1 -n 150 -p 10 --stale-state 100)"
 
 # ---- input
 tests="$here/tests"
-for m in "intro menu-to-tutorial 450" "gfz1 gfz1-run 260"; do
+for m in "intro menu-to-new-game 450" "gfz1 gfz1-run 260"; do
 	set -- $m
 	n="$(nat "$1" -n "$3" -p 25 --input "$tests/$2.txt")"
 	b="$(box "$1" -n "$3" -p 25 --input "$tests/$2.txt")"
@@ -306,9 +306,10 @@ content settings '{"warp": "1"}'
 cvars() {
 	printf '%s\n' "$1" > "$root/build/gate/settings/settings"
 	"$native" "$root/build/gate/settings" -n 5 -p 0 --print-cvar directionchar --print-cvar configanalog \
-		--print-cvar cam_speed --print-cvar timerres --print-cvar flipcam 2>/dev/null | grep '^cvar' | tr '\n' ' '
+		--print-cvar cam_speed --print-cvar timerres --print-cvar flipcam --print-cvar tutorialprompt 2>/dev/null \
+		| grep '^cvar' | tr '\n' ' '
 }
-want="cvar directionchar Movement cvar configanalog Off cvar cam_speed 1.00000 cvar timerres Mania cvar flipcam Yes "
+want="cvar directionchar Movement cvar configanalog Off cvar cam_speed 1.00000 cvar timerres Mania cvar flipcam Yes cvar tutorialprompt Off "
 none="$(cvars '{"warp": "1"}')"
 defaults="$(python3 -c 'import json,sys; c=json.load(open(sys.argv[1])); d={s["name"]:s["default"] for s in c["settings"]}; d["warp"]="1"; print(json.dumps(d))' "$decl")"
 explicit="$(cvars "$defaults")"
@@ -331,7 +332,19 @@ for v in "playStyle Strafe directionchar Camera configanalog Off" "playStyle Aut
 		shift 2
 	done
 done
-[ "$ok" = 1 ] && pass "settings: every other value of every setting is the engine's option (9 values)" \
+# the unlocks are the game data's (run-native --print-unlocks); none by default
+unlocks() {
+	printf '%s\n' "$1" > "$root/build/gate/settings/settings"
+	"$native" "$root/build/gate/settings" -n 5 -p 0 --print-unlocks 2>/dev/null | grep '^unlocks'
+}
+for v in '{}|recordattack 0 nights 0 skins 0/' '{"unlockModes": true}|recordattack 1 nights 1 skins 0/' \
+	'{"unlockCharacters": true}|recordattack 0 nights 0 skins 3/3' '{"unlockAll": true}|recordattack 1 nights 1 skins 3/3 all 24/24'; do
+	got="$(unlocks "$(echo "${v%%|*}" | sed 's/^{/{"warp": "1", /; s/, }$/}/')")"
+	case "$got" in *"${v#*|}"*) ;; *) ok=0; echo "  ${v%%|*}: want '${v#*|}', got '$got'" ;; esac
+done
+case "$(cvars '{"warp": "1"}')" in *"cvar tutorialprompt Off "*) ;; *) ok=0; echo "  tutorialprompt is not Off by default" ;; esac
+case "$(cvars '{"warp": "1", "tutorialPrompt": true}')" in *"cvar tutorialprompt On "*) ;; *) ok=0; echo "  tutorialPrompt true is not On" ;; esac
+[ "$ok" = 1 ] && pass "settings: every other value of every setting is the engine's option (9 values), tutorialprompt, and the unlocks (the game data's)" \
 	|| bad "settings: a value did not reach the engine"
 [ "$(cvars '{"warp": "1", "scoreTimeRings": "Classic"}')" != "$want" ] && pass "settings teeth: another value is not the default's" \
 	|| bad "settings teeth: a value changed nothing - the leg cannot fail"
@@ -364,9 +377,9 @@ if [ -n "$bundle" ]; then
 	sh "$here/build-package.sh" -m "${mb:-$MINIBOX_DIR}" -o "$root/build/gate/package" >/dev/null
 	e="$(LD_LIBRARY_PATH="$bundle/dll" python3 "$here/tests/engine-open.py" "$bundle/dll/libchimera.so" \
 		"$root/build/gate/package/srb2.chimeraCore" "$data" 450 2>/dev/null | grep "^450 steps")"
-	nl="$(field "$(nat intro -n 450 -p 0 --input "$tests/menu-to-tutorial.txt")" lag)"
+	nl="$(field "$(nat intro -n 450 -p 0 --input "$tests/menu-to-new-game.txt")" lag)"
 	case "$e" in
-	"450 steps ($nl lag)"*) pass "engine: Chimera's engine ($(head -2 "$bundle/BUILD.txt" | tail -1 | awk '{print $2}' | cut -c1-8)) opens the package and runs the menus to the Tutorial: $e" ;;
+	"450 steps ($nl lag)"*) pass "engine: Chimera's engine ($(head -2 "$bundle/BUILD.txt" | tail -1 | awk '{print $2}' | cut -c1-8)) opens the package and runs the menus into a new game: $e" ;;
 	*) bad "engine: '$e' (run-native's lag: $nl)" ;;
 	esac
 fi
