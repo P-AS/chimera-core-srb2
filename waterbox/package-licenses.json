@@ -1,0 +1,89 @@
+{
+  "package": "srb2",
+  "effectiveTerms": "GPL-2.0",
+  "commercialUse": "yes, under the GPL's terms",
+  "note": "The built core combines this repository's integration (GPL-2.0, as SRB2: the driver, the platform layer, the mixer, the patches) with Sonic Robo Blast 2 (GPL-2.0), compiled in from the submodule extern/SRB2 with zlib and libpng from its own libs/, libogg and libvorbis (BSD-3-Clause), Game_Music_Emu (LGPL-2.1-or-later), libopenmpt (BSD-3-Clause), and miniBox's guest kit (musl, MIT; emulibc and libco's backend, MIT/public domain) with GCC's libstdc++ (GPL-3.0 with the GCC Runtime Library Exception). The package carries none of the game's data: srb2.pk3, zones.pk3, characters.pk3 and music.pk3 are the user's firmware. Sonic the Hedgehog and related characters are trademarks of SEGA.",
+  "components": [
+    {
+      "name": "chimera-core-srb2 (integration)",
+      "license": "GPL-2.0",
+      "url": "https://github.com/ToolAssisted-run/chimera-core-srb2",
+      "commit": "{selfCommit}",
+      "file": "LICENSE",
+      "sourceUrl": "https://github.com/ToolAssisted-run/chimera-core-srb2/archive/{commit}.tar.gz"
+    },
+    {
+      "name": "Sonic Robo Blast 2",
+      "license": "GPL-2.0",
+      "url": "https://github.com/STJr/SRB2",
+      "commit": "{submodule:extern/SRB2}",
+      "file": "extern/SRB2/LICENSE",
+      "sourceUrl": "https://github.com/STJr/SRB2/archive/{commit}.tar.gz"
+    },
+    {
+      "name": "zlib (SRB2's libs/zlib)",
+      "license": "Zlib",
+      "url": "https://zlib.net",
+      "commit": "{submodule:extern/SRB2}",
+      "file": "extern/SRB2/libs/zlib/LICENSE",
+      "sourceUrl": "https://github.com/STJr/SRB2/archive/{commit}.tar.gz"
+    },
+    {
+      "name": "libpng (SRB2's libs/libpng-src)",
+      "license": "Libpng",
+      "url": "http://www.libpng.org",
+      "commit": "{submodule:extern/SRB2}",
+      "file": "extern/SRB2/libs/libpng-src/LICENSE",
+      "sourceUrl": "https://github.com/STJr/SRB2/archive/{commit}.tar.gz"
+    },
+    {
+      "name": "libogg",
+      "license": "BSD-3-Clause",
+      "url": "https://github.com/xiph/ogg",
+      "commit": "{submodule:extern/ogg}",
+      "file": "extern/ogg/COPYING",
+      "sourceUrl": "https://github.com/xiph/ogg/archive/{commit}.tar.gz"
+    },
+    {
+      "name": "libvorbis",
+      "license": "BSD-3-Clause",
+      "url": "https://github.com/xiph/vorbis",
+      "commit": "{submodule:extern/vorbis}",
+      "file": "extern/vorbis/COPYING",
+      "sourceUrl": "https://github.com/xiph/vorbis/archive/{commit}.tar.gz"
+    },
+    {
+      "name": "Game_Music_Emu",
+      "license": "LGPL-2.1-or-later",
+      "url": "https://github.com/libgme/game-music-emu",
+      "commit": "{submodule:extern/gme}",
+      "file": "extern/gme/license.txt",
+      "sourceUrl": "https://github.com/libgme/game-music-emu/archive/{commit}.tar.gz"
+    },
+    {
+      "name": "emu2413 (in Game_Music_Emu)",
+      "license": "MIT",
+      "url": "https://github.com/digital-sound-antiques/emu2413",
+      "commit": "{submodule:extern/gme}",
+      "file": "extern/gme/gme/ext/LICENSE"
+    },
+    {
+      "name": "libopenmpt",
+      "license": "BSD-3-Clause",
+      "url": "https://lib.openmpt.org",
+      "commit": "{submodule:extern/openmpt}",
+      "file": "extern/openmpt/LICENSE",
+      "sourceUrl": "https://github.com/OpenMPT/openmpt/archive/{commit}.tar.gz"
+    },
+    {
+      "name": "miniBox guest kit (musl, emulibc, libco)",
+      "license": "MIT AND LicenseRef-public-domain",
+      "url": "https://github.com/ToolAssisted-run/chimera-common-minibox"
+    },
+    {
+      "name": "libstdc++ (GCC)",
+      "license": "GPL-3.0-or-later WITH GCC-exception-3.1",
+      "url": "https://gcc.gnu.org/onlinedocs/libstdc++/manual/license.html"
+    }
+  ]
+}

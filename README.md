@@ -27,6 +27,12 @@ ninja -C build/meson-cpp libstdcxx-installed.stamp source/guest/emulibc.c.o sour
 `extern/SRB2` and `extern/openmpt` on the first build (`waterbox/apply-patches.sh [openmpt]`, each series all or
 nothing). `extern/openmpt` is shallow: `git submodule update --init` fetches only its pinned commit.
 
+## The package
+
+```
+waterbox/build-package.sh [-r <Chimera bundle or checkout>]   # build/package/srb2.chimeraCore, or into its Cores
+```
+
 ## Running the native reference
 
 ```

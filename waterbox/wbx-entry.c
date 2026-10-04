@@ -11,6 +11,7 @@
 
 #include <emulibc.h>
 #include <waterbox_settings.h>
+#include <waterbox_slots.h>
 
 #include "srb2-driver.h"
 #include "srb2-input.h"
@@ -61,8 +62,8 @@ static const char *const g_playstyles[][3] = {
 static const char *const g_timerres[] = { "Classic", "Centiseconds", "Mania", "Tics" };
 
 /* the argument list: the engine keeps pointers into it for the run */
-static char g_args[16][32];
-static char *g_argv[40];
+static char g_args[80][256];
+static char *g_argv[200];
 static int g_argc;
 
 static void arg(const char *a)
@@ -131,6 +132,24 @@ static void settings_args(void)
  * "gamedata.dat" - never a folder of the host's; -home, the user's home it
  * otherwise derives that from (the host's $HOME, which the core never
  * answers), is required and unused. */
+/* the project's files (file_slots.json): its add-ons, loaded as -file loads
+ * them, in the slot's order. Its save data needs nothing: each file is
+ * mounted under its own name (gamedata.dat, srb2sav*.ssg), where the game
+ * reads it at start. */
+static void slots_args(void)
+{
+	const int n = wbx_slot_count("addons");
+	if (n <= 0)
+		return;
+	arg("-file");
+	for (int i = 0; i < n; i++)
+	{
+		char name[256];
+		if (wbx_slot_name("addons", i, name, (int)sizeof name))
+			arg(arg_copy(name));
+	}
+}
+
 ECL_EXPORT int Init(void)
 {
 	g_argc = 0;
@@ -139,6 +158,7 @@ ECL_EXPORT int Init(void)
 	arg(".");
 	arg("-workdir");
 	arg(".");
+	slots_args();
 	settings_args();
 	g_argv[g_argc] = NULL;
 	g_load_error[0] = '\0';
