@@ -1,0 +1,49 @@
+diff --git a/src/netcode/d_netfil.c b/src/netcode/d_netfil.c
+index 27c924dd8..01192ca2e 100644
+--- a/src/netcode/d_netfil.c
++++ b/src/netcode/d_netfil.c
+@@ -111,6 +111,7 @@ static pauseddownload_t *pauseddownload = NULL;
+ 
+ file_download_t filedownload;
+ 
++#ifdef HAVE_CURL
+ static CURL *http_handle;
+ static char curl_errbuf[CURL_ERROR_SIZE];
+ static CURLM *multi_handle;
+@@ -122,6 +123,7 @@ static UINT32 curl_origfilesize;
+ static UINT32 curl_origtotalfilesize;
+ static char *curl_realname = NULL;
+ static fileneeded_t *curl_curfile = NULL;
++#endif
+ HTTP_login *curl_logins;
+ 
+ luafiletransfer_t *luafiletransfers = NULL;
+@@ -1586,6 +1588,7 @@ void Command_Downloads_f(void)
+ 		}
+ }
+ 
++#ifdef HAVE_CURL
+ static size_t curlwrite_data(void *ptr, size_t size, size_t nmemb, FILE *stream)
+ {
+     return fwrite(ptr, size, nmemb, stream);
+@@ -1856,6 +1859,20 @@ void CURLGetFile(void)
+ 	I_unlock_mutex(downloadmutex);
+ }
+ 
++#else
++// Without libcurl there is no HTTP download: the files come from the server
++boolean CURLPrepareFile(const char* url, int dfilenum)
++{
++	(void)url;
++	(void)dfilenum;
++	return false;
++}
++
++void CURLAbortFile(void) {}
++
++void CURLGetFile(void) {}
++#endif
++
+ HTTP_login *
+ CURLGetLogin (const char *url, HTTP_login ***return_prev_next)
+ {
