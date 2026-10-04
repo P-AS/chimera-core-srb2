@@ -26,6 +26,13 @@
 #                (rerecord), and moved to a new host mid-wipe (session: the
 #                engine suspended on its own cothread), is the run without; its
 #                teeth - a stale state (a step run twice) is not
+#   files        the machine's filesystem: a mounted autoexec.cfg writes a file
+#                at start (before seal) and one 20 tics into play (after it),
+#                and reads the first back; the save data export is those two
+#                files, byte for byte the same native, sandboxed, rerecorded
+#                and moved to a new host, and nothing is written to the host's
+#                work folder. Its teeth - a run that ends before the second
+#                write does not pass
 #   time         the machine's clock is its own: a 300 ms host stall mid-run
 #                changes nothing, native and sandbox; its teeth - on the host's
 #                clock the same stall changes the run
@@ -62,6 +69,8 @@ content() {
 }
 content intro '{}'
 content gfz1 '{"warp": "1"}'
+content files '{}'
+printf 'saveconfig mine.cfg\nexec mine.cfg\nwait 20\nsaveconfig late.cfg\n' > "$root/build/gate/files/autoexec.cfg"
 echo "data: $data"
 echo "core: $core"
 
@@ -139,6 +148,28 @@ ss="$(box gfz1 -n 150 -p 10 --session-at 30)"
 stale="$(box gfz1 -n 150 -p 10 --stale-state 100)"
 [ "$plain" != "$stale" ] && pass "savestates teeth: a stale state (step 100 run twice) changes the run" \
 	|| bad "savestates teeth: a stale state changed nothing - the legs cannot fail"
+
+# ---- files: the save data export of 200 steps, every way
+sd="$root/build/gate/savedata"
+rm -rf "$sd"
+before="$(ls -A "$root/build/gate/files")"
+nat files -n 200 -p 0 --savedata-out "$sd/native" >/dev/null
+box files -n 200 -p 0 --savedata-out "$sd/sandbox" >/dev/null
+box files -n 200 -p 0 --rerecord --savedata-out "$sd/rerecord" >/dev/null
+box files -n 200 -p 0 --session-at 100 --savedata-out "$sd/session" >/dev/null
+box files -n 50 -p 0 --savedata-out "$sd/short" >/dev/null
+listing() { (cd "$sd/$1" 2>/dev/null && find . -type f | sort | xargs -r md5sum); }
+want="$(printf '%s\n' ./late.cfg ./mine.cfg)"
+names() { listing "$1" | awk '{print $2}'; }
+n="$(listing native)"
+if [ "$(names native)" = "$want" ] && [ "$n" = "$(listing sandbox)" ] && [ "$n" = "$(listing rerecord)" ] \
+	&& [ "$n" = "$(listing session)" ] && [ "$before" = "$(ls -A "$root/build/gate/files")" ]; then
+	pass "files: the export (mine.cfg before seal, late.cfg after) is the same native, sandboxed, rerecorded and in a new host; the host's folder untouched"
+else
+	bad "files: the exports differ, or are not mine.cfg and late.cfg, or the host's folder changed (build/gate/savedata)"
+fi
+[ "$(names short)" != "$want" ] && pass "files teeth: a run ending before the second write does not pass" \
+	|| bad "files teeth: the short run passed - the leg cannot fail"
 
 # ---- time: the intro (its wipes and in-tic waits), stalled half way
 steps=700

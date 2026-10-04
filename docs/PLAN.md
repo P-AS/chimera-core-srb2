@@ -16,9 +16,10 @@ the guest build), following Chimera's `docs/porting-a-core.md` and `docs/game-co
   them directly, run-wbx through miniBox's host, over one harness loop (`harness.h`). Gate leg `equivalence`:
   native == sandbox on the intro (700 steps) and Greenflower Zone Act 1 (`warp` 1, 1000 steps), every step's
   picture, tic and clock; teeth: native on the host's clock is not the sandbox. `time` runs in both builds.
-- [ ] 3. The machine's filesystem: SRB2's folder is already the machine's root (`-workdir .`, see "The game's
-  home"); what it holds (config from the settings, game data as a project file, saves in memory) is next.
-  Until then nothing is written, in either build (`platform/files.c`).
+- [x] **3. The machine's filesystem** (`platform/files.c`): SRB2's folder is the machine's root (`-workdir .`);
+  what the game writes is kept in the machine's memory, shadowing the read-only mounts; the files are the
+  save data export (`GetSaveData*`). Gate leg `files`. Left for the package: the `savedata` slot to take an
+  export back in (see "The machine's filesystem").
 - [ ] 4. Input (the base tic command, `I_BaseTiccmd`), lag. **Lag is done**: wipes are steps (below); the
   controller and the tic command from it are next.
 - [ ] 5. Audio: a mixer of the core's own for the effects and music (music.pk3 is OGG/tracker/MIDI).
@@ -116,18 +117,50 @@ files are the machine's own top-level names: `config.cfg`, `gamedata.dat` (unloc
 spell. `-home` is still required (SRB2 stops without a user home) and is otherwise unused.
 
 Nothing can reach the host's `~/.srb2` in either build. The core's `I_GetEnv` answers no `$HOME`, and paths
-are relative to the machine's root: the mounts in the sandbox, the harness's work folder natively. Writes are
-refused (`platform/files.c`) and `I_mkdir` makes nothing. Verified: a `config.cfg` at the work folder's root
+are relative to the machine's root: the mounts in the sandbox, the harness's work folder natively. Writes go
+to the machine's memory (below) and `I_mkdir` makes nothing on a disk. Verified: a `config.cfg` at the work folder's root
 is executed (`Executing ./config.cfg`) and changes the picture identically in both builds.
 
-**Milestone 3** decides what that folder holds in Chimera's terms. The likely shape:
-- `config.cfg` is not the user's: settings that shape the machine come from the project. The core writes its
-  own config from the settings, or none, so a host's SRB2 configuration can never leak in.
-- `gamedata.dat` is a project file (unlocked characters, emblems and levels change what the game offers). It
-  is mounted read-only from the project or starts empty, and written back as save data
-  (Chimera's `docs/save-data.md`).
-- Saves and replays are written into the machine's memory, so they are part of the savestate. That is
-  porting-a-core.md's "serve the machine's drives out of its own memory".
+## The machine's filesystem (milestone 3)
+
+`platform/files.c`, in both builds, wrapping the engine's `fopen`, `access`, `stat`, `remove`, `fileno`,
+`fstat` and `opendir`:
+
+- **A file the game writes is a memory file**: `malloc`'d guest memory behind an `fopencookie` FILE, so it is in
+  every savestate and rewinds with the machine (Chimera's `docs/save-data.md`: never host-side, never
+  invisible). From then on it shadows a mount of the same name; a mount opened to update or append is copied
+  in first. A file written during `Init` (an `autoexec.cfg`'s, the game data read at start) is in the sealed
+  baseline, so a state carries only what changes after.
+- **Nothing reaches the host**: no write goes to a mount or a host file, and `opendir` lists nothing (natively
+  it would list the work folder). Folders are implicit: `I_mkdir` records one, and `stat` calls a recorded
+  folder, or one a file is in, a folder.
+- **Memory files have descriptors of their own** (`fileno` answers one above any real one, `fstat` answers
+  for it): `fopenfile`, which opens every file the engine reads, refuses what `fstat` does not call regular.
+- **The save data export** (`GetSaveDataFileCount/Name/Size/Buffer`) is every memory file but `config.cfg`:
+  `gamedata.dat` (unlocks, emblems, records), the save slots (`srb2sav*.ssg`), record attack's replays
+  (`replay/...`), Lua's files. The harnesses' `--savedata-out <dir>` writes it, as `chimera-run
+  --export-savedata` does.
+- **Taking it back in** is the package's (milestone 7): a `savedata` slot whose files are mounted by the names
+  the export gives, so SRB2 reads them itself at start (`gamedata.dat` in `G_LoadGameData`, a save slot when it
+  is loaded) - before seal, as the contract asks. Several files are a zip (the export of more than one is), so
+  the core will unpack one into memory files in `Init`.
+- **`-warp` is a cheat to SRB2** for a map not yet visited (`M_CampaignWarpIsCheat` → `G_SetUsedCheats`):
+  the game data is then neither loaded nor saved, as in the game. A movie that wants its game data starts
+  from the title.
+
+The gate's leg `files` mounts an `autoexec.cfg` that writes a file at start (`saveconfig mine.cfg`, before
+seal), reads it back (`exec mine.cfg`) and writes another 20 tics into play (`wait 20`, `saveconfig late.cfg`,
+after seal): the export is those two, byte for byte the same native, sandboxed, rerecorded and in a new
+host, and the work folder is untouched. A real `gamedata.dat` write needs a level finished: input.
+
+What the folder will hold in Chimera's terms:
+- `config.cfg` is not the user's: nothing mounts one unless the project declares it (the frontend mounts only
+  declared firmware, slot files and the settings), so a host's SRB2 configuration can never leak in; the
+  settings that shape the machine come from the project. What SRB2 writes there stays in memory and is not
+  exported.
+- `gamedata.dat` is a project file (unlocked characters, emblems and levels change what the game offers): from
+  the `savedata` slot, or none (a fresh game), and exported as save data.
+- Saves and replays are written into the machine's memory, so they are part of the savestate (done).
 
 ## What the engine asks of the host, and what the core must answer
 

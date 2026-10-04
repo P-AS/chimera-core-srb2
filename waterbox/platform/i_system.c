@@ -5,8 +5,9 @@
  *     host's: the frontend's input arrives as the driver's, never as events
  *   - I_Error and I_Quit halt the machine (chimera_exit, the driver's) rather
  *     than end a process
- *   - the files are the machine's: srb2.pk3 and the rest are where the host
- *     mounts them ("."), and no folder is made
+ *   - the files are the machine's (platform/files.c): srb2.pk3 and the rest
+ *     are where the host mounts them ("."), and what the game writes and the
+ *     folders it makes are the machine's memory
  *   - the "operating system's" random bytes, which seed the game's RNG at
  *     start (M_RandomSeedFromOS), are the driver's seed's
  *   - the clock is the machine's (below): nothing reads the host's */
@@ -213,9 +214,11 @@ size_t I_GetFreeMem(size_t *total)
 
 void I_GetDiskFreeSpace(INT64 *freespace) { *freespace = 0; }
 char *I_GetUserName(void) { return NULL; }
+/* a folder of the machine's (platform/files.c): never the host's */
 INT32 I_mkdir(const char *dirname, INT32 unixright)
 {
-	(void)dirname; (void)unixright;
+	(void)unixright;
+	chimera_mkdir(dirname);
 	return 0;
 }
 const CPUInfoFlags *I_CPUInfo(void) { return NULL; }

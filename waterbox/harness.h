@@ -9,6 +9,8 @@
  *   --ppm FILE      write the last step's picture
  *   --stall-at F    stall the host before step F ...
  *   --stall-ms MS   ... for this long (default 300): the machine must not notice
+ *   --savedata-out DIR  after the run, write the save data export (the files
+ *                   the game wrote) under DIR, as chimera-run --export-savedata
  *
  * It ends with "run <hash> tic <n> clock <c> lag <l>": the hash of every step's
  * picture in order, the engine's tic counter, the machine's clock and the
@@ -22,6 +24,7 @@
 #include <string.h>
 #include <time.h>
 #include <fcntl.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 struct harness_core
@@ -33,6 +36,11 @@ struct harness_core
 	uint32_t (*gametic)(void);
 	int (*input_was_read)(void);
 	uint64_t (*clock)(void);
+	/* the save data export group */
+	int32_t (*savedata_count)(void);
+	const char *(*savedata_name)(int32_t i);
+	int64_t (*savedata_size)(int32_t i);
+	const uint8_t *(*savedata_buffer)(int32_t i);
 	/* before each step (run-wbx's savestate legs); may be NULL */
 	void (*pre_frame)(long step);
 };
@@ -41,6 +49,7 @@ struct harness_opts
 {
 	long frames, every, stall_at, stall_ms;
 	const char *ppm;
+	const char *savedata_out;
 };
 
 /* parses argv[first..]; an option it does not know is left to the caller
@@ -52,6 +61,7 @@ static int harness_parse(int argc, char **argv, int first, struct harness_opts *
 	o->stall_at = 0;
 	o->stall_ms = 300;
 	o->ppm = NULL;
+	o->savedata_out = NULL;
 	for (int i = first; i < argc; i++)
 	{
 		if (!strcmp(argv[i], "-n") && i + 1 < argc)
@@ -60,6 +70,8 @@ static int harness_parse(int argc, char **argv, int first, struct harness_opts *
 			o->every = atol(argv[++i]);
 		else if (!strcmp(argv[i], "--ppm") && i + 1 < argc)
 			o->ppm = argv[++i];
+		else if (!strcmp(argv[i], "--savedata-out") && i + 1 < argc)
+			o->savedata_out = argv[++i];
 		else if (!strcmp(argv[i], "--stall-at") && i + 1 < argc)
 			o->stall_at = atol(argv[++i]);
 		else if (!strcmp(argv[i], "--stall-ms") && i + 1 < argc)
@@ -105,6 +117,42 @@ static int harness_write_ppm(const char *path, const uint32_t *px, int w, int h)
 	return close(fd) == 0 && ok ? 0 : -1;
 }
 
+/* the export: each file under dir, its folders made; a name that is not
+ * relative, or climbs, is refused as the engine refuses it */
+static int harness_write_savedata(const struct harness_core *c, const char *dir)
+{
+	const int32_t n = c->savedata_count();
+	for (int32_t i = 0; i < n; i++)
+	{
+		const char *name = c->savedata_name(i);
+		if (!name[0] || name[0] == '/' || strstr(name, "..") || strchr(name, '\\'))
+		{
+			fprintf(stderr, "savedata: refused name '%s'\n", name);
+			return -1;
+		}
+		char path[4096];
+		snprintf(path, sizeof path, "%s/%s", dir, name);
+		/* every folder on the way, the output's own too */
+		for (char *p = path + 1; *p; p++)
+			if (*p == '/')
+			{
+				*p = 0;
+				mkdir(path, 0755);
+				*p = '/';
+			}
+		const int fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+		const int64_t size = c->savedata_size(i);
+		if (fd < 0 || write(fd, c->savedata_buffer(i), (size_t)size) != (ssize_t)size)
+		{
+			perror(path);
+			return -1;
+		}
+		close(fd);
+	}
+	printf("savedata %d files\n", n);
+	return 0;
+}
+
 /* Init has run (run-wbx seals the machine after it); the steps */
 static int harness_run(const struct harness_core *c, const struct harness_opts *o)
 {
@@ -139,6 +187,8 @@ static int harness_run(const struct harness_core *c, const struct harness_opts *
 		perror(o->ppm);
 		return 1;
 	}
+	if (o->savedata_out && harness_write_savedata(c, o->savedata_out) != 0)
+		return 1;
 	return 0;
 }
 #endif

@@ -43,6 +43,12 @@ static ptrfn g_GetLoadError, g_GetVideoBgra;
 static framefn g_FrameAdvance;
 static u32fn g_GetGameTic;
 static u64fn g_GetCycleCount;
+typedef int32_t (MB_GUEST_ABI *i32fn)(void);
+typedef uintptr_t (MB_GUEST_ABI *ptrfn_i32)(int32_t);
+typedef int64_t (MB_GUEST_ABI *i64fn_i32)(int32_t);
+static i32fn g_GetSaveDataFileCount;
+static ptrfn_i32 g_GetSaveDataFileName, g_GetSaveDataFileBuffer;
+static i64fn_i32 g_GetSaveDataFileSize;
 
 static uintptr_t proc(const char *n)
 {
@@ -65,6 +71,10 @@ static const uint32_t *core_video(int *w, int *h)
 static uint32_t core_gametic(void) { return g_GetGameTic(); }
 static int core_input_was_read(void) { return g_InputWasRead(); }
 static uint64_t core_clock(void) { return g_GetCycleCount(); }
+static int32_t core_sd_count(void) { return g_GetSaveDataFileCount(); }
+static const char *core_sd_name(int32_t i) { return (const char *)g_GetSaveDataFileName(i); }
+static int64_t core_sd_size(int32_t i) { return g_GetSaveDataFileSize(i); }
+static const uint8_t *core_sd_buffer(int32_t i) { return (const uint8_t *)g_GetSaveDataFileBuffer(i); }
 
 typedef struct { uint8_t *b; size_t len, cap, pos; } membuf;
 static int32_t mem_write(uintptr_t ud, const uint8_t *d, uintptr_t n)
@@ -147,6 +157,10 @@ static void build_host(void)
 	g_GetGameTic = (u32fn)proc("GetGameTic");
 	g_InputWasRead = (intfn)proc("InputWasRead");
 	g_GetCycleCount = (u64fn)proc("GetCycleCount");
+	g_GetSaveDataFileCount = (i32fn)proc("GetSaveDataFileCount");
+	g_GetSaveDataFileName = (ptrfn_i32)proc("GetSaveDataFileName");
+	g_GetSaveDataFileSize = (i64fn_i32)proc("GetSaveDataFileSize");
+	g_GetSaveDataFileBuffer = (ptrfn_i32)proc("GetSaveDataFileBuffer");
 
 	/* Init runs before Seal: the started machine is the sealed baseline */
 	if (g_Init() != 1)
@@ -239,6 +253,10 @@ int main(int argc, char **argv)
 		.gametic = core_gametic,
 		.input_was_read = core_input_was_read,
 		.clock = core_clock,
+		.savedata_count = core_sd_count,
+		.savedata_name = core_sd_name,
+		.savedata_size = core_sd_size,
+		.savedata_buffer = core_sd_buffer,
 		.pre_frame = pre_frame,
 	};
 	const int ret = harness_run(&c, &o);
