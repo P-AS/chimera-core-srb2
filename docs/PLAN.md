@@ -31,6 +31,10 @@ the guest build), following Chimera's `docs/porting-a-core.md` and `docs/game-co
     as upstream's mixer drives it. C++: the guest is built with miniBox's C++ toolchain.
   - [x] **5c.** libopenmpt 0.8.9 (tracker modules: MOD, S3M, XM, IT, MPTM...), as upstream's mixer drives it,
     its random seeding made deterministic (`patches/openmpt/0001`).
+- [ ] 7 (begun). **The declaration** (`waterbox/waterbox.config`): the controller, firmware, video, audio and
+  the settings - Play Style (Manual), Camera Speed (1.0), Score/Time/Rings (Mania), Flip Camera (Yes), Start
+  Map. Gate legs `declaration` and `settings`. Left: `build-package.sh`, file slots (add-ons, save data),
+  keybinds, licences, the properties, CI.
 - [ ] 6. Savestates: **rerecord and session pass** (gate leg `savestates`, ~32 MB a state), including a state
   taken mid-wipe with the engine suspended on its cothread. 7. the package, properties (`Game State`),
   settings.
@@ -94,6 +98,31 @@ the guest build), following Chimera's `docs/porting-a-core.md` and `docs/game-co
   renderer). SRB2's game and renderer are fixed-point; the gate's contents agree. A longer run, other zones
   and the special stages will say more.
 
+## The package's declaration and settings (2026-10-04)
+
+`waterbox/waterbox.config` is the package's declaration (Chimera's `WaterboxConfig`): one machine
+(`systemId` SRB2, `kind` game), the controller (srb2-input.c's buttons and axes, in its order - the gate's
+`declaration` leg holds them to the core's own `GetButtonName`/`GetAxisName`), the video (320x200 shown at 4:3,
+35 Hz), the audio (1260 frames a step at 44.1 kHz), lag, the memory layout, the four pk3s as firmware (2.2.15's,
+by SHA-1; the engine checks srb2, zones and characters by MD5 itself), and the settings.
+
+**The settings are SRB2's own options**, given to the engine as `+` launch parameters by `Init`: upstream runs
+those after its configuration and `autoexec.cfg` (`M_PushSpecialParameters`, on the title's path and on
+`-warp`'s), so they are the machine's whatever a configuration says. User-decided defaults (2026-10-04),
+which differ from SRB2's own:
+
+| Setting | SRB2 option | Default (SRB2's own) |
+|---|---|---|
+| Play Style | `directionchar` + `configanalog`, as the play style menu sets them (`M_HandlePlaystyleMenu`): Strafe (Camera, Off), **Manual** (Movement, Off), Automatic (Movement, On), Old Analog (Camera, On) | **Manual** (Automatic) |
+| Camera Speed | `cam_speed`, 0..1, clamped, printed at 5 places | **1.0** (0.3) |
+| Score/Time/Rings | `timerres`: Classic, Centiseconds, **Mania**, Tics | **Mania** (Classic) |
+| Flip Camera with Gravity | `flipcam` | **Yes** (No) |
+| Start Map | `-warp` (empty: the intro and the title) | empty |
+
+Manual is the Standard control style (`PF_DIRECTIONCHAR`, no `PF_ANALOGMODE`): the player faces where it moves
+and the camera does not turn by itself. The gate's `settings` leg reads the engine's options back
+(`run-native --print-cvar`): the defaults absent and given, and every other value of every setting.
+
 ## The controller (2026-10-04, user-decided: keys + analog axes)
 
 A movie row is **SRB2's own keyboard plus four axes**:
@@ -117,8 +146,8 @@ A movie row is **SRB2's own keyboard plus four axes**:
 - `FrameAdvance`'s mask is the first 64 buttons; `SetButton` and `SetAxis` the rest; `GetButtonName`/
   `GetAxisName` name them, in the controller's order (for the declaration, and the harnesses' `--input`).
 - Not yet: player 2 (splitscreen), text entry (a name, the console), the joystick-style analog
-  configuration. The control style, the camera and the other options that shape the tic command are SRB2's
-  defaults until they are settings (milestone 7).
+  configuration. The play style, the camera speed and the camera's flip are settings (see "The package's
+  declaration and settings"); SRB2's other options that shape the tic command are its defaults.
 
 The harnesses take a movie as text (`--input FILE`: `FROM-TO: Button; Axis=value` a line);
 `waterbox/tests/` holds the gate's two.

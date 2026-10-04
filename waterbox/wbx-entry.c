@@ -6,6 +6,7 @@
  */
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include <emulibc.h>
@@ -31,26 +32,116 @@ ECL_INVISIBLE static int g_render = 1;
 
 ECL_EXPORT const char *GetLoadError(void) { return g_load_error; }
 
+/* ---- the settings (waterbox.config's "settings"; miniBox's settings file)
+ *
+ * Each is an SRB2 option, given to the engine as its "+" launch parameters:
+ * upstream runs those after the configuration and autoexec.cfg
+ * (M_PushSpecialParameters), so they are what the machine plays with,
+ * whatever a configuration says. A setting the file does not have takes the
+ * core's default, the declaration's.
+ *
+ *   warp            a map to start in, as the game's -warp takes it (a number,
+ *                   or MAPxx); empty: the game's own start, the intro and title
+ *   playStyle       the 1P play style menu's choice, as its two options:
+ *                     Strafe     directionchar Camera,   configanalog Off
+ *                     Manual     directionchar Movement, configanalog Off
+ *                     Automatic  directionchar Movement, configanalog On
+ *                     Old Analog directionchar Camera,   configanalog On
+ *                   (M_HandlePlaystyleMenu); the core's default Manual
+ *   cameraSpeed     cam_speed, 0 to 1; the core's default 1.0
+ *   scoreTimeRings  timerres: Classic, Centiseconds, Mania, Tics; default Mania
+ *   flipCamera      flipcam: the camera flips with gravity; default Yes
+ */
+static const char *const g_playstyles[][3] = {
+	{ "Strafe", "Camera", "Off" },
+	{ "Manual", "Movement", "Off" },
+	{ "Automatic", "Movement", "On" },
+	{ "Old Analog", "Camera", "On" },
+};
+static const char *const g_timerres[] = { "Classic", "Centiseconds", "Mania", "Tics" };
+
+/* the argument list: the engine keeps pointers into it for the run */
+static char g_args[16][32];
+static char *g_argv[40];
+static int g_argc;
+
+static void arg(const char *a)
+{
+	if (g_argc < (int)(sizeof g_argv / sizeof g_argv[0]) - 1)
+		g_argv[g_argc++] = (char *)a;
+}
+
+static const char *arg_copy(const char *a)
+{
+	static int n;
+	if (n == (int)(sizeof g_args / sizeof g_args[0]))
+		return "";
+	snprintf(g_args[n], sizeof g_args[0], "%s", a);
+	return g_args[n++];
+}
+
+static void settings_args(void)
+{
+	char warp[16], style[32], timer[32], speed[32];
+
+	if (wbx_setting_str("warp", warp, (int)sizeof warp) > 0 && warp[0])
+	{
+		arg("-warp");
+		arg(arg_copy(warp));
+	}
+
+	int st = 1; /* Manual */
+	if (wbx_setting_str("playStyle", style, (int)sizeof style) > 0)
+		for (int i = 0; i < 4; i++)
+			if (!strcmp(style, g_playstyles[i][0]))
+				st = i;
+	arg("+directionchar");
+	arg(g_playstyles[st][1]);
+	arg("+configanalog");
+	arg(g_playstyles[st][2]);
+
+	/* the float as the engine's own fixed point would have it, printed back
+	 * at five places (cam_speed is a CV_FLOAT: atof, times FRACUNIT) */
+	double cs = 1.0;
+	if (wbx_setting_str("cameraSpeed", speed, (int)sizeof speed) > 0)
+		cs = strtod(speed, NULL);
+	if (!(cs >= 0.0))
+		cs = 0.0;
+	if (cs > 1.0)
+		cs = 1.0;
+	snprintf(speed, sizeof speed, "%.5f", cs);
+	arg("+cam_speed");
+	arg(arg_copy(speed));
+
+	int tr = 2; /* Mania */
+	if (wbx_setting_str("scoreTimeRings", timer, (int)sizeof timer) > 0)
+		for (int i = 0; i < 4; i++)
+			if (!strcmp(timer, g_timerres[i]))
+				tr = i;
+	arg("+timerres");
+	arg(g_timerres[tr]);
+
+	arg("+flipcam");
+	arg(wbx_setting_bool("flipCamera", 1) ? "Yes" : "No");
+}
+
 /* the engine started as upstream's main starts it. Its folder (-workdir,
  * patches/0003: configuration, game data, saves, replays) is the machine's
  * own root, so its files are the machine's names - "config.cfg",
  * "gamedata.dat" - never a folder of the host's; -home, the user's home it
  * otherwise derives that from (the host's $HOME, which the core never
- * answers), is required and unused. Nothing is written yet. Settings:
- *   warp   a map to start in, as the game's -warp takes it (a number, or
- *          MAPxx); empty: the game's own start, the intro and the title */
+ * answers), is required and unused. */
 ECL_EXPORT int Init(void)
 {
-	static char warp[16];
-	static char *argv[10] = { "srb2", "-home", ".", "-workdir", "." };
-	int argc = 5;
+	g_argc = 0;
+	arg("srb2");
+	arg("-home");
+	arg(".");
+	arg("-workdir");
+	arg(".");
+	settings_args();
+	g_argv[g_argc] = NULL;
 	g_load_error[0] = '\0';
-	if (wbx_setting_str("warp", warp, (int)sizeof warp) > 0 && warp[0])
-	{
-		argv[argc++] = "-warp";
-		argv[argc++] = warp;
-	}
-	argv[argc] = NULL;
 	g_video = alloc_invisible(sizeof(uint32_t) * VIDEO_MAX_W * VIDEO_MAX_H);
 	g_audio = alloc_invisible(sizeof(int16_t) * 2 * SAMPLES_PER_STEP);
 	if (!g_video || !g_audio)
@@ -58,7 +149,7 @@ ECL_EXPORT int Init(void)
 		snprintf(g_load_error, sizeof g_load_error, "out of memory for the picture");
 		return 0;
 	}
-	if (srb2_start(argc, argv) != 0)
+	if (srb2_start(g_argc, g_argv) != 0)
 	{
 		snprintf(g_load_error, sizeof g_load_error, "%s", srb2_error());
 		return 0;

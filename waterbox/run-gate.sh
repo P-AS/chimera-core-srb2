@@ -47,6 +47,16 @@
 #                and moved to a new host, and nothing is written to the host's
 #                work folder. Its teeth - a run that ends before the second
 #                write does not pass
+#   declaration  waterbox.config's controller is the core's (its buttons and
+#                axes, in order, as GetButtonName/GetAxisName give them); its
+#                teeth - a declaration with two buttons swapped does not pass
+#   settings     the declared settings reach the engine as its options: with no
+#                setting given, and with every declared default given, the
+#                engine plays Manual (directionchar Movement, configanalog
+#                Off), cam_speed 1.0, timerres Mania, flipcam Yes; each other
+#                value of each setting is the engine's option (read back with
+#                run-native --print-cvar). Its teeth - another value is not the
+#                default's
 #   time         the machine's clock is its own: a 300 ms host stall mid-run
 #                changes nothing, native and sandbox; its teeth - on the host's
 #                clock the same stall changes the run
@@ -240,6 +250,55 @@ else
 fi
 [ "$(names short)" != "$want" ] && pass "files teeth: a run ending before the second write does not pass" \
 	|| bad "files teeth: the short run passed - the leg cannot fail"
+
+# ---- declaration: the controller the package declares is the core's
+decl="$here/waterbox.config"
+declared() { python3 -c 'import json,sys; c=json.load(open(sys.argv[1])); i=c["input"]
+print("\n".join(["button "+b for b in i["buttons"]]+["axis "+a["name"] for a in i["axes"]]))' "$1"; }
+core_input="$("$native" --list-input)"
+if [ "$(declared "$decl")" = "$core_input" ]; then
+	pass "declaration: waterbox.config's controller is the core's ($(echo "$core_input" | grep -c ^button) buttons, $(echo "$core_input" | grep -c ^axis) axes, in order)"
+else
+	bad "declaration: waterbox.config's controller is not the core's"
+fi
+python3 -c 'import json,sys; c=json.load(open(sys.argv[1])); b=c["input"]["buttons"]; b[0],b[1]=b[1],b[0]; json.dump(c,open(sys.argv[2],"w"))' "$decl" "$root/build/gate/swapped.config"
+[ "$(declared "$root/build/gate/swapped.config")" != "$core_input" ] && pass "declaration teeth: a declaration with two buttons swapped does not pass" \
+	|| bad "declaration teeth: the swapped declaration passed - the leg cannot fail"
+
+# ---- settings: each declared setting is the engine's option
+content settings '{"warp": "1"}'
+cvars() {
+	printf '%s\n' "$1" > "$root/build/gate/settings/settings"
+	"$native" "$root/build/gate/settings" -n 5 -p 0 --print-cvar directionchar --print-cvar configanalog \
+		--print-cvar cam_speed --print-cvar timerres --print-cvar flipcam 2>/dev/null | grep '^cvar' | tr '\n' ' '
+}
+want="cvar directionchar Movement cvar configanalog Off cvar cam_speed 1.00000 cvar timerres Mania cvar flipcam Yes "
+none="$(cvars '{"warp": "1"}')"
+defaults="$(python3 -c 'import json,sys; c=json.load(open(sys.argv[1])); d={s["name"]:s["default"] for s in c["settings"]}; d["warp"]="1"; print(json.dumps(d))' "$decl")"
+explicit="$(cvars "$defaults")"
+if [ "$none" = "$want" ] && [ "$explicit" = "$want" ]; then
+	pass "settings: the defaults, absent or given, are Manual, cam_speed 1.0, timerres Mania, flipcam Yes"
+else
+	bad "settings: the defaults are not what they should be: absent '$none', given '$explicit', want '$want'"
+fi
+ok=1
+for v in "playStyle Strafe directionchar Camera configanalog Off" "playStyle Automatic directionchar Movement configanalog On" \
+	"playStyle 'Old Analog' directionchar Camera configanalog On" "cameraSpeed 0.3 cam_speed 0.30000" "cameraSpeed 0 cam_speed 0.00000" \
+	"scoreTimeRings Classic timerres Classic" "scoreTimeRings Centiseconds timerres Centiseconds" "scoreTimeRings Tics timerres Tics" \
+	"flipCamera false flipcam No"; do
+	eval "set -- $v"
+	key="$1"; val="$2"; shift 2
+	case "$val" in [0-9]*|true|false) js="$val" ;; *) js="\"$val\"" ;; esac
+	got="$(cvars "{\"warp\": \"1\", \"$key\": $js}")"
+	while [ $# -gt 0 ]; do
+		case "$got" in *"cvar $1 $2 "*) ;; *) ok=0; echo "  $key=$val: want $1 $2, got '$got'" ;; esac
+		shift 2
+	done
+done
+[ "$ok" = 1 ] && pass "settings: every other value of every setting is the engine's option (9 values)" \
+	|| bad "settings: a value did not reach the engine"
+[ "$(cvars '{"warp": "1", "scoreTimeRings": "Classic"}')" != "$want" ] && pass "settings teeth: another value is not the default's" \
+	|| bad "settings teeth: a value changed nothing - the leg cannot fail"
 
 # ---- time: the intro (its wipes and in-tic waits), stalled half way
 steps=700
