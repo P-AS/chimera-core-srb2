@@ -4,8 +4,12 @@
  * screens[0] into BGRA through the palette the engine last set
  * (chimera_video_bgra). No OpenGL: the renderer is always software.
  *
- * One mode, 320x200 (BASEVIDWIDTH x BASEVIDHEIGHT), until the resolution is a
- * setting. */
+ * One mode, the machine's: the resolution setting (chimera_video_set_mode,
+ * before the start; 320x200 if none). Whatever mode the engine asks for - a
+ * configuration's scr_width, the video menu - it gets that one, so the
+ * picture's size is the project's. The resolution is the picture's alone: the
+ * game is the same at every one (the gate's resolution leg). */
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -31,6 +35,16 @@ boolean allow_fullscreen = false;
 consvar_t cv_vidwait = CVAR_INIT ("vid_wait", "Off", CV_SAVE, CV_OnOff, NULL);
 
 static RGBA_t g_palette[256];
+static INT32 g_mode_w = BASEVIDWIDTH, g_mode_h = BASEVIDHEIGHT;
+
+void chimera_video_set_mode(int w, int h)
+{
+	if (w >= BASEVIDWIDTH && h >= BASEVIDHEIGHT && w <= MAXVIDWIDTH && h <= MAXVIDHEIGHT)
+	{
+		g_mode_w = w;
+		g_mode_h = h;
+	}
+}
 
 void I_StartupGraphics(void)
 {
@@ -39,8 +53,8 @@ void I_StartupGraphics(void)
 	CV_RegisterVar(&cv_vidwait);
 	keyboard_started = true;
 
-	vid.width = BASEVIDWIDTH;
-	vid.height = BASEVIDHEIGHT;
+	vid.width = g_mode_w;
+	vid.height = g_mode_h;
 	vid.recalc = true;
 	vid.direct = NULL;
 	vid.bpp = 1;
@@ -69,8 +83,10 @@ INT32 VID_GetModeForSize(INT32 w, INT32 h)
 void VID_PrepareModeList(void) {}
 const char *VID_GetModeName(INT32 modenum)
 {
+	static char name[16];
 	(void)modenum;
-	return "320x200";
+	snprintf(name, sizeof name, "%dx%d", g_mode_w, g_mode_h);
+	return name;
 }
 
 INT32 VID_SetMode(INT32 modenum)
@@ -78,8 +94,8 @@ INT32 VID_SetMode(INT32 modenum)
 	(void)modenum;
 	vid.recalc = 1;
 	vid.bpp = 1;
-	vid.width = BASEVIDWIDTH;
-	vid.height = BASEVIDHEIGHT;
+	vid.width = g_mode_w;
+	vid.height = g_mode_h;
 	vid.modenum = 0;
 	VID_CheckRenderer();
 	return 1;

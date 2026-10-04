@@ -17,10 +17,10 @@
 #include "srb2-input.h"
 #include "platform/chimera-platform.h"
 
-/* the largest picture the core reports (the engine's 320x200 for now; its
- * other resolutions later) */
-#define VIDEO_MAX_W 1920
-#define VIDEO_MAX_H 1200
+/* the largest picture the core reports: the largest resolution setting
+ * (sources.mk raises the engine's MAXVIDWIDTH/HEIGHT to it, patches/0005) */
+#define VIDEO_MAX_W 3840
+#define VIDEO_MAX_H 2160
 /* a step is a tic: 44100/35 stereo samples */
 #define AUDIO_RATE 44100
 #define SAMPLES_PER_STEP (AUDIO_RATE / 35)
@@ -52,6 +52,10 @@ ECL_EXPORT const char *GetLoadError(void) { return g_load_error; }
  *   cameraSpeed     cam_speed, 0 to 1; the core's default 1.0
  *   scoreTimeRings  timerres: Classic, Centiseconds, Mania, Tics; default Mania
  *   flipCamera      flipcam: the camera flips with gravity; default Yes
+ *   resolution      the picture's size, WxH: SRB2's own video modes
+ *                   (sdl/i_video.c's windowedModes) and 2560x1440, 3840x2160;
+ *                   default 1280x800, SRB2's own. The picture's alone: the
+ *                   game plays the same at every one
  */
 static const char *const g_playstyles[][3] = {
 	{ "Strafe", "Camera", "Off" },
@@ -124,6 +128,12 @@ static void settings_args(void)
 
 	arg("+flipcam");
 	arg(wbx_setting_bool("flipCamera", 1) ? "Yes" : "No");
+
+	char res[32];
+	int w = 1280, h = 800;
+	if (wbx_setting_str("resolution", res, (int)sizeof res) > 0)
+		sscanf(res, "%dx%d", &w, &h);
+	chimera_video_set_mode(w, h);
 }
 
 /* the engine started as upstream's main starts it. Its folder (-workdir,
@@ -219,6 +229,9 @@ ECL_EXPORT void SetRenderingEnabled(int on) { g_render = on != 0; }
 ECL_EXPORT uint32_t *GetVideoBgra(void) { return g_video; }
 ECL_EXPORT int GetVideoWidth(void) { return chimera_video_width(); }
 ECL_EXPORT int GetVideoHeight(void) { return chimera_video_height(); }
+/* square pixels: SRB2 is shown at the size it draws, whatever the mode */
+ECL_EXPORT int GetDisplayAspectX(void) { return chimera_video_width(); }
+ECL_EXPORT int GetDisplayAspectY(void) { return chimera_video_height(); }
 
 /* a step's sound, mixed after it (platform/i_sound.c) */
 ECL_EXPORT int16_t *GetAudio(void) { return g_audio; }
@@ -247,6 +260,10 @@ ECL_EXPORT int32_t GetSaveDataFileCount(void) { return chimera_savedata_count();
 ECL_EXPORT const char *GetSaveDataFileName(int32_t index) { return chimera_savedata_name(index); }
 ECL_EXPORT int64_t GetSaveDataFileSize(int32_t index) { return chimera_savedata_size(index); }
 ECL_EXPORT const uint8_t *GetSaveDataFileBuffer(int32_t index) { return chimera_savedata_buffer(index); }
+
+/* a digest of the game's state (srb2-driver.c), for the harnesses */
+extern uint64_t chimera_state_digest(void);
+ECL_EXPORT uint64_t GetStateDigest(void) { return chimera_state_digest(); }
 
 /* the engine's tic counter, for the harnesses */
 ECL_EXPORT uint32_t GetGameTic(void) { return srb2_gametic(); }

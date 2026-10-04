@@ -1,6 +1,6 @@
 {
   "_comment": [
-    "SRB2's own default keyboard (the FPS scheme), as far as Chimera names its keys: the controller's buttons are those keys. Weapon Next/Prev (the mouse wheel in SRB2) are E and Q, Toss Flag (') is G."
+    "SRB2's own default keyboard (the FPS scheme), as Chimera names its keys: Chimera merges left and right modifiers by default, so Spin is Shift and Center View is Ctrl. Yes and No are a prompt's Y and N."
   ],
   "AllTrollers": {
     "SRB2 Controller": {
@@ -13,28 +13,18 @@
       "Look Up": "Up",
       "Look Down": "Down",
       "Jump": "Space",
-      "Spin": "LeftShift",
-      "Fire": "RightCtrl",
-      "Fire Normal": "RightAlt",
-      "Toss Flag": "G",
-      "Center View": "LeftCtrl",
+      "Spin": "Shift",
+      "Center View": "Ctrl",
       "Camera Reset": "R",
       "Camera Toggle": "V",
-      "Weapon Next": "E",
-      "Weapon Prev": "Q",
-      "Weapon 1": "Number1",
-      "Weapon 2": "Number2",
-      "Weapon 3": "Number3",
-      "Weapon 4": "Number4",
-      "Weapon 5": "Number5",
-      "Weapon 6": "Number6",
-      "Weapon 7": "Number7",
       "Custom 1": "Z",
       "Custom 2": "X",
       "Custom 3": "C",
       "Pause": "P",
       "Enter": "Enter",
-      "Escape": "Escape"
+      "Escape": "Escape",
+      "Yes": "Y",
+      "No": "N"
     }
   }
 }

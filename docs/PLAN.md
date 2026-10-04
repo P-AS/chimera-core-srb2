@@ -62,6 +62,7 @@ the guest build), following Chimera's `docs/porting-a-core.md` and `docs/game-co
   CMake makes curl mandatory, so nothing else guards it); without it, no download.
 - `patches/openmpt/0001-deterministic-random-device.patch` (on `extern/openmpt`): libopenmpt's random seeding
   deterministic under `MPT_BUILD_DETERMINISTIC_RANDOM` (see "The sound").
+- `0005-maxvid-overridable.patch`: `MAXVIDWIDTH`/`MAXVIDHEIGHT` overridable by a build (the core's: 3840x2160).
 - `0004-driver-aiming.patch`: a non-zero aiming in the base tic command (`I_BaseTiccmd`, the external driver's)
   sets the look pitch; `G_BuildTiccmd` otherwise overwrites it with its own look state.
 - `0003-workdir-backport.patch`: upstream's `-workdir` (da1b35820, on `next` for 2.2.16), backported: it names
@@ -117,11 +118,30 @@ which differ from SRB2's own:
 | Camera Speed | `cam_speed`, 0..1, clamped, printed at 5 places | **1.0** (0.3) |
 | Score/Time/Rings | `timerres`: Classic, Centiseconds, **Mania**, Tics | **Mania** (Classic) |
 | Flip Camera with Gravity | `flipcam` | **Yes** (No) |
+| Resolution | the engine's one video mode (see "Resolution") | **1280x800** (1280x800) |
 | Start Map | `-warp` (empty: the intro and the title) | empty |
 
 Manual is the Standard control style (`PF_DIRECTIONCHAR`, no `PF_ANALOGMODE`): the player faces where it moves
 and the camera does not turn by itself. The gate's `settings` leg reads the engine's options back
 (`run-native --print-cvar`): the defaults absent and given, and every other value of every setting.
+
+## Resolution (2026-10-04, user-decided)
+
+**The Resolution setting** offers SRB2's own video modes (`sdl/i_video.c`'s `windowedModes`, 320x200 to
+1920x1200) and 2560x1440 and 3840x2160 beyond them; the default is 1280x800, SRB2's own (`scr_width`/`scr_height`).
+The engine's one mode is that one (`chimera_video_set_mode`, before the start): whatever mode a configuration or
+the video menu asks for, it gets the setting's. SRB2's renderer sizes its tables by `MAXVIDWIDTH`/`MAXVIDHEIGHT`
+(1920x1200), so **patch 0005** lets a build raise them, and the core builds with 3840x2160.
+
+**Square pixels**: SRB2 is a modern game and is shown at the size it draws - `GetDisplayAspectX/Y` answer the
+mode's own width and height, not 4:3.
+
+**No sync difference between resolutions**: the gate's `resolution` leg plays Greenflower's movie at 320x200,
+1280x800, 1920x1080 and 3840x2160, native and sandboxed, and finds one game state (the new state digest,
+`GetStateDigest`: the tic, level time, RNG seed, game state and map, the player, the camera, and every object's
+position, momentum, angle, type, state and health, every step), one sound, and four pictures. Reading the
+engine, nothing of play reads the screen's size (only the player's eye height, `viewheight`, which is not the
+screen's). 3840x2160 costs about 9x the time of 320x200 natively (13 s for 260 steps).
 
 ## The controller (2026-10-04, user-decided: keys + analog axes)
 
@@ -129,9 +149,16 @@ A movie row is **SRB2's own keyboard plus four axes**:
 
 - **The buttons are the game's controls in its default keyboard scheme** ("FPS", `gamecontroldefault[gcs_fps]`):
   Forward (W), Backward (S), Strafe Left/Right (A/D), Turn Left/Right (←/→), Look Up/Down (↑/↓), Jump
-  (Space), Spin (Left Shift), Fire (Right Ctrl), Fire Normal (Right Alt), Toss Flag ('), Center View (Left Ctrl),
-  Camera Reset (R), Camera Toggle (V), Weapon Next/Prev (the wheel), Weapon 1-7, Custom 1-3 (Z/X/C), Pause (P),
-  and the menus' Enter and Escape. A button that changes is a key event (`D_PostEvent`), so the menus, the
+  (Space), Spin (Left Shift), Center View (Left Ctrl), Camera Reset (R), Camera Toggle (V), Custom 1-3 (Z/X/C),
+  Pause (P), the menus' Enter and Escape, and a prompt's Yes and No (y, n). **The ring-slinger controls - Fire,
+  Fire Normal, Toss Flag, Weapon Next/Prev, Weapon 1-7 - are commented out for now** (user-decided, 2026-10-04:
+  multiplayer's, and they crowded the UI); their keys keep SRB2's bindings and are never pressed.
+- **TAStudio's letters** are Chimera's (`MnemonicLookup.cs`, keyed by the system ID `SRB2`), not the
+  declaration's: without a table each name's last word was used, so Strafe Left and Turn Left were both L. Chimera
+  branch `feat/srb2-core` (2087b79) adds the table: Doom's directions (^ v < > { }), and distinct letters for
+  the rest (Enter E, Escape X, Yes Y, No N); axes Fwd, Side, Turn, Aim.
+- **Default keys** (`default_keybinds.json`) are Chimera's merged modifiers: Spin is Shift and Center View Ctrl
+  (Chimera binds Shift, not LeftShift, unless asked to tell them apart). A button that changes is a key event (`D_PostEvent`), so the menus, the
   title, a prompt and the game read it as a keyboard, and the game builds its tic command with all its own
   logic (accelerative turning, the Simple style's camera, Lua's `PlayerCmd`). In menus the arrows are Look
   Up/Down and Turn Left/Right, as on a keyboard; a yes/no prompt takes Enter as yes and Escape as no.

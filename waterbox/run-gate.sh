@@ -64,6 +64,11 @@
 #                value of each setting is the engine's option (read back with
 #                run-native --print-cvar). Its teeth - another value is not the
 #                default's
+#   resolution   the resolution setting is the picture's alone: Greenflower's
+#                movie at 320x200, 1280x800, 1920x1080 and 3840x2160, native and
+#                sandboxed, plays one game (the state digest, every step) and
+#                one sound, and every resolution draws its own picture; its
+#                teeth - another input is another state
 #   engine       (with -c) Chimera's own engine opens the package, as the
 #                frontend's session does (the required exports, the declaration,
 #                the firmware, Init), and runs the menus-to-Tutorial movie's
@@ -330,6 +335,29 @@ done
 	|| bad "settings: a value did not reach the engine"
 [ "$(cvars '{"warp": "1", "scoreTimeRings": "Classic"}')" != "$want" ] && pass "settings teeth: another value is not the default's" \
 	|| bad "settings teeth: a value changed nothing - the leg cannot fail"
+
+# ---- resolution: the picture's alone
+content res '{"warp": "1"}'
+states="" sounds="" pictures=""
+for r in 320x200 1280x800 1920x1080 3840x2160; do
+	printf '{"warp": "1", "resolution": "%s"}\n' "$r" > "$root/build/gate/res/settings"
+	for build in nat box; do
+		l="$($build res -n 260 -p 0 --input "$tests/gfz1-run.txt" | tail -1)"
+		states="$states $(field "$l" state)"
+		sounds="$sounds $(field "$l" audio)"
+		[ "$build" = nat ] && pictures="$pictures $(field "$l" run)"
+	done
+done
+one() { echo $1 | tr ' ' '\n' | sort -u | wc -l; }
+if [ "$(one "$states")" = 1 ] && [ "$(one "$sounds")" = 1 ] && [ "$(one "$pictures")" = 4 ]; then
+	pass "resolution: 320x200 to 3840x2160, native and sandboxed: one game state ($(echo $states | cut -d' ' -f1)), one sound, four pictures"
+else
+	bad "resolution: states '$states', sounds '$sounds', pictures '$pictures'"
+fi
+printf '{"warp": "1", "resolution": "1280x800"}\n' > "$root/build/gate/res/settings"
+other="$(field "$(nat res -n 260 -p 0 --input "$root/build/gate/gfz1-nojump.txt" | tail -1)" state)"
+[ "$other" != "$(echo $states | cut -d' ' -f1)" ] && pass "resolution teeth: another input is another game state" \
+	|| bad "resolution teeth: the state digest did not see another input - the leg cannot fail"
 
 # ---- engine: the package through Chimera's libchimera
 if [ -n "$bundle" ]; then

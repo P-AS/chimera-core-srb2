@@ -18,10 +18,12 @@
  *   --savedata-out DIR  after the run, write the save data export (the files
  *                   the game wrote) under DIR, as chimera-run --export-savedata
  *
- * It ends with "run <hash> tic <n> clock <c> lag <l> audio <hash> peak <p>": the
- * hash of every step's picture in order, the engine's tic counter, the
- * machine's clock, the steps that read no input, the hash of every step's
- * sound and its loudest sample - the whole run.
+ * It ends with "run <hash> tic <n> clock <c> lag <l> audio <hash> peak <p> state
+ * <hash>": the hash of every step's picture in order, the engine's tic
+ * counter, the machine's clock, the steps that read no input, the hash of
+ * every step's sound and its loudest sample, and the hash of every step's game
+ * state (GetStateDigest: what the game is, apart from its picture) - the whole
+ * run.
  */
 #ifndef HARNESS_H
 #define HARNESS_H
@@ -44,6 +46,7 @@ struct harness_core
 	const int16_t *(*audio)(int *n);
 	uint32_t (*gametic)(void);
 	int (*input_was_read)(void);
+	uint64_t (*state_digest)(void);
 	uint64_t (*clock)(void);
 	/* the controller */
 	void (*set_button)(int32_t i, int32_t held);
@@ -280,7 +283,7 @@ static void harness_apply_input(const struct harness_core *c, long step)
 /* Init has run (run-wbx seals the machine after it); the steps */
 static int harness_run(const struct harness_core *c, const struct harness_opts *o)
 {
-	uint64_t run = 0xcbf29ce484222325ull, sound = 0xcbf29ce484222325ull;
+	uint64_t run = 0xcbf29ce484222325ull, sound = 0xcbf29ce484222325ull, state = 0xcbf29ce484222325ull;
 	long lag = 0;
 	int peak = 0;
 	int wav = -1;
@@ -315,6 +318,7 @@ static int harness_run(const struct harness_core *c, const struct harness_opts *
 		if (!c->input_was_read())
 			lag++;
 		px = c->video(&w, &h);
+		state = (state ^ c->state_digest()) * 0x100000001b3ull;
 		int an;
 		const int16_t *as = c->audio(&an);
 		sound = (sound ^ harness_fnv1a(as, (size_t)an * 4)) * 0x100000001b3ull;
@@ -329,8 +333,8 @@ static int harness_run(const struct harness_core *c, const struct harness_opts *
 			printf("step %ld tic %u clock %llu lag %ld picture %016llx\n", f, c->gametic(),
 				(unsigned long long)c->clock(), lag, (unsigned long long)pic);
 	}
-	printf("run %016llx tic %u clock %llu lag %ld audio %016llx peak %d\n", (unsigned long long)run, c->gametic(),
-		(unsigned long long)c->clock(), lag, (unsigned long long)sound, peak);
+	printf("run %016llx tic %u clock %llu lag %ld audio %016llx peak %d state %016llx\n", (unsigned long long)run,
+		c->gametic(), (unsigned long long)c->clock(), lag, (unsigned long long)sound, peak, (unsigned long long)state);
 	if (wav >= 0)
 	{
 		/* the header, now the length is known: 44.1 kHz stereo 16-bit PCM */

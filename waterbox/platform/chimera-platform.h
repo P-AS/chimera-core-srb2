@@ -13,6 +13,8 @@ void chimera_clock_step(void);
 extern int chimera_host_clock;
 /* a step's sound: frames of 44.1 kHz stereo signed 16-bit (platform/i_sound.c) */
 void chimera_audio_mix(int16_t *out, int frames);
+/* the machine's one video mode, set before the start (platform/i_video.c) */
+void chimera_video_set_mode(int w, int h);
 /* the engine's screen, through its palette, as BGRA (platform/i_video.c) */
 int chimera_video_width(void);
 int chimera_video_height(void);

@@ -26,7 +26,7 @@
 #include "harness.h"
 
 /* matches waterbox.config's memoryLayoutMiB: sbrk, sealed, invisible, plain, mmap */
-#define LAYOUT_MIB 256, 4, 32, 4, 1024
+#define LAYOUT_MIB 256, 4, 64, 4, 1024
 
 typedef struct { FILE *f; } freader;
 static intptr_t file_read(uintptr_t ud, uint8_t *d, uintptr_t s) { return (intptr_t)fread(d, 1, s, ((freader *)ud)->f); }
@@ -43,7 +43,7 @@ static ptrfn g_GetAudio;
 static ptrfn g_GetLoadError, g_GetVideoBgra;
 static framefn g_FrameAdvance;
 static u32fn g_GetGameTic;
-static u64fn g_GetCycleCount;
+static u64fn g_GetCycleCount, g_GetStateDigest;
 typedef int32_t (MB_GUEST_ABI *i32fn)(void);
 typedef uintptr_t (MB_GUEST_ABI *ptrfn_i32)(int32_t);
 typedef int64_t (MB_GUEST_ABI *i64fn_i32)(int32_t);
@@ -81,6 +81,7 @@ static const int16_t *core_audio(int *n)
 }
 static int core_input_was_read(void) { return g_InputWasRead(); }
 static uint64_t core_clock(void) { return g_GetCycleCount(); }
+static uint64_t core_state(void) { return g_GetStateDigest(); }
 static int32_t core_sd_count(void) { return g_GetSaveDataFileCount(); }
 static void core_set_button(int32_t i, int32_t s) { g_SetButton(i, s); }
 static void core_set_axis(int32_t i, int32_t v) { g_SetAxis(i, v); }
@@ -175,6 +176,7 @@ static void build_host(void)
 	g_GetAudio = (ptrfn)proc("GetAudio");
 	g_GetAudioSampleCount = (intfn)proc("GetAudioSampleCount");
 	g_GetCycleCount = (u64fn)proc("GetCycleCount");
+	g_GetStateDigest = (u64fn)proc("GetStateDigest");
 	g_SetButton = (setfn)proc("SetButton");
 	g_SetAxis = (setfn)proc("SetAxis");
 	g_GetButtonCount = (intfn)proc("GetButtonCount");
@@ -278,6 +280,7 @@ int main(int argc, char **argv)
 		.gametic = core_gametic,
 		.input_was_read = core_input_was_read,
 		.clock = core_clock,
+		.state_digest = core_state,
 		.set_button = core_set_button,
 		.set_axis = core_set_axis,
 		.button_count = core_button_count,
