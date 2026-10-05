@@ -444,7 +444,8 @@ gives - and a fractional one goes through `exp`/`log`.
 
 `.github/workflows/chimera.yml`, modeled on the DSDA core's: one `gate` job and the `publish` job every core
 publishes with (Chimera's reusable `publish-core.yml`: a rolling `dev` on every green push to main, a dated
-`nightly-YYYY-MM-DD` from the 04:00 UTC schedule when main moved).
+`nightly-YYYY-MM-DD` from the 04:23 UTC schedule when main moved; off the hour, where GitHub drops fewer scheduled
+runs - 04:00 never fired - and by hand: Actions > Run workflow, kind `nightly`).
 
 The gate job checks out this repository (submodules; `extern/openmpt` shallow) and Chimera (`CHIMERA_REF`,
 main), builds Chimera's native libraries and solution, builds miniBox's host and C++ guest toolchain (cached;
