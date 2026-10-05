@@ -123,6 +123,7 @@ which differ from SRB2's own:
 | Unlock Record Attack, NiGHTS Mode and Marathon Run | the game data's `SECRET_RECORDATTACK` and `SECRET_NIGHTSMODE` unlockables (SRB2 offers Marathon Run whenever Record Attack is unlocked, `m_menu.c`) | **Off** |
 | Unlock All Characters | the `SECRET_SKIN` unlockables (Amy, Fang, Metal Sonic) | **Off** |
 | Unlock All Secrets | every unlockable (24 in 2.2.15) | **Off** |
+| Start Map Character | `+skin`, given only with a Start Map (`-warp`), run before the map starts; a locked character (Amy, Fang, Metal Sonic) needs Unlock All Characters, and a locked or unknown one plays Sonic | **empty**: Sonic |
 | Resolution | the engine's one video mode (see "Resolution") | **1280x800** (1280x800) |
 | Start Map | `-warp` (empty: the intro and the title) | empty |
 

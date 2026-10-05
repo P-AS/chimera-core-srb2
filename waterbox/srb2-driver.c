@@ -34,6 +34,7 @@
 #include "p_tick.h"
 #include "m_random.h"
 #include "m_cond.h"
+#include "r_skins.h"
 
 #include "chimera-platform.h"
 #include "srb2-driver.h"
@@ -176,6 +177,12 @@ const char *chimera_unlocks_summary(void)
 	}
 	snprintf(out, sizeof out, "recordattack %d nights %d skins %d/%d all %d/%d", ra, nights, skins, skinsall, n, all);
 	return out;
+}
+
+/* the player's skin, for the native reference's diagnostics */
+const char *chimera_player_skin(void)
+{
+	return gamestate == GS_LEVEL && playeringame[consoleplayer] ? skins[players[consoleplayer].skin]->name : "(none)";
 }
 
 void srb2_frame(void)
