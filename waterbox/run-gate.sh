@@ -61,7 +61,7 @@
 #                setting given, and with every declared default given, the
 #                engine plays Manual (directionchar Movement, configanalog
 #                Off), cam_speed 1.0, timerres Mania, flipcam Yes, autobrake On, tutorialprompt
-#                Off, nothing unlocked; each other
+#                Off, nothing unlocked, Sonic; each other
 #                value of each setting is the engine's option (read back with
 #                run-native --print-cvar). Its teeth - another value is not the
 #                default's
@@ -350,9 +350,20 @@ for v in '{}|recordattack 0 nights 0 skins 0/' '{"unlockModes": true}|recordatta
 	got="$(unlocks "$(echo "${v%%|*}" | sed 's/^{/{"warp": "1", /; s/, }$/}/')")"
 	case "$got" in *"${v#*|}"*) ;; *) ok=0; echo "  ${v%%|*}: want '${v#*|}', got '$got'" ;; esac
 done
+# the character Start Map plays as: the player's skin in the level; a locked
+# one needs the characters unlocked, an unknown one is the game's default
+skin() {
+	printf '%s\n' "$1" > "$root/build/gate/settings/settings"
+	"$native" "$root/build/gate/settings" -n 100 -p 0 --print-skin 2>/dev/null | grep '^skin'
+}
+for v in '{"warp": "1"}|sonic' '{"warp": "1", "skin": "knuckles"}|knuckles' '{"warp": "1", "skin": "amy"}|sonic' \
+	'{"warp": "1", "skin": "amy", "unlockCharacters": true}|amy' '{"warp": "1", "skin": "nobody"}|sonic'; do
+	got="$(skin "${v%%|*}")"
+	[ "$got" = "skin ${v#*|}" ] || { ok=0; echo "  ${v%%|*}: want skin ${v#*|}, got '$got'"; }
+done
 case "$(cvars '{"warp": "1"}')" in *"cvar tutorialprompt Off "*) ;; *) ok=0; echo "  tutorialprompt is not Off by default" ;; esac
 case "$(cvars '{"warp": "1", "tutorialPrompt": true}')" in *"cvar tutorialprompt On "*) ;; *) ok=0; echo "  tutorialPrompt true is not On" ;; esac
-[ "$ok" = 1 ] && pass "settings: every other value of every setting is the engine's option (10 values), tutorialprompt, and the unlocks (the game data's)" \
+[ "$ok" = 1 ] && pass "settings: every other value of every setting is the engine's option (10 values), tutorialprompt, the unlocks (the game data's), and the Start Map character (5 cases)" \
 	|| bad "settings: a value did not reach the engine"
 [ "$(cvars '{"warp": "1", "scoreTimeRings": "Classic"}')" != "$want" ] && pass "settings teeth: another value is not the default's" \
 	|| bad "settings teeth: a value changed nothing - the leg cannot fail"

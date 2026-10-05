@@ -43,6 +43,11 @@ ECL_EXPORT const char *GetLoadError(void) { return g_load_error; }
  *
  *   warp            a map to start in, as the game's -warp takes it (a number,
  *                   or MAPxx); empty: the game's own start, the intro and title
+ *   skin            the character Start Map plays as, by its skin name
+ *                   (sonic, tails, knuckles, amy, fang, metalsonic, or an
+ *                   addon's), as the game's +skin; empty: its own default,
+ *                   Sonic. Only with a Start Map: otherwise the game's
+ *                   character select chooses
  *   playStyle       the 1P play style menu's choice, as its two options:
  *                     Strafe     directionchar Camera,   configanalog Off
  *                     Manual     directionchar Movement, configanalog Off
@@ -98,12 +103,18 @@ static const char *arg_copy(const char *a)
 
 static void settings_args(void)
 {
-	char warp[16], style[32], timer[32], speed[32];
+	char warp[16], skin[32], style[32], timer[32], speed[32];
 
 	if (wbx_setting_str("warp", warp, (int)sizeof warp) > 0 && warp[0])
 	{
 		arg("-warp");
 		arg(arg_copy(warp));
+		/* run before the map starts (D_SRB2Main's COM_BufExecute for +skin) */
+		if (wbx_setting_str("skin", skin, (int)sizeof skin) > 0 && skin[0])
+		{
+			arg("+skin");
+			arg(arg_copy(skin));
+		}
 	}
 
 	int st = 1; /* Manual */
