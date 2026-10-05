@@ -12,7 +12,7 @@ include sources.mk
 
 B := $(ROOT)/build/native
 
-SRB2_CFLAGS := $(SRB2_CFLAGS_COMMON) -g -w
+SRB2_CFLAGS := $(SRB2_CFLAGS_COMMON) -g -w $(SRB2_RENAMES)
 ZLIB_CFLAGS := $(ZLIB_CFLAGS_COMMON) -w
 PNG_CFLAGS := $(PNG_CFLAGS_COMMON) -w
 XIPH_CFLAGS := $(XIPH_CFLAGS_COMMON) -w
@@ -37,7 +37,7 @@ endif
 
 all: $(B)/run-native $(B)/run-wbx
 
-$(B)/srb2/%.o: $(SRB2)/%.c $(PATCH_STAMP) $(OPENMPT_STAMP) $(PNGCONF) $(B)/flags
+$(B)/srb2/%.o: $(SRB2)/%.c $(PATCH_STAMP) $(OPENMPT_STAMP) $(PNGCONF) $(B)/flags | $(MESA_GL_H)
 	@mkdir -p $(dir $@)
 	gcc $(SRB2_CFLAGS) -c -o $@ $<
 
@@ -69,7 +69,7 @@ $(B)/vorbis/%.o: $(VORBIS)/lib/%.c compat/ogg/config_types.h $(B)/flags
 	@mkdir -p $(dir $@)
 	gcc $(XIPH_CFLAGS) -c -o $@ $<
 
-$(B)/core/%.o: %.c $(CORE_HDRS) $(PATCH_STAMP) $(OPENMPT_STAMP) $(PNGCONF) $(B)/flags
+$(B)/core/%.o: %.c $(CORE_HDRS) $(PATCH_STAMP) $(OPENMPT_STAMP) $(PNGCONF) $(B)/flags | $(MESA_GL_H)
 	@mkdir -p $(dir $@)
 	gcc $(CORE_CFLAGS) -c -o $@ $<
 
