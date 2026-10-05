@@ -35,6 +35,7 @@
 #include "m_random.h"
 #include "m_cond.h"
 #include "r_skins.h"
+#include "m_menu.h"
 
 #include "chimera-platform.h"
 #include "srb2-driver.h"
@@ -125,11 +126,13 @@ int srb2_start(int argc, char **argv)
  * game's own updates only ever unlock, so nothing takes them back. */
 static int g_unlock_modes, g_unlock_skins, g_unlock_all;
 
-void srb2_set_unlocks(int modes, int skins, int all)
+void srb2_set_unlocks(int modes, int skins, int all, int maps)
 {
 	g_unlock_modes = modes;
 	g_unlock_skins = skins;
 	g_unlock_all = all;
+	/* the menu's own check, not the game data (patches/0006) */
+	menu_allmapsavailable = maps ? true : false;
 }
 
 static void apply_unlocks(gamedata_t *d)
@@ -175,7 +178,16 @@ const char *chimera_unlocks_summary(void)
 			skins += u;
 		}
 	}
-	snprintf(out, sizeof out, "recordattack %d nights %d skins %d/%d all %d/%d", ra, nights, skins, skinsall, n, all);
+	/* the maps Record Attack offers: m_menu.c's list mode (an enum private to
+	 * it, LLM_RECORDATTACK 2) set for the count, then put back */
+	extern int levellistmode;
+	const int mode = levellistmode;
+	int ramaps = 0;
+	levellistmode = 2;
+	for (int i = 0; i < NUMMAPS; i++)
+		ramaps += M_CanShowLevelInList(i, -1) ? 1 : 0;
+	levellistmode = mode;
+	snprintf(out, sizeof out, "recordattack %d nights %d skins %d/%d all %d/%d ramaps %d", ra, nights, skins, skinsall, n, all, ramaps);
 	return out;
 }
 

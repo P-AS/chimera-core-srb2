@@ -73,9 +73,9 @@ The harnesses' `--wav FILE` writes a run's sound.
 ## Settings
 
 Declared in `waterbox/waterbox.config`, so Chimera shows them as the core's options; each is SRB2's own option,
-given to the engine at start: Play Style (default Manual), Camera Speed (1.0), Score/Time/Rings (Mania), Flip
+given to the engine at start: Play Style (default Manual), Camera Speed (1.0), Camera Distance (192), Camera Height (40), Score/Time/Rings (Mania), Flip
 Camera with Gravity (Yes), Automatic Braking (On), Tutorial Prompt (Off), Unlock Record Attack/NiGHTS Mode/Marathon Run, Unlock All
-Characters, Unlock All Secrets (each Off), Resolution (1280x800: SRB2's video modes, and 2560x1440 and 3840x2160, shown with square
+Characters, Unlock All Maps in Record Attack and NiGHTS Mode, Unlock All Secrets (each Off), Resolution (1280x800: SRB2's video modes, and 2560x1440 and 3840x2160, shown with square
 pixels; the game plays the same at every one), Start Map (empty: the intro and the title), Start Map Character (a skin name, e.g. knuckles; empty: Sonic).
 
 ## The controller

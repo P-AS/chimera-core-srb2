@@ -62,6 +62,8 @@ the guest build), following Chimera's `docs/porting-a-core.md` and `docs/game-co
   CMake makes curl mandatory, so nothing else guards it); without it, no download.
 - `patches/openmpt/0001-deterministic-random-device.patch` (on `extern/openmpt`): libopenmpt's random seeding
   deterministic under `MPT_BUILD_DETERMINISTIC_RANDOM` (see "The sound").
+- `0006-all-maps-available.patch`: `menu_allmapsavailable`, which an external driver sets to list every
+  map on the level platters as available, visited or locked or not (Unlock All Maps).
 - `0005-maxvid-overridable.patch`: `MAXVIDWIDTH`/`MAXVIDHEIGHT` overridable by a build (the core's: 3840x2160).
 - `0004-driver-aiming.patch`: a non-zero aiming in the base tic command (`I_BaseTiccmd`, the external driver's)
   sets the look pitch; `G_BuildTiccmd` otherwise overwrites it with its own look state.
@@ -116,12 +118,15 @@ which differ from SRB2's own:
 |---|---|---|
 | Play Style | `directionchar` + `configanalog`, as the play style menu sets them (`M_HandlePlaystyleMenu`): Strafe (Camera, Off), **Manual** (Movement, Off), Automatic (Movement, On), Old Analog (Camera, On) | **Manual** (Automatic) |
 | Camera Speed | `cam_speed`, 0..1, clamped, printed at 5 places | **1.0** (0.3) |
+| Camera Distance | `cam_dist`, the Manual and Strafe styles' camera (Automatic and Old Analog use `cam_simpledist`) | **192** (192) |
+| Camera Height | `cam_height`, likewise (`cam_simpleheight`) | **40** (40) |
 | Score/Time/Rings | `timerres`: Classic, Centiseconds, **Mania**, Tics | **Mania** (Classic) |
 | Flip Camera with Gravity | `flipcam` | **Yes** (No) |
 | Automatic Braking | `autobrake` (given explicitly, so a configuration cannot turn it off) | **On** (On) |
 | Tutorial Prompt | `tutorialprompt` (the title's "play the tutorial?") | **Off** (On) |
 | Unlock Record Attack, NiGHTS Mode and Marathon Run | the game data's `SECRET_RECORDATTACK` and `SECRET_NIGHTSMODE` unlockables (SRB2 offers Marathon Run whenever Record Attack is unlocked, `m_menu.c`) | **Off** |
 | Unlock All Characters | the `SECRET_SKIN` unlockables (Amy, Fang, Metal Sonic) | **Off** |
+| Unlock All Maps in Record Attack and NiGHTS Mode | the menu's check (`M_LevelAvailableOnPlatter`: visited, `M_MapLocked`) skipped, **patch 0006** - not the game data, so an addon's maps are listed too, no visit is recorded, and no "visit map" condition unlocks anything (28 Record Attack maps in 2.2.15) | **Off** |
 | Unlock All Secrets | every unlockable (24 in 2.2.15) | **Off** |
 | Start Map Character | `+skin`, given only with a Start Map (`-warp`), run before the map starts; a locked character (Amy, Fang, Metal Sonic) needs Unlock All Characters, and a locked or unknown one plays Sonic | **empty**: Sonic |
 | Resolution | the engine's one video mode (see "Resolution") | **1280x800** (1280x800) |

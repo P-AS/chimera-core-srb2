@@ -6,7 +6,7 @@ extern "C" {
 #endif
 /* the unlocks the project starts with (set before srb2_start): Record Attack,
  * NiGHTS Mode and Marathon Run; every character; every unlockable */
-void srb2_set_unlocks(int modes, int skins, int all);
+void srb2_set_unlocks(int modes, int skins, int all, int maps);
 /* the engine's start: upstream's main before its loop; nonzero if it halted */
 int srb2_start(int argc, char **argv);
 /* a step: the machine's clock a tic further, the engine run until it next
