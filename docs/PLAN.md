@@ -180,7 +180,9 @@ A movie row is **SRB2's own keyboard plus four axes**:
   `autoexec.cfg` cannot change what a recorded button means.
 - **The axes** go in through upstream's seam for an external driver, `I_BaseTiccmd` ("empty, or external
   driver"), the command `G_BuildTiccmd` starts from: Forward Move and Side Move (-50..50), Turn (an angle delta
-  in 1/65536 turns, added to the turn keys'), Aim (the look pitch; 0 leaves the game's own look). The game adds
+  in 1/65536 turns, added to the turn keys'; positive turns right), Aim (the look pitch; positive looks down,
+  as a stick's Y; 0 leaves the game's own look). Both are the command's negated (its angle counter-clockwise,
+  its pitch up). The game adds
   its keys' movement to the base without clamping the sum, so a movement axis counts only while its keys are
   not held. `G_BuildTiccmd` overwrites the command's aiming with its own look state (which springs back to
   level), so **patch 0004** lets a non-zero base aiming set the pitch.

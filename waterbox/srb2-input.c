@@ -28,9 +28,11 @@
  *                            keys are not held (Forward/Backward, Strafe
  *                            Left/Right): the command stays in the game's range.
  *   Turn                     an angle delta, -32768..32767 (1/65536 turn),
- *                            added to what the turn keys give
+ *                            added to what the turn keys give; positive
+ *                            turns right (the command's angleturn negated)
  *   Aim                      the look pitch, as the command's aiming (angle >>
- *                            16), clipped as the game clips it; 0 leaves the
+ *                            16) negated: positive looks down, as a stick's
+ *                            Y; clipped as the game clips it; 0 leaves the
  *                            game's own look (patches/0004)
  */
 #include <string.h>
@@ -174,6 +176,8 @@ void srb2_input_base(ticcmd_t *cmd)
 		cmd->forwardmove = (SINT8)g_axis[0];
 	if (!held(GC_STRAFELEFT) && !held(GC_STRAFERIGHT))
 		cmd->sidemove = (SINT8)g_axis[1];
-	cmd->angleturn = (INT16)g_axis[2];
-	cmd->aiming = (INT16)g_axis[3];
+	/* the command's angle is counter-clockwise, its pitch up: negated, with
+	 * -32768 kept in range */
+	cmd->angleturn = (INT16)(g_axis[2] == -32768 ? 32767 : -g_axis[2]);
+	cmd->aiming = (INT16)(g_axis[3] == -32768 ? 32767 : -g_axis[3]);
 }
