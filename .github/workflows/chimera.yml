@@ -117,18 +117,21 @@ jobs:
         run: ./waterbox/fetch-data.sh build/srb2-2.2.15
 
       - name: Cache the guest Mesa
-        # what the build uses of it: the archives and osmesa target (the guest
-        # link), the GL headers (both builds), the licence files (the package)
+        # what the build uses of it: the archives, the objects they name (Meson's
+        # archives are thin: a member is a path to its .o, not a copy) and the
+        # osmesa target (the guest link), the GL headers (both builds), the
+        # licence files (the package)
         uses: actions/cache@v4
         with:
           path: |
             build/mesa/build-guest2/**/*.a
+            build/mesa/build-guest2/**/*.o
             build/mesa/build-guest2/src/gallium/targets/osmesa
             build/mesa/include
             build/mesa/docs/license.rst
             build/mesa/subprojects/expat-2.5.0/COPYING
             build/mesa/subprojects/zlib-1.3.1/LICENSE
-          key: guest-mesa-${{ runner.os }}-${{ hashFiles('waterbox/setup-mesa.sh') }}-${{ hashFiles('chimera-checkout/extern/chimera-common-minibox/.git') }}
+          key: guest-mesa-v2-${{ runner.os }}-${{ hashFiles('waterbox/setup-mesa.sh') }}-${{ hashFiles('chimera-checkout/extern/chimera-common-minibox/.git') }}
 
       - name: Build the guest Mesa
         # Mesa 24.0.9's softpipe behind OSMesa, for the OpenGL renderer (about
