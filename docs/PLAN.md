@@ -304,13 +304,14 @@ A movie row is **SRB2's own keyboard plus four axes**:
 - **The buttons are the game's controls in its default keyboard scheme** ("FPS", `gamecontroldefault[gcs_fps]`):
   Forward (W), Backward (S), Strafe Left/Right (A/D), Turn Left/Right (←/→), Look Up/Down (↑/↓), Jump
   (Space), Spin (Left Shift), Center View (Left Ctrl), Camera Reset (R), Camera Toggle (V), Custom 1-3 (Z/X/C),
-  Pause (P), the menus' Enter and Escape, and a prompt's Yes and No (y, n). **The ring-slinger controls - Fire,
+  Pause (P), and the menus' Enter and escape (a prompt's yes and no too: Enter or Space, escape; the Y and
+  N buttons were dropped 2026-10-05, user-decided, as redundant). **The ring-slinger controls - Fire,
   Fire Normal, Toss Flag, Weapon Next/Prev, Weapon 1-7 - are commented out for now** (user-decided, 2026-10-04:
   multiplayer's, and they crowded the UI); their keys keep SRB2's bindings and are never pressed.
 - **TAStudio's letters** are Chimera's (`MnemonicLookup.cs`, keyed by the system ID `SRB2`), not the
   declaration's, and an unofficial core has no table there: each name's last word is used, so the names are
-  chosen to differ (see "CI"). Turn Left/Right became Turn left/right, Camera Reset Reset Camera, the Enter
-  button Select.
+  chosen to differ (see "CI"). Turn Left/Right became Turn left/right, Camera Reset Reset Camera, Escape
+  escape (e beside Enter's E; Enter was Select until 2026-10-05).
 - **Default keys** (`default_keybinds.json`) are Chimera's merged modifiers: Spin is Shift and Center View Ctrl
   (Chimera binds Shift, not LeftShift, unless asked to tell them apart). A button that changes is a key event (`D_PostEvent`), so the menus, the
   title, a prompt and the game read it as a keyboard, and the game builds its tic command with all its own
@@ -458,8 +459,8 @@ uploads `srb2-<sha>`.
 user-decided 2026-10-04): it is not in Chimera's roster (`official-cores.json`), which is the Chimera project's
 to grant, and installs by hand. TAStudio's column letters come from Chimera's own `MnemonicLookup` table, which
 has no SRB2 entry, so **the button names are chosen so that its fallback (a name's last word) differs for every
-one**: Turn left/right (l, r) beside Strafe Left/Right (L, R), Reset Camera (C), Select - the Enter key - (s,
-Chimera's base table) beside Spin (S), Escape (E), Pause (p); the axes abbreviate to FM, SM, T, A. Chimera's
+one**: Turn left/right (l, r) beside Strafe Left/Right (L, R), Reset Camera (C), Enter (E) beside escape
+(e: lowercase for its letter), Pause (p); the axes abbreviate to FM, SM, T, A. Chimera's
 contract tests built from its stock main pass on the package, all eight, the mnemonic uniqueness and axis-width
 checks among them. `docs/chimera-proposal.patch` is two commits Chimera could adopt, for proposing upstream (nothing
 depends on them): a mnemonics table instead (Doom's direction symbols), and the system's name. Chimera spells a

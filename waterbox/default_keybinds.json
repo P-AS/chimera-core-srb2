@@ -1,6 +1,6 @@
 {
   "_comment": [
-    "SRB2's own default keyboard (the FPS scheme), as Chimera names its keys: Chimera merges left and right modifiers by default, so Spin is Shift and Center View is Ctrl. Yes and No are a prompt's Y and N."
+    "SRB2's own default keyboard (the FPS scheme), as Chimera names its keys: Chimera merges left and right modifiers by default, so Spin is Shift and Center View is Ctrl."
   ],
   "AllTrollers": {
     "SRB2 Controller": {
@@ -21,10 +21,8 @@
       "Custom 2": "X",
       "Custom 3": "C",
       "Pause": "P",
-      "Select": "Enter",
-      "Escape": "Escape",
-      "Yes": "Y",
-      "No": "N"
+      "Enter": "Enter",
+      "escape": "Escape"
     }
   }
 }

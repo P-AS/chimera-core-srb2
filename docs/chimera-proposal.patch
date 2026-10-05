@@ -12,15 +12,15 @@ Fwd, Side, Turn, Aim.
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 Claude-Session: https://claude.ai/code/session_01KmA5vUr2aPFUfecLj4PFJi
 ---
- .../Base Implementations/MnemonicLookup.cs    | 33 +++++++++++++++++++
+ .../Base Implementations/MnemonicLookup.cs    | 31 +++++++++++++++++++
  .../gui/Chimera.Emulation.Common/VSystemID.cs |  1 +
- 2 files changed, 34 insertions(+)
+ 2 files changed, 32 insertions(+)
 
 diff --git a/source/gui/Chimera.Emulation.Common/Base Implementations/MnemonicLookup.cs b/source/gui/Chimera.Emulation.Common/Base Implementations/MnemonicLookup.cs
 index c9fba5d..3bd7b72 100644
 --- a/source/gui/Chimera.Emulation.Common/Base Implementations/MnemonicLookup.cs	
 +++ b/source/gui/Chimera.Emulation.Common/Base Implementations/MnemonicLookup.cs	
-@@ -1298,6 +1298,32 @@ namespace Chimera.Emulation.Common
+@@ -1298,6 +1298,30 @@ namespace Chimera.Emulation.Common
  				["START"] = 'S',
  				["RESET"] = 'r',
  			},
@@ -44,16 +44,14 @@ index c9fba5d..3bd7b72 100644
 +				["Custom 2"] = '2',
 +				["Custom 3"] = '3',
 +				["Pause"] = 'P',
-+				// the menus' keys (Select is the Enter key), and a prompt's yes and no
-+				["Select"] = 'E',
-+				["Escape"] = 'X',
-+				["Yes"] = 'Y',
-+				["No"] = 'N',
++				// the menus' keys
++				["Enter"] = 'E',
++				["escape"] = 'e',
 +			},
  			[VSystemID.Raw.Doom] = new()
  			{
  				["Automap Toggle"] = 'a',
-@@ -1537,6 +1563,13 @@ namespace Chimera.Emulation.Common
+@@ -1537,6 +1561,13 @@ namespace Chimera.Emulation.Common
  				["Mouse Scroll X"] = "msX",
  				["Mouse Scroll Y"] = "msY",
  			},

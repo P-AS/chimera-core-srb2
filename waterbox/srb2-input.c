@@ -7,14 +7,14 @@
  * (D_PostEvent) when a button changes, so the menus, the title screen and the
  * game all read it as they read a keyboard, and the game builds its tic
  * command from the held keys with all its own logic (accelerative turning, the
- * Simple control style's camera). Select (Enter) and Escape are the menus'
- * own keys, Yes and No a prompt's (y, n).
+ * Simple control style's camera). Enter and escape are the menus' own keys,
+ * and a prompt's too (Enter or Space is yes, escape no).
  *
  * The names are chosen so that Chimera's TAStudio, which takes a control's
  * letter from a table of its own or else from the name's last word, tells
  * every one apart without a table for SRB2: Turn left/right (l, r) beside
- * Strafe Left/Right (L, R), Reset Camera (C), Select (s, Chimera's own) beside
- * Spin (S), Escape (E). docs/chimera-proposal.patch has a table Chimera could
+ * Strafe Left/Right (L, R), Reset Camera (C), Enter (E) beside escape (e,
+ * lowercase for its letter). docs/chimera-proposal.patch has a table Chimera could
  * adopt (proposed upstream, not required). The ring-slinger controls - Fire, Fire
  * Normal, Toss Flag, the weapons - are left out for now (commented below).
  * The bindings are forced to that scheme at start (srb2_input_bind), so no
@@ -83,12 +83,10 @@ static const struct srb2_button g_buttons[] = {
 	{ "Custom 2", GC_CUSTOM2, 'x' },
 	{ "Custom 3", GC_CUSTOM3, 'c' },
 	{ "Pause", GC_PAUSE, 'p' },
-	/* the menus' own keys (Select is Enter's), and a prompt's yes and no
-	 * (M_Responder) */
-	{ "Select", GC_NULL, KEY_ENTER },
-	{ "Escape", GC_NULL, KEY_ESCAPE },
-	{ "Yes", GC_NULL, 'y' },
-	{ "No", GC_NULL, 'n' },
+	/* the menus' own keys, a prompt's too (M_Responder: Enter or Space is yes,
+	 * escape no) */
+	{ "Enter", GC_NULL, KEY_ENTER },
+	{ "escape", GC_NULL, KEY_ESCAPE },
 };
 #define NBUTTONS ((int)(sizeof g_buttons / sizeof g_buttons[0]))
 
