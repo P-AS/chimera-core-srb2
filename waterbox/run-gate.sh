@@ -60,7 +60,7 @@
 #   settings     the declared settings reach the engine as its options: with no
 #                setting given, and with every declared default given, the
 #                engine plays Manual (directionchar Movement, configanalog
-#                Off), cam_speed 1.0, timerres Mania, flipcam Yes, autobrake On, tutorialprompt
+#                Off), cam_speed 1.0, cam_dist 192, cam_height 40, timerres Mania, flipcam Yes, autobrake On, tutorialprompt
 #                Off, nothing unlocked, Sonic; each other
 #                value of each setting is the engine's option (read back with
 #                run-native --print-cvar). Its teeth - another value is not the
@@ -314,21 +314,22 @@ content settings '{"warp": "1"}'
 cvars() {
 	printf '%s\n' "$1" > "$root/build/gate/settings/settings"
 	"$native" "$root/build/gate/settings" -n 5 -p 0 --print-cvar directionchar --print-cvar configanalog \
-		--print-cvar cam_speed --print-cvar timerres --print-cvar flipcam --print-cvar autobrake --print-cvar tutorialprompt 2>/dev/null \
+		--print-cvar cam_speed --print-cvar cam_dist --print-cvar cam_height --print-cvar timerres --print-cvar flipcam --print-cvar autobrake --print-cvar tutorialprompt 2>/dev/null \
 		| grep '^cvar' | tr '\n' ' '
 }
-want="cvar directionchar Movement cvar configanalog Off cvar cam_speed 1.00000 cvar timerres Mania cvar flipcam Yes cvar autobrake On cvar tutorialprompt Off "
+want="cvar directionchar Movement cvar configanalog Off cvar cam_speed 1.00000 cvar cam_dist 192.00000 cvar cam_height 40.00000 cvar timerres Mania cvar flipcam Yes cvar autobrake On cvar tutorialprompt Off "
 none="$(cvars '{"warp": "1"}')"
 defaults="$(python3 -c 'import json,sys; c=json.load(open(sys.argv[1])); d={s["name"]:s["default"] for s in c["settings"]}; d["warp"]="1"; print(json.dumps(d))' "$decl")"
 explicit="$(cvars "$defaults")"
 if [ "$none" = "$want" ] && [ "$explicit" = "$want" ]; then
-	pass "settings: the defaults, absent or given, are Manual, cam_speed 1.0, timerres Mania, flipcam Yes, autobrake On"
+	pass "settings: the defaults, absent or given, are Manual, cam_speed 1.0, cam_dist 192, cam_height 40, timerres Mania, flipcam Yes, autobrake On"
 else
 	bad "settings: the defaults are not what they should be: absent '$none', given '$explicit', want '$want'"
 fi
 ok=1
 for v in "playStyle Strafe directionchar Camera configanalog Off" "playStyle Automatic directionchar Movement configanalog On" \
 	"playStyle 'Old Analog' directionchar Camera configanalog On" "cameraSpeed 0.3 cam_speed 0.30000" "cameraSpeed 0 cam_speed 0.00000" \
+	"cameraDistance 320 cam_dist 320.00000" "cameraHeight 64.5 cam_height 64.50000" \
 	"scoreTimeRings Classic timerres Classic" "scoreTimeRings Centiseconds timerres Centiseconds" "scoreTimeRings Tics timerres Tics" \
 	"flipCamera false flipcam No" "autoBrake false autobrake Off"; do
 	eval "set -- $v"
@@ -346,7 +347,8 @@ unlocks() {
 	"$native" "$root/build/gate/settings" -n 5 -p 0 --print-unlocks 2>/dev/null | grep '^unlocks'
 }
 for v in '{}|recordattack 0 nights 0 skins 0/' '{"unlockModes": true}|recordattack 1 nights 1 skins 0/' \
-	'{"unlockCharacters": true}|recordattack 0 nights 0 skins 3/3' '{"unlockAll": true}|recordattack 1 nights 1 skins 3/3 all 24/24'; do
+	'{"unlockCharacters": true}|recordattack 0 nights 0 skins 3/3' '{"unlockAll": true}|recordattack 1 nights 1 skins 3/3 all 24/24' \
+	'{}|ramaps 0' '{"unlockMaps": true}|all 0/24 ramaps 28'; do
 	got="$(unlocks "$(echo "${v%%|*}" | sed 's/^{/{"warp": "1", /; s/, }$/}/')")"
 	case "$got" in *"${v#*|}"*) ;; *) ok=0; echo "  ${v%%|*}: want '${v#*|}', got '$got'" ;; esac
 done
@@ -363,7 +365,7 @@ for v in '{"warp": "1"}|sonic' '{"warp": "1", "skin": "knuckles"}|knuckles' '{"w
 done
 case "$(cvars '{"warp": "1"}')" in *"cvar tutorialprompt Off "*) ;; *) ok=0; echo "  tutorialprompt is not Off by default" ;; esac
 case "$(cvars '{"warp": "1", "tutorialPrompt": true}')" in *"cvar tutorialprompt On "*) ;; *) ok=0; echo "  tutorialPrompt true is not On" ;; esac
-[ "$ok" = 1 ] && pass "settings: every other value of every setting is the engine's option (10 values), tutorialprompt, the unlocks (the game data's), and the Start Map character (5 cases)" \
+[ "$ok" = 1 ] && pass "settings: every other value of every setting is the engine's option (12 values), tutorialprompt, the unlocks (the game data's; every Record Attack map, the menu's), and the Start Map character (5 cases)" \
 	|| bad "settings: a value did not reach the engine"
 [ "$(cvars '{"warp": "1", "scoreTimeRings": "Classic"}')" != "$want" ] && pass "settings teeth: another value is not the default's" \
 	|| bad "settings teeth: a value changed nothing - the leg cannot fail"

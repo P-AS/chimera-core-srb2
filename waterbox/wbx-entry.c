@@ -55,6 +55,12 @@ ECL_EXPORT const char *GetLoadError(void) { return g_load_error; }
  *                     Old Analog directionchar Camera,   configanalog On
  *                   (M_HandlePlaystyleMenu); the core's default Manual
  *   cameraSpeed     cam_speed, 0 to 1; the core's default 1.0
+ *   cameraDistance  cam_dist, the camera's distance behind the player in
+ *                   map units; SRB2's default 192
+ *   cameraHeight    cam_height, its height above the player; SRB2's
+ *                   default 40. These two are the Manual and Strafe play
+ *                   styles' camera: Automatic and Old Analog use SRB2's
+ *                   "simple" camera (cam_simpledist, cam_simpleheight)
  *   scoreTimeRings  timerres: Classic, Centiseconds, Mania, Tics; default Mania
  *   flipCamera      flipcam: the camera flips with gravity; default Yes
  *   autoBrake       autobrake: the player brakes when no direction is
@@ -64,6 +70,10 @@ ECL_EXPORT const char *GetLoadError(void) { return g_load_error; }
  *   unlockModes     Record Attack and NiGHTS Mode unlocked from the start
  *                   (SRB2 offers Marathon Run whenever Record Attack is); Off
  *   unlockCharacters every character unlocked; Off
+ *   unlockMaps      every map Record Attack and NiGHTS Mode list shown as
+ *                   available, visited or not and locked or not - the
+ *                   menu's check (patches/0006), not the game data, so an
+ *                   addon's maps are too; Off
  *   unlockAll       every unlockable (the modes, the characters, level select,
  *                   sound test, Pandora's Box, the emblem hints and radar...);
  *                   Off. The unlocks are the game data's (srb2-driver.c), so
@@ -101,9 +111,31 @@ static const char *arg_copy(const char *a)
 	return g_args[n++];
 }
 
+/* a float setting as an engine option, clamped, printed back at five places
+ * (a CV_FLOAT is atof times FRACUNIT); not a number is the default */
+static void setting_float(const char *name, const char *option, double def, double min, double max)
+{
+	char buf[32];
+	double v = def;
+	if (wbx_setting_str(name, buf, (int)sizeof buf) > 0)
+	{
+		char *end;
+		v = strtod(buf, &end);
+		if (end == buf || v != v)
+			v = def;
+	}
+	if (v < min)
+		v = min;
+	if (v > max)
+		v = max;
+	snprintf(buf, sizeof buf, "%.5f", v);
+	arg(option);
+	arg(arg_copy(buf));
+}
+
 static void settings_args(void)
 {
-	char warp[16], skin[32], style[32], timer[32], speed[32];
+	char warp[16], skin[32], style[32], timer[32];
 
 	if (wbx_setting_str("warp", warp, (int)sizeof warp) > 0 && warp[0])
 	{
@@ -127,18 +159,10 @@ static void settings_args(void)
 	arg("+configanalog");
 	arg(g_playstyles[st][2]);
 
-	/* the float as the engine's own fixed point would have it, printed back
-	 * at five places (cam_speed is a CV_FLOAT: atof, times FRACUNIT) */
-	double cs = 1.0;
-	if (wbx_setting_str("cameraSpeed", speed, (int)sizeof speed) > 0)
-		cs = strtod(speed, NULL);
-	if (!(cs >= 0.0))
-		cs = 0.0;
-	if (cs > 1.0)
-		cs = 1.0;
-	snprintf(speed, sizeof speed, "%.5f", cs);
-	arg("+cam_speed");
-	arg(arg_copy(speed));
+	setting_float("cameraSpeed", "+cam_speed", 1.0, 0.0, 1.0);
+	/* the engine's fixed point holds +-32767 */
+	setting_float("cameraDistance", "+cam_dist", 192.0, -32767.0, 32767.0);
+	setting_float("cameraHeight", "+cam_height", 40.0, -32767.0, 32767.0);
 
 	int tr = 2; /* Mania */
 	if (wbx_setting_str("scoreTimeRings", timer, (int)sizeof timer) > 0)
@@ -158,7 +182,7 @@ static void settings_args(void)
 	arg(wbx_setting_bool("tutorialPrompt", 0) ? "On" : "Off");
 
 	srb2_set_unlocks(wbx_setting_bool("unlockModes", 0), wbx_setting_bool("unlockCharacters", 0),
-		wbx_setting_bool("unlockAll", 0));
+		wbx_setting_bool("unlockAll", 0), wbx_setting_bool("unlockMaps", 0));
 
 	char res[32];
 	int w = 1280, h = 800;

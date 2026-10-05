@@ -1,0 +1,37 @@
+diff --git a/src/m_menu.c b/src/m_menu.c
+index 4822cff33..48e90f5ff 100644
+--- a/src/m_menu.c
++++ b/src/m_menu.c
+@@ -5024,10 +5024,18 @@ static void M_PatchSkinNameTable(void)
+ // The only question is whether it should be as a question mark,
+ // (hinting as to its existence), or as its pure, unfettered self.
+ //
++// An external driver may show every map that can be listed as available,
++// visited or not and locked or not (a project that starts with the modes
++// unlocked, its game data empty)
++boolean menu_allmapsavailable = false;
++
+ static boolean M_LevelAvailableOnPlatter(INT32 mapnum)
+ {
+ 	gamedata_t *data = serverGamedata;
+ 
++	if (menu_allmapsavailable)
++		return true;
++
+ 	if (M_MapLocked(mapnum+1, data))
+ 		return false; // not unlocked
+ 
+diff --git a/src/m_menu.h b/src/m_menu.h
+index ecfe182d3..93b38d9ff 100644
+--- a/src/m_menu.h
++++ b/src/m_menu.h
+@@ -356,6 +356,9 @@ extern I_mutex m_menu_mutex;
+ 
+ extern menu_t *currentMenu;
+ 
++// every listed map available on the level platters, visited or not
++extern boolean menu_allmapsavailable;
++
+ extern menu_t MainDef;
+ extern menu_t SP_LoadDef;
+ 
