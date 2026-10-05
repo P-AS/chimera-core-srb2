@@ -225,8 +225,11 @@ static struct
 	GLuint program; /* the renderer's, 0 for the fixed stages */
 } S;
 
-/* per texture name: made by generating its mipmaps, and which swizzle */
-enum { TF_MIPMAP = 1, TF_ALPHA_ONLY = 2 };
+/* per texture name: made by generating its mipmaps, which swizzle, and whether
+ * it has an image at all - GL 1.x draws a unit whose texture has none as if
+ * texturing were off (the renderer's NOTEXTURE_NUM, bound for flat fills, is
+ * a name and no image), where a shader sampling it reads black */
+enum { TF_MIPMAP = 1, TF_ALPHA_ONLY = 2, TF_IMAGE = 4 };
 static uint8_t *g_texflags;
 static size_t g_texflags_n;
 
@@ -680,9 +683,12 @@ static void fixed_uniforms(void)
 {
 	uint32_t key[24];
 	int k = 0;
+	int tex_on[2];
+	for (int u = 0; u < 2; u++)
+		tex_on[u] = S.tex2d[u] && (*texflag(S.bound[u]) & TF_IMAGE);
 	for (int u = 0; u < 2; u++)
 	{
-		key[k++] = S.tex2d[u];
+		key[k++] = tex_on[u];
 		key[k++] = S.env[u];
 		key[k++] = (*texflag(S.bound[u]) & TF_ALPHA_ONLY) != 0;
 	}
@@ -696,7 +702,7 @@ static void fixed_uniforms(void)
 		return;
 	for (int u = 0; u < 2; u++)
 	{
-		glUniform1i(G.u.tex_on[u], S.tex2d[u]);
+		glUniform1i(G.u.tex_on[u], tex_on[u]);
 		glUniform1i(G.u.tex_mode[u], S.env[u] == GL_REPLACE);
 		glUniform1i(G.u.alpha_only[u], (*texflag(S.bound[u]) & TF_ALPHA_ONLY) != 0);
 	}
@@ -842,8 +848,22 @@ static void APIENTRY c_TexImage2D(GLenum target, GLint level, GLint internal, GL
 			internal = GL_R8;
 	}
 	glTexImage2D(target, level, internal, w, h, border, format, type, pixels);
+	if (f && level == 0)
+		*f |= TF_IMAGE;
 	if (f && (*f & TF_MIPMAP) && level == 0)
 		glGenerateMipmap(target);
+}
+
+static void APIENTRY c_CopyTexImage2D(GLenum target, GLint level, GLenum internal, GLint x, GLint y,
+	GLsizei w, GLsizei h, GLint border)
+{
+	glCopyTexImage2D(target, level, internal, x, y, w, h, border);
+	if (target == GL_TEXTURE_2D && level == 0)
+	{
+		uint8_t *f = texflag(bound2d());
+		*f = (*f | TF_IMAGE) & ~TF_ALPHA_ONLY;
+		swizzle(target, GL_RED, GL_GREEN, GL_BLUE, GL_ALPHA);
+	}
 }
 
 static void APIENTRY c_TexSubImage2D(GLenum target, GLint level, GLint x, GLint y, GLsizei w, GLsizei h,
@@ -1486,6 +1506,7 @@ static const struct proc g_procs[] = {
 	{ "glTexParameteri", (void *)c_TexParameteri },
 	{ "glTexImage2D", (void *)c_TexImage2D },
 	{ "glTexSubImage2D", (void *)c_TexSubImage2D },
+	{ "glCopyTexImage2D", (void *)c_CopyTexImage2D },
 	{ "glTexImage3D", (void *)c_TexImage3D },
 	{ "glCreateShader", (void *)c_CreateShader },
 	{ "glDeleteShader", (void *)c_DeleteShader },

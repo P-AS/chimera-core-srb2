@@ -477,6 +477,22 @@ if [ -n "$bundle" ]; then
 		hwsound="$(field "$(echo "$gpu" | grep '^120 steps' | tr -d ',')" sound)"
 		mesasound="$(field "$(echo "$mesa" | tr -d ',')" sound)"
 		states="$(LD_LIBRARY_PATH="$bundle/dll" python3 "$tests/engine-gpu-states.py" "$bundle/dll/libchimera.so" "$pkg" "$data" 2>/dev/null)"
+		# the character select: flat fills drawn with the renderer's imageless
+		# NOTEXTURE bound, which drew black on the GPU until gl_compat.c took an
+		# imageless texture as texturing off (2026-10-05, from use)
+		eo 300 '{"renderer": "opengl", "resolution": "320x200"}' --ppm "$root/build/gate/cs-mesa.ppm" >/dev/null
+		eo 300 '{"renderer": "opengl-hw", "resolution": "320x200"}' --ppm "$root/build/gate/cs-gpu.ppm" --gpu >/dev/null
+		apart="$(python3 -c '
+import sys
+a, b = (open(p, "rb").read().split(b"\n", 3)[3] for p in sys.argv[1:3])
+n = len(a) // 3
+print(sum(1 for i in range(0, len(a), 3) if abs(a[i] - b[i]) + abs(a[i + 1] - b[i + 1]) + abs(a[i + 2] - b[i + 2]) > 48) * 1000 // n)' \
+			"$root/build/gate/cs-mesa.ppm" "$root/build/gate/cs-gpu.ppm" 2>/dev/null || echo 1000)"
+		if [ "$apart" -le 10 ]; then
+			pass "engine: opengl-hw's character select (flat fills, text, art) is the Mesa's picture ($apart per mille of pixels apart)"
+		else
+			bad "engine: opengl-hw's character select is not the Mesa's: $apart per mille of pixels apart"
+		fi
 		if [ -n "$hwsound" ] && [ "$hwsound" = "$mesasound" ] && echo "$states" | grep -q "^PASS rewind" \
 			&& echo "$states" | grep -q "^PASS reopen"; then
 			pass "engine: opengl-hw on the GPU ($driver): the Mesa's game (the same sound); a rewind and a reopen make the renderer again and draw the straight run ($(echo "$states" | grep '^straight' | sed 's/^straight: //'))"
