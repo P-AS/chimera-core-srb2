@@ -38,13 +38,14 @@ the guest build), following Chimera's `docs/porting-a-core.md` and `docs/game-co
   (`.github/workflows/chimera.yml`, see "CI"). Gate legs `declaration`, `settings`, `exports`, `engine`.
   Confirmed in use (2026-10-05, user): on Windows the core imports into Chimera from GitHub, and a movie records
   and replays, savestates included.
-- [ ] **8. SRB2's OpenGL renderer** (user-decided 2026-10-05: both paths, Mesa first, as Chimera's PCSX2 core):
+- [x] **8. SRB2's OpenGL renderer** (user-decided 2026-10-05: both paths, Mesa first, as Chimera's PCSX2 core):
   - [x] **8a.** `renderer` `opengl`: upstream's renderer (`hardware/`, unchanged) on Mesa's softpipe compiled
     into the guest (`waterbox/setup-mesa.sh`, `platform/ogl_chimera.c`). Deterministic and savestate-safe;
     slow. Gate leg `opengl`. See "OpenGL".
-  - [ ] **8b.** `renderer` `opengl-hw`: the same renderer through Chimera's GPU bridge, onto the machine's
-    GPU, falling back to the Mesa path when there is no bridge. Needs a GL 1.x-to-core translation in the
-    core (see "OpenGL").
+  - [x] **8b.** `renderer` `opengl-hw`: the same renderer through Chimera's GPU bridge, onto the machine's
+    GPU, falling back to the Mesa path when there is no bridge: `platform/gl_compat.c` (GL 1.x on the bridge's
+    core profile), the rebuild when the context moves (`chimera_gl_step`, patch 0008). Gate: the `engine` leg's
+    GPU checks. Setting `glShaders` (`gr_shaders`). See "OpenGL".
 
 ## Upstream
 
@@ -69,6 +70,9 @@ the guest build), following Chimera's `docs/porting-a-core.md` and `docs/game-co
   CMake makes curl mandatory, so nothing else guards it); without it, no download.
 - `patches/openmpt/0001-deterministic-random-device.patch` (on `extern/openmpt`): libopenmpt's random seeding
   deterministic under `MPT_BUILD_DETERMINISTIC_RANDOM` (see "The sound").
+- `0008-gl-context-lost.patch`: `ContextLost`/`ContextRestored` in the GL driver and `HWR_ContextLost`/
+  `HWR_ContextRestored` in the hardware renderer: a platform layer whose context can be replaced under the
+  renderer (the GPU bridge's) has it forget every GL name without deleting any, then make its objects again.
 - `0007-gl-no-logfile.patch`: `GL_NO_LOGFILE`, for a platform layer with a console and no place for
   `ogllog.txt`: the OpenGL renderer's messages go to the console (as SDL's build has them), and no log file is
   written into the machine's files.
@@ -139,7 +143,8 @@ which differ from SRB2's own:
 | Unlock All Maps in Record Attack and NiGHTS Mode | the menu's check (`M_LevelAvailableOnPlatter`: visited, `M_MapLocked`) skipped, **patch 0006** - not the game data, so an addon's maps are listed too, no visit is recorded, and no "visit map" condition unlocks anything (28 Record Attack maps in 2.2.15) | **Off** |
 | Unlock All Secrets | every unlockable (24 in 2.2.15) | **Off** |
 | Start Map Character | `+skin`, given only with a Start Map (`-warp`), run before the map starts; a locked character (Amy, Fang, Metal Sonic) needs Unlock All Characters, and a locked or unknown one plays Sonic | **empty**: Sonic |
-| Renderer | `software`, or `opengl` (SRB2's OpenGL renderer on the core's Mesa softpipe; see "OpenGL"), fixed at the start as upstream's `-renderer` | **software** (Software) |
+| Renderer | `software`, `opengl` (SRB2's OpenGL renderer on the core's Mesa softpipe), or `opengl-hw` (the same through Chimera's GPU bridge, on the Mesa when none is offered; see "OpenGL"), fixed at the start as upstream's `-renderer` | **software** (Software) |
+| OpenGL Shaders | `gr_shaders`; the picture's alone | **On** (On) |
 | Resolution | the engine's one video mode (see "Resolution") | **1280x800** (1280x800) |
 | Start Map | `-warp` (empty: the intro and the title) | empty |
 
@@ -198,16 +203,76 @@ Its cost is softpipe's (no JIT, no SIMD dispatch, by design), measured per frame
 Flycast's softpipe is ~0.12 s a 640x480 frame, so this is softpipe's normal range. It is a renderer for
 checking and encoding a movie, not for playing one: that is 8b's.
 
-**8b, the bridge (next).** Chimera's GPU bridge carries only the calls on miniBox's master list
+**8b, the bridge.** Chimera's GPU bridge carries only the calls on miniBox's master list
 (`source/gl/gl-entry-points.txt`), which has no fixed-function GL, and on Linux it asks EGL for a 3.3 context,
 which is a core profile; SRB2's renderer is GL 1.x (matrix stacks, client-side arrays, `glTexEnv`,
 `glAlphaFunc`, lights and materials for models: ~30 of its ~80 calls) and its GLSL uses the compatibility
-built-ins. The core cannot change Chimera (an unofficial core), so the translation is the core's own: a layer
-between `GetGLFunc` and the bridge that keeps the matrix stacks, streams client arrays into buffers under a
-vertex array, emulates the texture environment and alpha test in a generated program, and rewrites SRB2's
-shaders for GLSL 3.30 - and, because the GL then lives outside the machine, rebuilds the renderer's textures
-and programs when the context id moves (a state load, a reopen: gpu-bridge.md's protocol, with
-`StateLoaded()`). With no bridge, `opengl-hw` draws on the Mesa path, the same game.
+built-ins. The core cannot change Chimera (an unofficial core), so the translation is the core's own,
+`platform/gl_compat.c`, between `GetGLFunc` and the bridge:
+
+- **matrices**: the three stacks kept in the core and handed to every program as uniforms (each program
+  remembers the version it was given, so a draw sends only what changed); `glGetFloatv` of them answered here.
+- **arrays**: client arrays streamed into buffers of the core's under a vertex array of its own, at fixed
+  attribute locations (0 vertex, 1 colour, 2 and 4 texture coordinates, 3 normal); arrays in the renderer's own
+  buffers (models, the sky) pointed at in place; client indices into an element buffer. A disabled array is the
+  current value (`glColor4ubv`, `glMultiTexCoord2f`).
+- **fixed stages**: with no program of the renderer's in use, one of the core's: the texture environment
+  (modulate, replace) on two units (the wipes' fade mask), the alpha test, the one light models use.
+- **GLSL**: the renderer's shaders rewritten for GLSL 3.30, whole word by whole word (`gl_Vertex`,
+  `gl_ModelViewMatrix`, `gl_FrontColor`, `gl_TexCoord`, `gl_FragColor`, `texture2D`...), `#version` lines
+  dropped, and the alpha test run after the shader's own `main` (renamed), as the fixed stage after a shader
+  does. A program given no vertex stage gets one.
+- **textures**: luminance-alpha and alpha formats as RGBA with a swizzle (the fixed stages know an alpha-only
+  texture modulates alpha alone), `GL_GENERATE_MIPMAP` as `glGenerateMipmap`, `GL_CLAMP` as clamp-to-edge.
+- **strings**: `GL_EXTENSIONS` answered from `glGetStringi`; and each string kept in a buffer of its own -
+  the bridge copies a returned string into one guest buffer, so `GL_VERSION` read back as the renderer's name
+  and the mipmap check failed.
+- **framebuffer**: a context made with no surface has no default framebuffer; the renderer draws into the
+  core's, read back once a frame (`glReadPixels`, rows flipped).
+
+The bridge's guest half is generated at build time by miniBox's `source/gl/gen-gl-bridge.py` from glad's
+declarations (`waterbox/glad`, the copy Chimera's engine vendors) for the 88 entry points the core calls
+(`waterbox/gl-bridge-list.txt`), with the master list's opcodes. The core exports `SetGpuBridge` (the engine
+offers the bridge before `Init`) and `StateLoaded`.
+
+**The GL is outside the machine.** A savestate brings back the renderer's object names, which the driver no
+longer means - after a load in the same session (the engine mints a new context id on every load) and in a
+new session (a project closed and opened again: the bridge's context outlives sessions). So at the top of
+every step, a moved context id or a `StateLoaded` since makes the renderer forget and rebuild
+(`chimera_gl_step`): every object the core ever made in the driver is deleted at once - their names are
+listed where a state does not reach (`ECL_INVISIBLE`) - then the renderer forgets its names without deleting
+any (patch 0008's `HWR_ContextLost`: the texture cache, light tables, screen and palette textures, shader
+programs, the sky's and models' buffers), the core's own objects are made again, and then the renderer's
+(`HWR_ContextRestored`: its states, the fallback shader, its shaders, palettes and model buffers; textures and
+light tables as they are next used). In that order, so no stale name can delete an object made since.
+
+`tests/engine-gpu-states.py`, through Chimera's engine on the GPU: a straight run, a rewind (state saved at
+150, loaded at 250), and the state loaded into a second session; steps 151-300 of both must be the straight
+run's pictures, each with one rebuild. Its teeth were watched: the core built without the rebuild differs at
+steps 214 and 221 after the rewind (a stale name in the same level still names a texture by luck most of the
+time) and from the first step after the reopen.
+
+Measured (RTX 2070 SUPER, NVIDIA 615.71, Greenflower, through the engine, readback every frame):
+
+| resolution | steps/s |
+|---|---|
+| 640x400 | ~250 |
+| 1280x800 | 134 |
+| 1920x1080 | 70 |
+| 3840x2160 | 15-18 (the 33 MB readback dominates) |
+
+The picture is the driver's: the session says it is not deterministic, and Chimera's movie names the driver.
+The game is not: `opengl` (the Mesa) and `opengl-hw` give the same sound over the same run, and pictures that
+differ in 0.08% of pixels (rasterisation at edges) with shaders and without. With no bridge offered (or one
+that will not start), `opengl-hw` draws on the Mesa and says so.
+
+**`glShaders`** (`gr_shaders`) is a setting: the renderer's shaders, or its fixed stages - about 2.5 times
+faster on the Mesa, and the picture's alone.
+
+Not done: `glShadeModel(GL_FLAT)` (the renderer leaves it after drawing a model) is drawn smooth - the sky
+dome's colours after a model, at most; `video.drawEveryFrame` is not needed (the core exports no
+`SetRenderingEnabled`, so it always draws). Windows makes the bridge's context with `wglCreateContext`, a
+compatibility profile, where everything here is equally valid; not yet run there.
 
 ## Resolution (2026-10-04, user-decided)
 

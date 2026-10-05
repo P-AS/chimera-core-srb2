@@ -56,9 +56,14 @@ static RGBA_t g_palette[256];
 static INT32 g_mode_w = BASEVIDWIDTH, g_mode_h = BASEVIDHEIGHT;
 static int g_want_gl;
 
-void chimera_video_set_renderer(int opengl)
+void chimera_video_set_renderer(int mode)
 {
-	g_want_gl = opengl ? 1 : 0;
+	g_want_gl = mode;
+}
+
+int chimera_video_wants_bridge(void)
+{
+	return g_want_gl == 2;
 }
 
 int chimera_video_opengl(void)
@@ -153,6 +158,8 @@ void VID_StartupOpenGL(void)
 	HWD.pfnUpdateLightTable = hwSym("UpdateLightTable", NULL);
 	HWD.pfnClearLightTables = hwSym("ClearLightTables", NULL);
 	HWD.pfnSetScreenPalette = hwSym("SetScreenPalette", NULL);
+	HWD.pfnContextLost = hwSym("ContextLost", NULL);
+	HWD.pfnContextRestored = hwSym("ContextRestored", NULL);
 
 	vid.glstate = HWD.pfnInit() ? VID_GL_LIBRARY_LOADED : VID_GL_LIBRARY_ERROR;
 }

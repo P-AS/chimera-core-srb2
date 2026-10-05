@@ -1,0 +1,182 @@
+diff --git a/src/hardware/hw_drv.h b/src/hardware/hw_drv.h
+index a5fdc00a4..f0f184efc 100644
+--- a/src/hardware/hw_drv.h
++++ b/src/hardware/hw_drv.h
+@@ -75,6 +75,13 @@ EXPORT void HWRAPI(UpdateLightTable)(UINT32 id, RGBA_t *hw_lighttable);
+ EXPORT void HWRAPI(ClearLightTables)(void);
+ EXPORT void HWRAPI(SetScreenPalette)(RGBA_t *palette);
+ 
++// The GL context was lost and another is current: forget every GL name
++// (ContextLost), then make the renderer's own objects and states again
++// (ContextRestored). For a platform layer whose context can be replaced
++// under the renderer (an external driver's).
++EXPORT void HWRAPI(ContextLost)(void);
++EXPORT void HWRAPI(ContextRestored)(void);
++
+ // ==========================================================================
+ //                                      HWR DRIVER OBJECT, FOR CLIENT PROGRAM
+ // ==========================================================================
+@@ -129,6 +136,8 @@ struct hwdriver_s
+ 	UpdateLightTable    pfnUpdateLightTable;
+ 	ClearLightTables    pfnClearLightTables;
+ 	SetScreenPalette    pfnSetScreenPalette;
++	ContextLost         pfnContextLost;
++	ContextRestored     pfnContextRestored;
+ };
+ 
+ extern struct hwdriver_s hwdriver;
+diff --git a/src/hardware/hw_main.c b/src/hardware/hw_main.c
+index a36b3a696..75054ec4d 100644
+--- a/src/hardware/hw_main.c
++++ b/src/hardware/hw_main.c
+@@ -5857,6 +5857,68 @@ void HWR_Switch(void)
+ 	}
+ }
+ 
++// --------------------------------------------------------------------------
++// The GL context was lost and another is current (a platform layer whose
++// context can be replaced under the renderer): forget every GL name the
++// hardware renderer holds, without deleting any, then make its objects again
++// in the new context. Textures and light tables are made again as they are
++// used; shaders, palettes and model buffers here.
++// --------------------------------------------------------------------------
++static void HWR_ForgetModelVBOs(model_t *model)
++{
++	INT32 i, j;
++	for (i = 0; i < model->numMeshes; i++)
++	{
++		mesh_t *mesh = &model->meshes[i];
++		for (j = 0; j < mesh->numFrames; j++)
++		{
++			if (mesh->frames)
++				mesh->frames[j].vboID = 0;
++			else if (mesh->tinyframes)
++				mesh->tinyframes[j].vboID = 0;
++		}
++	}
++}
++
++extern RGBA_t mapPalette[256]; // hw_cache.c
++
++void HWR_ContextLost(void)
++{
++	extracolormap_t *exc;
++	size_t i;
++
++	HWD.pfnContextLost();
++	for (exc = extra_colormaps; exc; exc = exc->next)
++		exc->gl_lighttable.id = 0;
++	gl_sky.vbo = 0;
++	gl_sky.rebuild = true;
++	for (i = 0; i < NUMSPRITES; i++)
++		if (md2_models[i].model)
++			HWR_ForgetModelVBOs(md2_models[i].model);
++	for (i = 0; i < md2_numplayermodels; i++)
++		if (md2_playermodels[i].model)
++			HWR_ForgetModelVBOs(md2_playermodels[i].model);
++}
++
++void HWR_ContextRestored(void)
++{
++	size_t i;
++
++	HWD.pfnContextRestored();
++	if (gl_shadersavailable)
++		HWR_CompileShaders();
++	memset(mapPalette, 0, sizeof(mapPalette));
++	HWR_SetPalette(pLocalPalette);
++	if (HWR_ShouldUsePaletteRendering())
++		HWR_SetMapPalette();
++	for (i = 0; i < NUMSPRITES; i++)
++		if (md2_models[i].model)
++			HWD.pfnCreateModelVBOs(md2_models[i].model);
++	for (i = 0; i < md2_numplayermodels; i++)
++		if (md2_playermodels[i].model)
++			HWD.pfnCreateModelVBOs(md2_playermodels[i].model);
++}
++
+ // --------------------------------------------------------------------------
+ // Free resources allocated by the hardware renderer
+ // --------------------------------------------------------------------------
+diff --git a/src/hardware/hw_main.h b/src/hardware/hw_main.h
+index 2277c32f3..9fda14255 100644
+--- a/src/hardware/hw_main.h
++++ b/src/hardware/hw_main.h
+@@ -25,6 +25,8 @@
+ // Startup & Shutdown the hardware mode renderer
+ void HWR_Startup(void);
+ void HWR_Switch(void);
++void HWR_ContextLost(void);
++void HWR_ContextRestored(void);
+ void HWR_Shutdown(void);
+ 
+ void HWR_drawAMline(const fline_t *fl, INT32 color);
+diff --git a/src/hardware/r_opengl/r_opengl.c b/src/hardware/r_opengl/r_opengl.c
+index a03ae6cc6..8de326773 100644
+--- a/src/hardware/r_opengl/r_opengl.c
++++ b/src/hardware/r_opengl/r_opengl.c
+@@ -3306,4 +3306,64 @@ EXPORT void HWRAPI(SetScreenPalette)(RGBA_t *palette)
+ 	}
+ }
+ 
++// -----------------+
++// ContextLost      : The context is gone: every GL name held here names
++//                  : nothing (or, in a context that lives on, something
++//                  : else). Forget them all without deleting any: deleting
++//                  : a stale name could delete an object made since.
++// -----------------+
++EXPORT void HWRAPI(ContextLost) (void)
++{
++	INT32 i;
++
++	while (TexCacheHead)
++	{
++		FTextureInfo *pTexInfo = TexCacheHead;
++		if (pTexInfo->texture)
++			pTexInfo->texture->downloaded = 0;
++		TexCacheHead = pTexInfo->next;
++		free(pTexInfo);
++	}
++	TexCacheTail = TexCacheHead = NULL;
++	tex_downloaded = 0;
++	NOTEXTURE_NUM = 0;
++
++	while (LightTablesHead)
++	{
++		LTListItem *item = LightTablesHead;
++		LightTablesHead = item->next;
++		free(item);
++	}
++	LightTablesTail = NULL;
++	lt_downloaded = 0;
++
++	for (i = 0; i < NUMSCREENTEXTURES; i++)
++		screenTextures[i] = 0;
++	screenPaletteTex = 0;
++	memset(screenPalette, 0, sizeof(screenPalette)); // SetScreenPalette uploads the next one
++	paletteLookupTex = 0;
++
++#ifdef GL_SHADERS
++	for (i = 0; i < HWR_MAXSHADERS; i++)
++		gl_shaders[i].program = 0;
++	gl_fallback_shader.program = 0;
++	memset(&gl_shaderstate, 0, sizeof(gl_shaderstate));
++#endif
++}
++
++// -----------------+
++// ContextRestored  : The renderer's own objects and states, in the new
++//                  : context; the hardware renderer makes the rest again
++//                  : (HWR_ContextRestored).
++// -----------------+
++EXPORT void HWRAPI(ContextRestored) (void)
++{
++	SetModelView(screen_width, screen_height);
++	SetStates();
++#ifdef GL_SHADERS
++	if (pglUseProgram && gl_fallback_shader.vertex_shader)
++		Shader_CompileProgram(&gl_fallback_shader, -1);
++#endif
++}
++
+ #endif //HWRENDER

@@ -203,6 +203,7 @@ void srb2_frame(void)
 	if (g_halted)
 		return;
 	unlocks();
+	chimera_gl_step();
 	chimera_clock_step();
 	srb2_input_post();
 	co_switch(g_engine);

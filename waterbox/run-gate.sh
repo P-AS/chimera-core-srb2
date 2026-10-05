@@ -82,7 +82,13 @@
 #   engine       (with -c) Chimera's own engine opens the package, as the
 #                frontend's session does (the required exports, the declaration,
 #                the firmware, Init), and runs the menus-to-new-game movie's
-#                presses for 450 steps: the same lag count as run-native's
+#                presses for 450 steps: the same lag count as run-native's.
+#                opengl-hw with no bridge asked for is the Mesa's run, and says
+#                so; where the machine gives the engine a GL context, opengl-hw
+#                through the bridge is the Mesa's game (the same sound), and a
+#                rewind and a reopen make the renderer again and draw the
+#                straight run (tests/engine-gpu-states.py, whose teeth - the
+#                core built without the rebuild - were watched failing)
 #   time         the machine's clock is its own: a 300 ms host stall mid-run
 #                changes nothing, native and sandbox; its teeth - on the host's
 #                clock the same stall changes the run
@@ -451,6 +457,35 @@ if [ -n "$bundle" ]; then
 	"450 steps ($nl lag)"*) pass "engine: Chimera's engine ($which) opens the package and runs the menus into a new game: $e" ;;
 	*) bad "engine: '$e' (run-native's lag: $nl)" ;;
 	esac
+
+	# opengl-hw: the renderer through Chimera's GPU bridge, where this machine
+	# gives the engine a context (none: SKIP, it is the machine's, not the
+	# core's); with no bridge asked for, opengl-hw is the Mesa, the same run
+	pkg="$root/build/gate/package/srb2.chimeraCore"
+	eo() { LD_LIBRARY_PATH="$bundle/dll" python3 "$here/tests/engine-open.py" "$bundle/dll/libchimera.so" "$pkg" "$data" "$@" 2>&1; }
+	mesa="$(eo 120 '{"renderer": "opengl", "resolution": "320x200", "warp": "1"}' | grep '^120 steps')"
+	nobridge="$(eo 120 '{"renderer": "opengl-hw", "resolution": "320x200", "warp": "1"}')"
+	if echo "$nobridge" | grep -q "no GPU bridge (none offered); OpenGL on the Mesa softpipe" \
+		&& [ -n "$mesa" ] && [ "$(echo "$nobridge" | grep '^120 steps')" = "$mesa" ]; then
+		pass "engine: opengl-hw with no bridge offered says so and is the Mesa's run"
+	else
+		bad "engine: opengl-hw without a bridge is not the Mesa's run"
+	fi
+	gpu="$(eo 120 '{"renderer": "opengl-hw", "resolution": "320x200", "warp": "1"}' --gpu)"
+	if echo "$gpu" | grep -q "OpenGL on the GPU outside the sandbox"; then
+		driver="$(echo "$gpu" | grep -m1 '^chimera gl: ' | sed 's/^chimera gl: //')"
+		hwsound="$(field "$(echo "$gpu" | grep '^120 steps' | tr -d ',')" sound)"
+		mesasound="$(field "$(echo "$mesa" | tr -d ',')" sound)"
+		states="$(LD_LIBRARY_PATH="$bundle/dll" python3 "$tests/engine-gpu-states.py" "$bundle/dll/libchimera.so" "$pkg" "$data" 2>/dev/null)"
+		if [ -n "$hwsound" ] && [ "$hwsound" = "$mesasound" ] && echo "$states" | grep -q "^PASS rewind" \
+			&& echo "$states" | grep -q "^PASS reopen"; then
+			pass "engine: opengl-hw on the GPU ($driver): the Mesa's game (the same sound); a rewind and a reopen make the renderer again and draw the straight run ($(echo "$states" | grep '^straight' | sed 's/^straight: //'))"
+		else
+			bad "engine: opengl-hw on the GPU: sound $hwsound (the Mesa's $mesasound); $(echo "$states" | grep -E '^(PASS|FAIL)' | tr '\n' ' ')"
+		fi
+	else
+		echo "SKIP engine: opengl-hw on a GPU - this machine gives the engine no GL context"
+	fi
 fi
 
 # ---- time: the intro (its wipes and in-tic waits), stalled half way

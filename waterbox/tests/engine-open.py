@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 """engine-open.py - opens the package the way Chimera does, through its engine.
 
-usage: engine-open.py <libchimera.so> <srb2.chimeraCore> <data folder> [steps] [settings JSON] [--ppm FILE]
+usage: engine-open.py <libchimera.so> <srb2.chimeraCore> <data folder> [steps] [settings JSON] [--ppm FILE] [--gpu]
 
 Chimera's engine (libchimera, a bundle's dll/) opens the package with the four
 pk3s as firmware and the settings as overrides - every check the frontend's
 session makes: the required exports, the declaration, Init - then steps it,
 pressing Select (Enter) every 50 steps (through the intro, the title, the menus, into a new game), and
-reports each failure the engine names. With --ppm, the last picture."""
+reports each failure the engine names. With --ppm, the last picture. With
+--gpu, the engine is asked for the GPU bridge first (ce_gl_request), as a
+project with a hardware renderer does."""
 import ctypes
 import hashlib
 import json
@@ -16,6 +18,9 @@ import sys
 import zipfile
 
 args = [a for a in sys.argv[1:]]
+gpu = "--gpu" in args
+if gpu:
+    args.remove("--gpu")
 ppm = None
 if "--ppm" in args:
     i = args.index("--ppm")
@@ -26,6 +31,9 @@ steps = int(args[3]) if len(args) > 3 else 300
 overrides = args[4] if len(args) > 4 else None
 
 ce = ctypes.CDLL(lib_path)
+if gpu:
+    ce.ce_gl_request.argtypes = [ctypes.c_int32]
+    ce.ce_gl_request(1)
 ce.ce_session_open.restype = ctypes.c_void_p
 ce.ce_session_open.argtypes = [
     ctypes.c_char_p, ctypes.c_void_p, ctypes.c_uint64, ctypes.c_char_p, ctypes.c_char_p,
@@ -66,6 +74,7 @@ print("opened:", cfg["coreName"], cfg.get("version", "?"))
 
 enter = 1 << cfg["input"]["buttons"].index("Select")  # the Enter key
 run = hashlib.sha1()
+sound = hashlib.sha1()
 lag = 0
 for step in range(1, steps + 1):
     held = enter if step % 50 == 20 else 0
@@ -77,9 +86,11 @@ for step in range(1, steps + 1):
     lag += r
     w, h = ce.ce_session_video_width(s), ce.ce_session_video_height(s)
     run.update(ctypes.string_at(ce.ce_session_video(s), w * h * 4))
+    acnt = ctypes.c_int32()
+    sound.update(ctypes.string_at(ce.ce_session_audio(s, ctypes.byref(acnt)), max(acnt.value, 0) * 4))
 cnt = ctypes.c_int32()
 ce.ce_session_audio(s, ctypes.byref(cnt))
-print(f"{steps} steps ({lag} lag): picture {w}x{h}, audio {cnt.value} frames a step, run {run.hexdigest()[:16]}")
+print(f"{steps} steps ({lag} lag): picture {w}x{h}, audio {cnt.value} frames a step, run {run.hexdigest()[:16]}, sound {sound.hexdigest()[:16]}")
 if ppm:
     px = ctypes.string_at(ce.ce_session_video(s), w * h * 4)
     with open(ppm, "wb") as f:

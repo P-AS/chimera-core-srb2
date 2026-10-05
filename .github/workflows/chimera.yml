@@ -13,7 +13,9 @@ name: chimera waterbox core
 # the patch series applied; the equivalence, steps, savestates, input, audio
 # (Ogg Vorbis, GME, libopenmpt), files, exports, declaration, settings,
 # resolution, opengl (SRB2's OpenGL renderer on the Mesa softpipe the core
-# carries, built by waterbox/setup-mesa.sh) and time legs; the package through Chimera's own engine (the
+# carries, built by waterbox/setup-mesa.sh) and time legs; the engine leg also
+# runs opengl-hw through Chimera's GPU bridge when the runner's EGL gives a
+# context (a runner has no GPU: llvmpipe, or a SKIP); the package through Chimera's own engine (the
 # gate's engine leg) and Chimera's contract tests.
 
 on:

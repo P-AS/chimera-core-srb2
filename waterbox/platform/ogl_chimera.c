@@ -14,7 +14,16 @@
  * The frame: OSMesa draws into a buffer of the machine's own, BGRA and top
  * row first (OSMESA_Y_UP 0), which is the frontend's layout. A finished frame
  * is copied out (chimera_gl_frame) before the renderer draws the screen
- * texture back for the next frame's effects, as upstream does after its swap. */
+ * texture back for the next frame's effects, as upstream does after its swap.
+ *
+ * With renderer opengl-hw and a host that offers Chimera's GPU bridge, the
+ * answer is instead the machine's GPU, outside the sandbox: GetGLFunc is
+ * gl_compat.c's, which turns the renderer's GL 1.x into the core GL the bridge
+ * carries, and the frame is read back from its framebuffer. The GL is then not
+ * the machine's: a state brings back names the driver no longer means, so at
+ * the top of every step a moved context (the bridge's id) or a state loaded
+ * since makes the renderer forget every name and make its objects again
+ * (chimera_gl_step, patches/0008). No bridge offered: the Mesa, the same game. */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -62,11 +71,55 @@ static PFNglFinish pglFinish;
 
 static UINT32 *g_surface; /* what OSMesa draws into */
 static UINT32 *g_frame;   /* the last finished frame */
+static UINT32 *g_scratch; /* the bridge's readback, bottom row first */
 static INT32 g_w, g_h;
+
+/* the bridge: the host's callback (offered before Init), whether the renderer
+ * draws through it, the context its objects were made in, and whether a state
+ * was loaded since the last step */
+static uint64_t g_bridge_fn;
+static int g_bridged;
+static uint64_t g_context;
+static int g_loaded;
+
+void chimera_gl_bridge_offer(uint64_t fn)
+{
+	g_bridge_fn = fn;
+}
+
+void chimera_gl_state_loaded(void)
+{
+	g_loaded = 1;
+}
+
+void chimera_gl_step(void)
+{
+#ifdef CHIMERA_GUEST
+	if (!g_bridged)
+		return;
+	const uint64_t live = glc_context_id();
+	if (!g_loaded && (live == 0 || live == g_context))
+		return;
+	/* every object deleted, every name forgotten, then this core's GL and the
+	 * renderer's made again - in that order, so no stale name can delete an
+	 * object made since (gl_compat.c, hw_main.c's HWR_ContextLost) */
+	fprintf(stderr, "chimera: the GL context moved (%s); the renderer is made again\n",
+		g_loaded ? "a state was loaded" : "a new context");
+	glc_forget();
+	HWR_ContextLost();
+	if (!glc_restore(g_w, g_h))
+		I_Error("OpenGL: the renderer could not be made again in the bridge's context");
+	HWR_ContextRestored();
+	g_context = live;
+	g_loaded = 0;
+#endif
+}
 
 void *GetGLFunc(const char *proc)
 {
 #ifdef CHIMERA_GUEST
+	if (g_bridged)
+		return glc_proc(proc);
 	return g_ctx ? (void *)OSMesaGetProcAddress(proc) : NULL;
 #else
 	(void)proc;
@@ -79,6 +132,25 @@ void *GetGLFunc(const char *proc)
 boolean LoadGL(void)
 {
 #ifdef CHIMERA_GUEST
+	if (chimera_video_wants_bridge() && !g_bridged && !g_ctx)
+	{
+		g_w = BASEVIDWIDTH;
+		g_h = BASEVIDHEIGHT;
+		if (g_bridge_fn && glc_start((void *)(uintptr_t)g_bridge_fn, g_w, g_h))
+		{
+			g_bridged = 1;
+			g_context = glc_context_id();
+			fprintf(stderr, "chimera: OpenGL on the GPU outside the sandbox, through Chimera's bridge\n");
+		}
+		else
+			fprintf(stderr, "chimera: no GPU bridge (%s); OpenGL on the Mesa softpipe\n",
+				g_bridge_fn ? "the host's would not start" : "none offered");
+	}
+	if (g_bridged)
+	{
+		pglFinish = (PFNglFinish)GetGLFunc("glFinish");
+		return SetupGLfunc();
+	}
 	if (!g_ctx)
 	{
 		/* 24-bit depth, 8-bit stencil, as a desktop's default framebuffer */
@@ -109,9 +181,17 @@ boolean OglSdlSurface(INT32 w, INT32 h)
 	int majorGL = 0, minorGL = 0;
 
 #ifdef CHIMERA_GUEST
-	if (!g_ctx)
+	if (g_bridged)
+	{
+		glc_surface(w, h);
+		g_w = w;
+		g_h = h;
+		free(g_scratch);
+		g_scratch = calloc((size_t)w * h, 4);
+	}
+	else if (!g_ctx)
 		return false;
-	if (w != g_w || h != g_h)
+	else if (w != g_w || h != g_h)
 	{
 		UINT32 *surface = calloc((size_t)w * h, 4);
 		if (!surface || !OSMesaMakeCurrent(g_ctx, surface, GL_UNSIGNED_BYTE, w, h))
@@ -166,12 +246,22 @@ void OglSdlFinishUpdate(boolean waitvbl)
 	(void)waitvbl;
 	HWR_MakeScreenFinalTexture();
 	HWR_DrawScreenFinalTexture(vid.width, vid.height);
+#ifdef CHIMERA_GUEST
+	if (g_bridged)
+	{
+		if (g_frame && g_scratch)
+			glc_read_frame(g_frame, g_scratch, g_w, g_h);
+	}
+	else
+#endif
+	{
 	pglFinish();
 	if (g_frame && g_surface)
 	{
 		const size_t n = (size_t)g_w * g_h;
 		for (size_t i = 0; i < n; i++)
 			g_frame[i] = g_surface[i] | 0xFF000000u;
+	}
 	}
 
 	GClipRect(0, 0, vid.width, vid.height, NZCLIP_PLANE);
@@ -246,6 +336,8 @@ void *hwSym(const char *funcName, void *handle)
 	GETFUNC(UpdateLightTable);
 	GETFUNC(ClearLightTables);
 	GETFUNC(SetScreenPalette);
+	GETFUNC(ContextLost);
+	GETFUNC(ContextRestored);
 
 	if (!funcPointer)
 		I_Error("hwSym: no renderer function %s", funcName);

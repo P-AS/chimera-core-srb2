@@ -2,7 +2,7 @@
   "package": "srb2",
   "effectiveTerms": "GPL-2.0",
   "commercialUse": "yes, under the GPL's terms",
-  "note": "The built core combines this repository's integration (GPL-2.0, as SRB2: the driver, the platform layer, the mixer, the patches) with Sonic Robo Blast 2 (GPL-2.0), compiled in from the submodule extern/SRB2 with zlib and libpng from its own libs/, libogg and libvorbis (BSD-3-Clause), Game_Music_Emu (LGPL-2.1-or-later), libopenmpt (BSD-3-Clause), Mesa 24.0.9's softpipe and OSMesa (MIT; built by waterbox/setup-mesa.sh with its vendored expat, MIT, and zlib, Zlib) for the OpenGL renderer, and miniBox's guest kit (musl, MIT; emulibc and libco's backend, MIT/public domain) with GCC's libstdc++ (GPL-3.0 with the GCC Runtime Library Exception). The package carries none of the game's data: srb2.pk3, zones.pk3, characters.pk3 and music.pk3 are the user's firmware. Sonic the Hedgehog and related characters are trademarks of SEGA.",
+  "note": "The built core combines this repository's integration (GPL-2.0, as SRB2: the driver, the platform layer, the mixer, the patches) with Sonic Robo Blast 2 (GPL-2.0), compiled in from the submodule extern/SRB2 with zlib and libpng from its own libs/, libogg and libvorbis (BSD-3-Clause), Game_Music_Emu (LGPL-2.1-or-later), libopenmpt (BSD-3-Clause), Mesa 24.0.9's softpipe and OSMesa (MIT; built by waterbox/setup-mesa.sh with its vendored expat, MIT, and zlib, Zlib) for the OpenGL renderer, glad 2.0.5's generated GL declarations (public domain, with the Khronos data under Apache-2.0) for the GPU bridge's guest half, and miniBox's guest kit (musl, MIT; emulibc and libco's backend, MIT/public domain) with GCC's libstdc++ (GPL-3.0 with the GCC Runtime Library Exception). The package carries none of the game's data: srb2.pk3, zones.pk3, characters.pk3 and music.pk3 are the user's firmware. Sonic the Hedgehog and related characters are trademarks of SEGA.",
   "components": [
     {
       "name": "chimera-core-srb2 (integration)",
@@ -93,6 +93,12 @@
       "license": "Zlib",
       "url": "https://zlib.net",
       "file": "build/mesa/subprojects/zlib-1.3.1/LICENSE"
+    },
+    {
+      "name": "glad (generated GL loader declarations)",
+      "license": "(WTFPL OR CC0-1.0) AND Apache-2.0",
+      "url": "https://github.com/Dav1dde/glad",
+      "file": "waterbox/glad/LICENSE"
     },
     {
       "name": "miniBox guest kit (musl, emulibc, libco)",
