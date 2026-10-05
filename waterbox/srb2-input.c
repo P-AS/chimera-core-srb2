@@ -14,7 +14,7 @@
  * letter from a table of its own or else from the name's last word, tells
  * every one apart without a table for SRB2: Turn left/right (l, r) beside
  * Strafe Left/Right (L, R), Reset Camera (C), Select (s, Chimera's own) beside
- * Spin (S), Escape (E). docs/chimera-mnemonics.patch is a table Chimera could
+ * Spin (S), Escape (E). docs/chimera-proposal.patch has a table Chimera could
  * adopt (proposed upstream, not required). The ring-slinger controls - Fire, Fire
  * Normal, Toss Flag, the weapons - are left out for now (commented below).
  * The bindings are forced to that scheme at start (srb2_input_bind), so no

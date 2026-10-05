@@ -321,8 +321,11 @@ has no SRB2 entry, so **the button names are chosen so that its fallback (a name
 one**: Turn left/right (l, r) beside Strafe Left/Right (L, R), Reset Camera (C), Select - the Enter key - (s,
 Chimera's base table) beside Spin (S), Escape (E), Pause (p); the axes abbreviate to FM, SM, T, A. Chimera's
 contract tests built from its stock main pass on the package, all eight, the mnemonic uniqueness and axis-width
-checks among them. `docs/chimera-mnemonics.patch` is a table Chimera could adopt instead (Doom's direction
-symbols), for proposing upstream; nothing depends on it.
+checks among them. `docs/chimera-proposal.patch` is two commits Chimera could adopt, for proposing upstream (nothing
+depends on them): a mnemonics table instead (Doom's direction symbols), and the system's name. Chimera spells a
+system out from its own table (`SystemNames.cs`), keyed by the systemId - a package cannot name it - so stock
+Chimera shows the core as "SRB2" (its `coreName`) on the system "SRB2" (the id, which movies and projects are
+keyed by, unchanged) until it adopts `["SRB2"] = "Sonic Robo Blast 2"`.
 
 Checked before any push: the job's core steps in an `ubuntu:24.04` container (GCC 13.3, as `ubuntu-latest`) -
 miniBox's C++ toolchain from scratch, the data fetched and checked, both builds, the whole gate, the package.
