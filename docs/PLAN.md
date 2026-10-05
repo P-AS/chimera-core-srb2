@@ -224,6 +224,11 @@ built-ins. The core cannot change Chimera (an unofficial core), so the translati
   does. A program given no vertex stage gets one.
 - **textures**: luminance-alpha and alpha formats as RGBA with a swizzle (the fixed stages know an alpha-only
   texture modulates alpha alone), `GL_GENERATE_MIPMAP` as `glGenerateMipmap`, `GL_CLAMP` as clamp-to-edge.
+- **imageless textures**: GL 1.x draws a unit whose texture has no image as if texturing were off; a core
+  shader sampling one reads black. The renderer binds such a name (`NOTEXTURE_NUM`) for flat fills, so the
+  character select's backgrounds drew black on the GPU (found in use, 2026-10-05) until the fixed stages
+  learned which textures have an image (`glTexImage2D`, `glCopyTexImage2D`). Gate: the `engine` leg compares
+  the GPU's character select with the Mesa's.
 - **strings**: `GL_EXTENSIONS` answered from `glGetStringi`; and each string kept in a buffer of its own -
   the bridge copies a returned string into one guest buffer, so `GL_VERSION` read back as the renderer's name
   and the mipmap check failed.
