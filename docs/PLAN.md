@@ -118,6 +118,7 @@ which differ from SRB2's own:
 | Camera Speed | `cam_speed`, 0..1, clamped, printed at 5 places | **1.0** (0.3) |
 | Score/Time/Rings | `timerres`: Classic, Centiseconds, **Mania**, Tics | **Mania** (Classic) |
 | Flip Camera with Gravity | `flipcam` | **Yes** (No) |
+| Automatic Braking | `autobrake` (given explicitly, so a configuration cannot turn it off) | **On** (On) |
 | Tutorial Prompt | `tutorialprompt` (the title's "play the tutorial?") | **Off** (On) |
 | Unlock Record Attack, NiGHTS Mode and Marathon Run | the game data's `SECRET_RECORDATTACK` and `SECRET_NIGHTSMODE` unlockables (SRB2 offers Marathon Run whenever Record Attack is unlocked, `m_menu.c`) | **Off** |
 | Unlock All Characters | the `SECRET_SKIN` unlockables (Amy, Fang, Metal Sonic) | **Off** |
