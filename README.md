@@ -68,7 +68,9 @@ lines diff directly.
 with teeth. `equivalence`: native == sandbox, step for step, on the intro and Greenflower Zone Act 1. `steps`:
 a step is a tic, a wipe's frames are lag steps, play is a tic a step. `savestates`: a save and load before
 every step, and a new host mid-wipe, change nothing. `declaration`: the package's controller is the core's. `settings`: each setting reaches the engine.
-`opengl`: the OpenGL renderer draws, deterministically, and savestates change nothing.
+`opengl`: the OpenGL renderer draws, deterministically, and savestates change nothing. `engine` (with `-c`) also
+runs `opengl-hw` through the GPU bridge where the machine has a context: the same game as the Mesa, and the
+picture right again after a rewind and a reopen.
 `input`: movies through the menus and in Greenflower,
 the same every way. `files`: what the game writes is kept in the machine and exported identically. `time`: a
 host stall mid-run changes nothing. `audio`: the music and sounds are heard, and every leg's run line carries
@@ -82,9 +84,11 @@ Declared in `waterbox/waterbox.config`, so Chimera shows them as the core's opti
 given to the engine at start: Play Style (default Manual), Camera Speed (1.0), Camera Distance (192), Camera Height (40), Score/Time/Rings (Mania), Flip
 Camera with Gravity (Yes), Automatic Braking (On), Tutorial Prompt (Off), Unlock Record Attack/NiGHTS Mode/Marathon Run, Unlock All
 Characters, Unlock All Maps in Record Attack and NiGHTS Mode, Unlock All Secrets (each Off), Resolution (1280x800: SRB2's video modes, and 2560x1440 and 3840x2160, shown with square
-pixels; the game plays the same at every one), Renderer (software; or opengl: SRB2's OpenGL renderer on the
+pixels; the game plays the same at every one), Renderer (software; opengl: SRB2's OpenGL renderer on the
 Mesa softpipe the core carries - deterministic and savestate-safe, but slow: about 15 fps at 320x200, under 1
-at 1280x800 with shaders; the renderer is part of the game, so a movie is its renderer's), Start Map (empty: the intro and the title), Start Map Character (a skin name, e.g. knuckles; empty: Sonic).
+at 1280x800 with shaders; opengl-hw: the same renderer on this machine's GPU through Chimera's GPU bridge -
+fast, its picture the driver's, the same game - and on the Mesa where there is no bridge; the renderer is part
+of the game, so a movie is its renderer's), OpenGL Shaders (On; the picture's alone), Start Map (empty: the intro and the title), Start Map Character (a skin name, e.g. knuckles; empty: Sonic).
 
 ## The controller
 

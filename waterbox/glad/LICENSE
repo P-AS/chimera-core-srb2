@@ -1,0 +1,19 @@
+glad 2.0.5 - an OpenGL loader, generated rather than written: include/glad/gl.h,
+include/KHR/khrplatform.h and src/gl.c, unmodified.
+
+The generator and its output are distributed under:
+
+    SPDX-License-Identifier: (WTFPL OR CC0-1.0) AND Apache-2.0
+
+which is the line every generated file carries at its top. The Apache-2.0 part
+covers the Khronos specification data the generator reads; the loader code
+itself is public domain under either WTFPL or CC0, at your option.
+
+Upstream: https://github.com/Dav1dde/glad
+
+WHY IT IS HERE. The GPU bridge's guest half is generated from glad's
+declarations (miniBox's source/gl/gen-gl-bridge.py). This is the same generated
+copy Chimera's engine and its PCSX2 core vendor (Chimera's extern/glad), so both
+sides of the bridge agree about types and entry points by construction. Only
+the header and src/gl.c are used: gl.c defines the entry-point pointers the
+bridge's generated half fills; glad's own loader is never called.

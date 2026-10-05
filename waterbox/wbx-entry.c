@@ -82,9 +82,16 @@ ECL_EXPORT const char *GetLoadError(void) { return g_load_error; }
  *                   (sdl/i_video.c's windowedModes) and 2560x1440, 3840x2160;
  *                   default 1280x800, SRB2's own. The picture's alone: the
  *                   game plays the same at every one
+ *   glShaders       gr_shaders, the OpenGL renderer's shaders (its lighting,
+ *                   fog and palette look); off, its fixed stages - faster on
+ *                   the Mesa, the picture's alone; default On (SRB2's own)
  *   renderer        software, SRB2's software renderer; opengl, its OpenGL
  *                   renderer on the Mesa softpipe the core carries
- *                   (platform/ogl_chimera.c): deterministic, slower. The
+ *                   (platform/ogl_chimera.c): deterministic, slower;
+ *                   opengl-hw, the same renderer on the machine's GPU through
+ *                   Chimera's bridge (platform/gl_compat.c): fast, its picture
+ *                   not deterministic, the same game - on the Mesa when the
+ *                   host offers no bridge. The
  *                   renderer is part of the game (a few things play
  *                   differently in OpenGL), so a movie is the renderer it was
  *                   made with; default software
@@ -197,8 +204,14 @@ static void settings_args(void)
 	chimera_video_set_mode(w, h);
 
 	char renderer[32];
-	chimera_video_set_renderer(wbx_setting_str("renderer", renderer, (int)sizeof renderer) > 0
-		&& !strcmp(renderer, "opengl"));
+	int mode = 0;
+	if (wbx_setting_str("renderer", renderer, (int)sizeof renderer) > 0)
+		mode = !strcmp(renderer, "opengl") ? 1 : !strcmp(renderer, "opengl-hw") ? 2 : 0;
+	chimera_video_set_renderer(mode);
+
+	/* the OpenGL renderer's shaders (gr_shaders): the picture's alone */
+	arg("+gr_shaders");
+	arg(wbx_setting_bool("glShaders", 1) ? "On" : "Off");
 }
 
 /* the engine started as upstream's main starts it. Its folder (-workdir,
@@ -262,6 +275,12 @@ ECL_EXPORT void SetButton(int32_t index, int32_t state)
 		g_set_buttons[index] = state != 0;
 }
 ECL_EXPORT void SetAxis(int32_t index, int32_t value) { srb2_input_set_axis(index, value); }
+
+/* the GPU bridge (Chimera's docs/gpu-bridge.md): offered before Init when the
+ * project asked for a hardware renderer; and the engine's word that a state
+ * was loaded, after which the GL the renderer remembers is not the driver's */
+ECL_EXPORT void SetGpuBridge(uint64_t fn) { chimera_gl_bridge_offer(fn); }
+ECL_EXPORT void StateLoaded(void) { chimera_gl_state_loaded(); }
 
 /* the controller's names, in its order (the declaration's; the harnesses') */
 ECL_EXPORT int GetButtonCount(void) { return srb2_input_button_count(); }

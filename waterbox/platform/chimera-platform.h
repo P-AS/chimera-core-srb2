@@ -15,9 +15,25 @@ extern int chimera_host_clock;
 void chimera_audio_mix(int16_t *out, int frames);
 /* the machine's one video mode, set before the start (platform/i_video.c) */
 void chimera_video_set_mode(int w, int h);
-/* the machine's renderer, set before the start: 0 software, 1 OpenGL
- * (platform/i_video.c, platform/ogl_chimera.c) */
-void chimera_video_set_renderer(int opengl);
+/* the machine's renderer, set before the start: 0 software, 1 OpenGL on the
+ * core's Mesa, 2 OpenGL through the GPU bridge when the host offers one (else
+ * on the Mesa) (platform/i_video.c, platform/ogl_chimera.c) */
+void chimera_video_set_renderer(int mode);
+int chimera_video_wants_bridge(void);
+/* the GPU bridge: the host's callback, offered before Init (SetGpuBridge);
+ * a state loaded (StateLoaded); the top of a step, where a moved context is
+ * noticed and the renderer made again (platform/ogl_chimera.c) */
+void chimera_gl_bridge_offer(uint64_t fn);
+void chimera_gl_state_loaded(void);
+void chimera_gl_step(void);
+/* platform/gl_compat.c: GL 1.x on the bridge's core-profile context */
+int glc_start(void *bridge, int w, int h);
+void glc_surface(int w, int h);
+uint64_t glc_context_id(void);
+void glc_forget(void);
+int glc_restore(int w, int h);
+void glc_read_frame(uint32_t *out, uint32_t *scratch, int w, int h);
+void *glc_proc(const char *name);
 /* which one draws: 1 OpenGL, 0 software (OpenGL asked for and not had) */
 int chimera_video_opengl(void);
 /* the engine's screen, through its palette, as BGRA (platform/i_video.c) */
