@@ -52,6 +52,8 @@ ECL_EXPORT const char *GetLoadError(void) { return g_load_error; }
  *   cameraSpeed     cam_speed, 0 to 1; the core's default 1.0
  *   scoreTimeRings  timerres: Classic, Centiseconds, Mania, Tics; default Mania
  *   flipCamera      flipcam: the camera flips with gravity; default Yes
+ *   autoBrake       autobrake: the player brakes when no direction is
+ *                   held; default On (SRB2's own too)
  *   tutorialPrompt  tutorialprompt: the title's "play the tutorial?"
  *                   question on a first start; default Off
  *   unlockModes     Record Attack and NiGHTS Mode unlocked from the start
@@ -137,6 +139,9 @@ static void settings_args(void)
 
 	arg("+flipcam");
 	arg(wbx_setting_bool("flipCamera", 1) ? "Yes" : "No");
+
+	arg("+autobrake");
+	arg(wbx_setting_bool("autoBrake", 1) ? "On" : "Off");
 
 	arg("+tutorialprompt");
 	arg(wbx_setting_bool("tutorialPrompt", 0) ? "On" : "Off");

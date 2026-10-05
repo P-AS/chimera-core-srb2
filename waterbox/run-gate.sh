@@ -60,7 +60,7 @@
 #   settings     the declared settings reach the engine as its options: with no
 #                setting given, and with every declared default given, the
 #                engine plays Manual (directionchar Movement, configanalog
-#                Off), cam_speed 1.0, timerres Mania, flipcam Yes, tutorialprompt
+#                Off), cam_speed 1.0, timerres Mania, flipcam Yes, autobrake On, tutorialprompt
 #                Off, nothing unlocked; each other
 #                value of each setting is the engine's option (read back with
 #                run-native --print-cvar). Its teeth - another value is not the
@@ -314,15 +314,15 @@ content settings '{"warp": "1"}'
 cvars() {
 	printf '%s\n' "$1" > "$root/build/gate/settings/settings"
 	"$native" "$root/build/gate/settings" -n 5 -p 0 --print-cvar directionchar --print-cvar configanalog \
-		--print-cvar cam_speed --print-cvar timerres --print-cvar flipcam --print-cvar tutorialprompt 2>/dev/null \
+		--print-cvar cam_speed --print-cvar timerres --print-cvar flipcam --print-cvar autobrake --print-cvar tutorialprompt 2>/dev/null \
 		| grep '^cvar' | tr '\n' ' '
 }
-want="cvar directionchar Movement cvar configanalog Off cvar cam_speed 1.00000 cvar timerres Mania cvar flipcam Yes cvar tutorialprompt Off "
+want="cvar directionchar Movement cvar configanalog Off cvar cam_speed 1.00000 cvar timerres Mania cvar flipcam Yes cvar autobrake On cvar tutorialprompt Off "
 none="$(cvars '{"warp": "1"}')"
 defaults="$(python3 -c 'import json,sys; c=json.load(open(sys.argv[1])); d={s["name"]:s["default"] for s in c["settings"]}; d["warp"]="1"; print(json.dumps(d))' "$decl")"
 explicit="$(cvars "$defaults")"
 if [ "$none" = "$want" ] && [ "$explicit" = "$want" ]; then
-	pass "settings: the defaults, absent or given, are Manual, cam_speed 1.0, timerres Mania, flipcam Yes"
+	pass "settings: the defaults, absent or given, are Manual, cam_speed 1.0, timerres Mania, flipcam Yes, autobrake On"
 else
 	bad "settings: the defaults are not what they should be: absent '$none', given '$explicit', want '$want'"
 fi
@@ -330,7 +330,7 @@ ok=1
 for v in "playStyle Strafe directionchar Camera configanalog Off" "playStyle Automatic directionchar Movement configanalog On" \
 	"playStyle 'Old Analog' directionchar Camera configanalog On" "cameraSpeed 0.3 cam_speed 0.30000" "cameraSpeed 0 cam_speed 0.00000" \
 	"scoreTimeRings Classic timerres Classic" "scoreTimeRings Centiseconds timerres Centiseconds" "scoreTimeRings Tics timerres Tics" \
-	"flipCamera false flipcam No"; do
+	"flipCamera false flipcam No" "autoBrake false autobrake Off"; do
 	eval "set -- $v"
 	key="$1"; val="$2"; shift 2
 	case "$val" in [0-9]*|true|false) js="$val" ;; *) js="\"$val\"" ;; esac
@@ -352,7 +352,7 @@ for v in '{}|recordattack 0 nights 0 skins 0/' '{"unlockModes": true}|recordatta
 done
 case "$(cvars '{"warp": "1"}')" in *"cvar tutorialprompt Off "*) ;; *) ok=0; echo "  tutorialprompt is not Off by default" ;; esac
 case "$(cvars '{"warp": "1", "tutorialPrompt": true}')" in *"cvar tutorialprompt On "*) ;; *) ok=0; echo "  tutorialPrompt true is not On" ;; esac
-[ "$ok" = 1 ] && pass "settings: every other value of every setting is the engine's option (9 values), tutorialprompt, and the unlocks (the game data's)" \
+[ "$ok" = 1 ] && pass "settings: every other value of every setting is the engine's option (10 values), tutorialprompt, and the unlocks (the game data's)" \
 	|| bad "settings: a value did not reach the engine"
 [ "$(cvars '{"warp": "1", "scoreTimeRings": "Classic"}')" != "$want" ] && pass "settings teeth: another value is not the default's" \
 	|| bad "settings teeth: a value changed nothing - the leg cannot fail"
