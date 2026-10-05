@@ -22,8 +22,12 @@ PNGCONF := $(PNGCONF_DIR)/pnglibconf.h
 #   comptime.c           the build's date and git state: platform/comptime.c
 #                        names the core's build instead, the same in both
 #   netcode/i_tcp.c      sockets: the machine has no network (dummy/i_net.c)
-#   hardware/            the OpenGL renderer: the core draws in software
 #   sdl/, dedicated/     upstream's platform layers
+# hardware/, the OpenGL renderer, is in (HWRENDER, as upstream's builds have
+# it), in both builds: the guest draws it on the Mesa it carries
+# (platform/ogl_chimera.c); the native reference has no GL and draws in
+# software, its software path the guest's. Its GL headers are Mesa's
+# (build/mesa/include, waterbox/setup-mesa.sh).
 # Taken from upstream's dummy/ interface as it is: i_net.c (no network),
 # i_cdmus.c (no CD); the sound is the core's own (platform/i_sound.c); from sdl/,
 # dosstr.c (strupr, strlwr). md5.c and apng.c are upstream's optional files,
@@ -31,10 +35,11 @@ PNGCONF := $(PNGCONF_DIR)/pnglibconf.h
 srb2_list = $(addprefix $(SRB2)/$(1),$(filter %.c,$(shell cat $(SRB2)/$(1)Sourcefile)))
 SRB2_EXCLUDE := $(SRB2)/comptime.c $(SRB2)/netcode/i_tcp.c
 SRB2_SRCS := $(filter-out $(SRB2_EXCLUDE), \
-	$(call srb2_list,) $(call srb2_list,blua/) $(call srb2_list,netcode/) \
+	$(call srb2_list,) $(call srb2_list,blua/) $(call srb2_list,netcode/) $(call srb2_list,hardware/) \
 	$(SRB2)/md5.c $(SRB2)/apng.c $(SRB2)/sdl/dosstr.c $(SRB2)/dummy/i_net.c $(SRB2)/dummy/i_cdmus.c)
-# upstream's defines (src/CMakeLists.txt, a Linux x86-64 build): software
-# renderer only (no HWRENDER), no threads, no curl, no UPnP, no Mumble;
+# upstream's defines (src/CMakeLists.txt, a Linux x86-64 build): the OpenGL
+# renderer (HWRENDER; GL_NO_LOGFILE, patches/0007: its messages to the console,
+# not an ogllog.txt in the machine's files), no threads, no curl, no UPnP, no Mumble;
 # libopenmpt (HAVE_OPENMPT: s_sound.c's module handle and its filter setting,
 # the sound menu's OpenMPT section, as upstream's Linux builds have them);
 # zlib (the .pk3 files) and libpng (PNG graphics in them) from upstream's own
@@ -42,8 +47,14 @@ SRB2_SRCS := $(filter-out $(SRB2_EXCLUDE), \
 # signed arithmetic (gnu2x: the C23 draft, as GCC 13 names it - every later GCC too). NDEBUG, as upstream's release build and the guest have it.
 # MAXVIDWIDTH/HEIGHT 3840x2160 (patches/0005): the resolution setting's largest.
 SRB2_DEFS := -DNDEBUG -DMAXVIDWIDTH=3840 -DMAXVIDHEIGHT=2160 -DUNIXCOMMON -DLINUX -DLINUX64 -D_LARGEFILE64_SOURCE -DHAVE_ZLIB -DHAVE_PNG -DHAVE_OPENMPT \
+	-DHWRENDER -DGL_NO_LOGFILE \
 	-DNOMUMBLE -DNOEXECINFO -DNOUPNP
-SRB2_INCS := -Iplatform -Icompat -I$(OGG)/include -I$(VORBIS)/include -I$(GME)/.. -I$(OPENMPT) -I$(SRB2) -I$(SRB2)/blua -I$(LIBS)/zlib -I$(LIBS)/libpng-src -I$(PNGCONF_DIR)
+MESA := $(ROOT)/build/mesa
+SRB2_INCS := -Iplatform -Icompat -I$(MESA)/include -I$(OGG)/include -I$(VORBIS)/include -I$(GME)/.. -I$(OPENMPT) -I$(SRB2) -I$(SRB2)/blua -I$(LIBS)/zlib -I$(LIBS)/libpng-src -I$(PNGCONF_DIR)
+# SRB2's objects alone: the OpenGL renderer's entry point Init is renamed,
+# as the core's own Init is the export Chimera calls (wbx-entry.c);
+# platform/ogl_chimera.c, which finds it by name, says the same
+SRB2_RENAMES := -DInit=r_opengl_Init
 SRB2_CFLAGS_COMMON := -std=gnu2x -O2 -fwrapv -fno-strict-aliasing $(SRB2_DEFS) $(SRB2_INCS)
 
 # ---- libogg and libvorbis (the submodules extern/ogg, v1.3.5, and
@@ -108,7 +119,7 @@ PNG_CFLAGS_COMMON := -std=gnu11 -O2 -DNDEBUG -DPNG_INTEL_SSE_OPT=0 -DPNG_ARM_NEO
 	-DPNG_MIPS_MSA_OPT=0 -DPNG_POWERPC_VSX_OPT=0 -I$(LIBS)/libpng-src -I$(PNGCONF_DIR) -I$(LIBS)/zlib
 
 # ---- the core: its platform layer (platform/) and the driver
-PLATFORM_NAMES := i_system i_video i_sound i_threads i_net files detmath comptime
+PLATFORM_NAMES := i_system i_video ogl_chimera i_sound i_threads i_net files detmath comptime
 CORE_C_NAMES := $(addprefix platform/,$(PLATFORM_NAMES)) srb2-driver srb2-input wbx-entry
 # libco (miniBox's extern/libco, public domain): the engine's cothread
 LIBCO_SRC := $(MB)/extern/libco/amd64.c
@@ -129,6 +140,12 @@ WRAP_FLAGS := -Wl,--wrap=clock_gettime -Wl,--wrap=time -Wl,--wrap=gettimeofday -
 
 # the patch series goes onto the submodule before anything of SRB2 builds
 PATCH_STAMP := $(ROOT)/build/patches.stamp
+# Mesa's headers (and, for the guest, its archives): waterbox/setup-mesa.sh
+MESA_GL_H := $(MESA)/include/GL/gl.h
+$(MESA_GL_H):
+	@echo "no Mesa at $(MESA): run waterbox/setup-mesa.sh first (MINIBOX_DIR=<miniBox>)" >&2
+	@false
+
 $(PATCH_STAMP): $(wildcard $(ROOT)/patches/*.patch) apply-patches.sh
 	sh apply-patches.sh
 	@mkdir -p $(dir $@)

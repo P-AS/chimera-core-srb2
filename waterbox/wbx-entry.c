@@ -82,6 +82,12 @@ ECL_EXPORT const char *GetLoadError(void) { return g_load_error; }
  *                   (sdl/i_video.c's windowedModes) and 2560x1440, 3840x2160;
  *                   default 1280x800, SRB2's own. The picture's alone: the
  *                   game plays the same at every one
+ *   renderer        software, SRB2's software renderer; opengl, its OpenGL
+ *                   renderer on the Mesa softpipe the core carries
+ *                   (platform/ogl_chimera.c): deterministic, slower. The
+ *                   renderer is part of the game (a few things play
+ *                   differently in OpenGL), so a movie is the renderer it was
+ *                   made with; default software
  */
 static const char *const g_playstyles[][3] = {
 	{ "Strafe", "Camera", "Off" },
@@ -189,6 +195,10 @@ static void settings_args(void)
 	if (wbx_setting_str("resolution", res, (int)sizeof res) > 0)
 		sscanf(res, "%dx%d", &w, &h);
 	chimera_video_set_mode(w, h);
+
+	char renderer[32];
+	chimera_video_set_renderer(wbx_setting_str("renderer", renderer, (int)sizeof renderer) > 0
+		&& !strcmp(renderer, "opengl"));
 }
 
 /* the engine started as upstream's main starts it. Its folder (-workdir,

@@ -31,13 +31,20 @@ the guest build), following Chimera's `docs/porting-a-core.md` and `docs/game-co
     as upstream's mixer drives it. C++: the guest is built with miniBox's C++ toolchain.
   - [x] **5c.** libopenmpt 0.8.9 (tracker modules: MOD, S3M, XM, IT, MPTM...), as upstream's mixer drives it,
     its random seeding made deterministic (`patches/openmpt/0001`).
-- [ ] 7 (most). **The package and CI**: `build-package.sh`, `.github/workflows/chimera.yml` (see "CI"). **The declaration** (`waterbox/waterbox.config`): the controller, firmware, video, audio and
-  the settings - Play Style (Manual), Camera Speed (1.0), Score/Time/Rings (Mania), Flip Camera (Yes), Start
-  Map. Gate legs `declaration` and `settings`. Left: `build-package.sh`, file slots (add-ons, save data),
-  keybinds, licences, the properties, CI.
-- [ ] 6. Savestates: **rerecord and session pass** (gate leg `savestates`, ~32 MB a state), including a state
-  taken mid-wipe with the engine suspended on its cothread. 7. the package, properties (`Game State`),
-  settings.
+- [x] **6. Savestates**: rerecord and session pass (gate leg `savestates`, ~32 MB a state), including a state
+  taken mid-wipe with the engine suspended on its cothread.
+- [x] **7. The package and CI**: `build-package.sh`, the declaration (`waterbox/waterbox.config`: controller,
+  firmware, video, audio, settings), file slots (add-ons, save data), keybinds, licences, CI
+  (`.github/workflows/chimera.yml`, see "CI"). Gate legs `declaration`, `settings`, `exports`, `engine`.
+  Confirmed in use (2026-10-05, user): on Windows the core imports into Chimera from GitHub, and a movie records
+  and replays, savestates included.
+- [ ] **8. SRB2's OpenGL renderer** (user-decided 2026-10-05: both paths, Mesa first, as Chimera's PCSX2 core):
+  - [x] **8a.** `renderer` `opengl`: upstream's renderer (`hardware/`, unchanged) on Mesa's softpipe compiled
+    into the guest (`waterbox/setup-mesa.sh`, `platform/ogl_chimera.c`). Deterministic and savestate-safe;
+    slow. Gate leg `opengl`. See "OpenGL".
+  - [ ] **8b.** `renderer` `opengl-hw`: the same renderer through Chimera's GPU bridge, onto the machine's
+    GPU, falling back to the Mesa path when there is no bridge. Needs a GL 1.x-to-core translation in the
+    core (see "OpenGL").
 
 ## Upstream
 
@@ -62,6 +69,9 @@ the guest build), following Chimera's `docs/porting-a-core.md` and `docs/game-co
   CMake makes curl mandatory, so nothing else guards it); without it, no download.
 - `patches/openmpt/0001-deterministic-random-device.patch` (on `extern/openmpt`): libopenmpt's random seeding
   deterministic under `MPT_BUILD_DETERMINISTIC_RANDOM` (see "The sound").
+- `0007-gl-no-logfile.patch`: `GL_NO_LOGFILE`, for a platform layer with a console and no place for
+  `ogllog.txt`: the OpenGL renderer's messages go to the console (as SDL's build has them), and no log file is
+  written into the machine's files.
 - `0006-all-maps-available.patch`: `menu_allmapsavailable`, which an external driver sets to list every
   map on the level platters as available, visited or locked or not (Unlock All Maps).
 - `0005-maxvid-overridable.patch`: `MAXVIDWIDTH`/`MAXVIDHEIGHT` overridable by a build (the core's: 3840x2160).
@@ -129,6 +139,7 @@ which differ from SRB2's own:
 | Unlock All Maps in Record Attack and NiGHTS Mode | the menu's check (`M_LevelAvailableOnPlatter`: visited, `M_MapLocked`) skipped, **patch 0006** - not the game data, so an addon's maps are listed too, no visit is recorded, and no "visit map" condition unlocks anything (28 Record Attack maps in 2.2.15) | **Off** |
 | Unlock All Secrets | every unlockable (24 in 2.2.15) | **Off** |
 | Start Map Character | `+skin`, given only with a Start Map (`-warp`), run before the map starts; a locked character (Amy, Fang, Metal Sonic) needs Unlock All Characters, and a locked or unknown one plays Sonic | **empty**: Sonic |
+| Renderer | `software`, or `opengl` (SRB2's OpenGL renderer on the core's Mesa softpipe; see "OpenGL"), fixed at the start as upstream's `-renderer` | **software** (Software) |
 | Resolution | the engine's one video mode (see "Resolution") | **1280x800** (1280x800) |
 | Start Map | `-warp` (empty: the intro and the title) | empty |
 
@@ -144,6 +155,59 @@ game in Greenflower Zone.
 Manual is the Standard control style (`PF_DIRECTIONCHAR`, no `PF_ANALOGMODE`): the player faces where it moves
 and the camera does not turn by itself. The gate's `settings` leg reads the engine's options back
 (`run-native --print-cvar`): the defaults absent and given, and every other value of every setting.
+
+## OpenGL (milestone 8, 2026-10-05)
+
+**The renderer is part of the game.** Not only the picture: `A_OverlayThink` (`p_enemy.c`) places overlays by
+the viewing angle under OpenGL alone, and the orbital camera (`p_user.c`) depends on `gr_shearing` under
+OpenGL. So the renderer is a project setting (`renderer`, recorded with the movie), and a movie is its
+renderer's. Any two ways of running the OpenGL renderer share one game. The renderer is fixed at the start
+(`chosenrendermode`, as upstream's `-renderer`); a switch the game asks for later - the video menu, a
+configuration's `renderer` - is refused (`VID_CheckRenderer`).
+
+**`HWRENDER` is in both builds**, and changes nothing in software: the native reference built with it and the
+guest built without it gave the same Greenflower run (1000 steps: picture, sound, state). The native reference
+has no GL (`LoadGL` fails, `ogl_chimera.c`), says "OpenGL did not start; drawing in software" and draws in
+software - so the `opengl` leg is the sandbox's alone, as Flycast's GL legs are.
+
+**8a, the Mesa path.** Chimera's porting guide's second way to a picture: an OpenGL compiled into the core.
+`waterbox/setup-mesa.sh` is chimera-core-flycast's (MIT): Mesa 24.0.9 by SHA256, softpipe behind gallium
+OSMesa, static, no LLVM - plus `lmsensors`, `libunwind`, `valgrind` pinned off (Mesa turned lm_sensors on from
+this host and failed on a header the guest lacks) and a release build (Mesa's default `debugoptimized` keeps
+assertions in softpipe's loops: the release build is 20-25% faster and the core 31 MB instead of 89).
+`platform/ogl_chimera.c` is upstream's `sdl/ogl_sdl.c` and `hwsym_sdl.c` less SDL: the context
+(`OSMesaCreateContextExt`, BGRA, 24-bit depth, 8-bit stencil), `GetGLFunc` by `OSMesaGetProcAddress`, the
+surface at the mode's size with rows top first (`OSMESA_Y_UP` 0: the frontend's layout, no conversion), and
+the finished frame copied out before the renderer draws the screen texture back (upstream does that after its
+swap). Two names needed care: the renderer's `Init` is the core's export's name, so SRB2's objects build with
+`-DInit=r_opengl_Init` (`SRB2_RENAMES`), and `GL_NO_LOGFILE` (patch 0007) keeps `ogllog.txt` out of the
+machine's files.
+
+Every byte of the GL - textures, shaders, the framebuffer - is guest memory: savestates need nothing (gate
+leg `opengl`: rerecord and a mid-wipe session are the run without; deterministic run to run). Chimera's
+engine opens the package with `renderer` `opengl` and draws the menus.
+
+Its cost is softpipe's (no JIT, no SIMD dispatch, by design), measured per frame on Greenflower, this machine:
+
+| resolution | shaders off | shaders on (SRB2's default) |
+|---|---|---|
+| 320x200 | 0.061 s | - |
+| 640x400 | 0.174 s | 0.433 s |
+| 1280x800 | - | 1.644 s |
+
+Flycast's softpipe is ~0.12 s a 640x480 frame, so this is softpipe's normal range. It is a renderer for
+checking and encoding a movie, not for playing one: that is 8b's.
+
+**8b, the bridge (next).** Chimera's GPU bridge carries only the calls on miniBox's master list
+(`source/gl/gl-entry-points.txt`), which has no fixed-function GL, and on Linux it asks EGL for a 3.3 context,
+which is a core profile; SRB2's renderer is GL 1.x (matrix stacks, client-side arrays, `glTexEnv`,
+`glAlphaFunc`, lights and materials for models: ~30 of its ~80 calls) and its GLSL uses the compatibility
+built-ins. The core cannot change Chimera (an unofficial core), so the translation is the core's own: a layer
+between `GetGLFunc` and the bridge that keeps the matrix stacks, streams client arrays into buffers under a
+vertex array, emulates the texture environment and alpha test in a generated program, and rewrites SRB2's
+shaders for GLSL 3.30 - and, because the GL then lives outside the machine, rebuilds the renderer's textures
+and programs when the context id moves (a state load, a reopen: gpu-bridge.md's protocol, with
+`StateLoaded()`). With no bridge, `opengl-hw` draws on the Mesa path, the same game.
 
 ## Resolution (2026-10-04, user-decided)
 

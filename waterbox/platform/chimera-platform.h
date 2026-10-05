@@ -15,6 +15,11 @@ extern int chimera_host_clock;
 void chimera_audio_mix(int16_t *out, int frames);
 /* the machine's one video mode, set before the start (platform/i_video.c) */
 void chimera_video_set_mode(int w, int h);
+/* the machine's renderer, set before the start: 0 software, 1 OpenGL
+ * (platform/i_video.c, platform/ogl_chimera.c) */
+void chimera_video_set_renderer(int opengl);
+/* which one draws: 1 OpenGL, 0 software (OpenGL asked for and not had) */
+int chimera_video_opengl(void);
 /* the engine's screen, through its palette, as BGRA (platform/i_video.c) */
 int chimera_video_width(void);
 int chimera_video_height(void);

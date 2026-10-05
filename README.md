@@ -16,6 +16,7 @@ characters.pk3, music.pk3 - is firmware: the core carries none of it.
 ```
 git submodule update --init
 export MINIBOX_DIR=<a Chimera checkout>/extern/chimera-common-minibox
+waterbox/setup-mesa.sh                      # Mesa's softpipe for the guest, once (~15 min): build/mesa/
 make -C waterbox -f native.mk -j$(nproc)    # the native reference and the harnesses: build/native/
 make -C waterbox -f guest.mk -j$(nproc)     # the core: build/guest/core.wbx
 ```
@@ -26,6 +27,10 @@ miniBox must be built first, with its C++ guest toolchain (GME is C++), in its c
 meson setup build/meson-cpp -Dguest_cpp=true && ninja -C build/meson-cpp
 ninja -C build/meson-cpp libstdcxx-installed.stamp source/guest/emulibc.c.o source/guest/cxxglue.c.o
 ``` 
+
+`setup-mesa.sh` fetches Mesa 24.0.9 (checked by SHA256) and builds its softpipe behind OSMesa for the guest:
+the OpenGL renderer draws on it, inside the sandbox. It needs meson, python3-mako, bison and flex; both builds
+take Mesa's GL headers from it.
 
 The patches go onto
 `extern/SRB2` and `extern/openmpt` on the first build (`waterbox/apply-patches.sh [openmpt]`, each series all or
@@ -63,6 +68,7 @@ lines diff directly.
 with teeth. `equivalence`: native == sandbox, step for step, on the intro and Greenflower Zone Act 1. `steps`:
 a step is a tic, a wipe's frames are lag steps, play is a tic a step. `savestates`: a save and load before
 every step, and a new host mid-wipe, change nothing. `declaration`: the package's controller is the core's. `settings`: each setting reaches the engine.
+`opengl`: the OpenGL renderer draws, deterministically, and savestates change nothing.
 `input`: movies through the menus and in Greenflower,
 the same every way. `files`: what the game writes is kept in the machine and exported identically. `time`: a
 host stall mid-run changes nothing. `audio`: the music and sounds are heard, and every leg's run line carries
@@ -76,7 +82,9 @@ Declared in `waterbox/waterbox.config`, so Chimera shows them as the core's opti
 given to the engine at start: Play Style (default Manual), Camera Speed (1.0), Camera Distance (192), Camera Height (40), Score/Time/Rings (Mania), Flip
 Camera with Gravity (Yes), Automatic Braking (On), Tutorial Prompt (Off), Unlock Record Attack/NiGHTS Mode/Marathon Run, Unlock All
 Characters, Unlock All Maps in Record Attack and NiGHTS Mode, Unlock All Secrets (each Off), Resolution (1280x800: SRB2's video modes, and 2560x1440 and 3840x2160, shown with square
-pixels; the game plays the same at every one), Start Map (empty: the intro and the title), Start Map Character (a skin name, e.g. knuckles; empty: Sonic).
+pixels; the game plays the same at every one), Renderer (software; or opengl: SRB2's OpenGL renderer on the
+Mesa softpipe the core carries - deterministic and savestate-safe, but slow: about 15 fps at 320x200, under 1
+at 1280x800 with shaders; the renderer is part of the game, so a movie is its renderer's), Start Map (empty: the intro and the title), Start Map Character (a skin name, e.g. knuckles; empty: Sonic).
 
 ## The controller
 
