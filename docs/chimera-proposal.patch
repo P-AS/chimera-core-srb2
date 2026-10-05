@@ -1,7 +1,7 @@
 From 1638e0552682c068a1505390b65dbc4b253d70a1 Mon Sep 17 00:00:00 2001
 From: PAS <pasrc@proton.me>
 Date: Sun, 4 Oct 2026 18:32:00 -0400
-Subject: [PATCH] feat(cores): SRB2's controller has mnemonics of its own
+Subject: [PATCH 1/2] feat(cores): SRB2's controller has mnemonics of its own
 
 chimera-core-srb2 (an unofficial game core, github.com/P-AS/chimera-core-srb2)
 declares system SRB2 with SRB2's keyboard as buttons. Its names already
@@ -79,6 +79,36 @@ index 57f3639..9dd58fb 100644
  			public const string TI83 = "TI83";
  			public const string TIC80 = "TIC80";
  			public const string UZE = "UZE";
+-- 
+2.56.0
+
+
+From 31a70368747880ef11a9455017d4f288865ee5e5 Mon Sep 17 00:00:00 2001
+From: PAS <pasrc@proton.me>
+Date: Sun, 4 Oct 2026 20:27:36 -0400
+Subject: [PATCH 2/2] feat(cores): SRB2's system reads as Sonic Robo Blast 2
+
+The SRB2 game core (github.com/P-AS/chimera-core-srb2) names its system
+"SRB2"; windows that spell systems out now say the game's name.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01KmA5vUr2aPFUfecLj4PFJi
+---
+ source/gui/Chimera.Client.Common/CorePackages/SystemNames.cs | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/source/gui/Chimera.Client.Common/CorePackages/SystemNames.cs b/source/gui/Chimera.Client.Common/CorePackages/SystemNames.cs
+index 7aac801..3e3d294 100644
+--- a/source/gui/Chimera.Client.Common/CorePackages/SystemNames.cs
++++ b/source/gui/Chimera.Client.Common/CorePackages/SystemNames.cs
+@@ -73,6 +73,7 @@ namespace Chimera.Client.Common
+ 			["PrinceOfPersia"] = "Prince of Persia",
+ 			["PrinceOfPersia2"] = "Prince of Persia 2",
+ 			["SwordOfTheSamurai"] = "Sword of the Samurai",
++			["SRB2"] = "Sonic Robo Blast 2",
+ 			["Syndicate"] = "Syndicate",
+ 			["AnotherWorld"] = "Another World",
+ 			["PS1"] = "PlayStation",
 -- 
 2.56.0
 
