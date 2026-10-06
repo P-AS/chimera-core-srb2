@@ -59,6 +59,23 @@ missing = [b for b in cfg["input"]["buttons"] if b not in binds]
 extra = [b for b in binds if b not in cfg["input"]["buttons"]]
 if missing or extra:
     sys.exit(f"default_keybinds.json does not match the declared buttons: missing {missing}, extra {extra}")
+# what things are called is the core's to say (Chimera keeps no table): the
+# system's name, a letter for every button - one writable character, none
+# shared - and a header on every axis
+if cfg["systemId"] not in cfg.get("systemNames", {}):
+    sys.exit(f"systemNames does not name the system {cfg['systemId']!r}")
+letters = cfg["input"].get("mnemonics", {})
+buttons = cfg["input"]["buttons"]
+if set(letters) != set(buttons):
+    sys.exit(f"mnemonics do not match the declared buttons: missing {[b for b in buttons if b not in letters]}, extra {[b for b in letters if b not in buttons]}")
+bad = {b: m for b, m in letters.items() if len(m) != 1 or not " " < m < "\x7f" or m in ".|"}
+if bad:
+    sys.exit(f"mnemonics that an entry cannot carry: {bad}")
+if len(set(letters.values())) != len(letters):
+    sys.exit(f"two buttons share a letter: {letters}")
+bad = [a["name"] for a in cfg["input"].get("axes", []) if not 0 < len(a.get("header", "")) <= 5]
+if bad:
+    sys.exit(f"axes with no header of 1-5 characters: {bad}")
 PYCHECK
 
 staging="$root/build/package-staging"

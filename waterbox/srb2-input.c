@@ -7,16 +7,14 @@
  * (D_PostEvent) when a button changes, so the menus, the title screen and the
  * game all read it as they read a keyboard, and the game builds its tic
  * command from the held keys with all its own logic (accelerative turning, the
- * Simple control style's camera). Enter and escape are the menus' own keys,
- * and a prompt's too (Enter or Space is yes, escape no).
+ * Simple control style's camera). Enter and Escape are the menus' own keys,
+ * and a prompt's too (Enter or Space is yes, Escape no).
  *
- * The names are chosen so that Chimera's TAStudio, which takes a control's
- * letter from a table of its own or else from the name's last word, tells
- * every one apart without a table for SRB2: Turn left/right (l, r) beside
- * Strafe Left/Right (L, R), Reset Camera (C), Enter (E) beside escape (e,
- * lowercase for its letter). docs/chimera-proposal.patch has a table Chimera could
- * adopt (proposed upstream, not required). The ring-slinger controls - Fire, Fire
- * Normal, Toss Flag, the weapons - are left out for now (commented below).
+ * The names here are waterbox.config's "buttons", in the same order; each
+ * button's letter in a movie's text and TAStudio's column is that file's
+ * "mnemonics", and each axis's column header its "header". The ring-slinger
+ * controls - Fire, Fire Normal, Toss Flag, the weapons - are left out for now
+ * (commented below).
  * The bindings are forced to that scheme at start (srb2_input_bind), so no
  * configuration can change what a button means.
  *
@@ -53,8 +51,8 @@ static const struct srb2_button g_buttons[] = {
 	{ "Backward", GC_BACKWARD, 's' },
 	{ "Strafe Left", GC_STRAFELEFT, 'a' },
 	{ "Strafe Right", GC_STRAFERIGHT, 'd' },
-	{ "Turn left", GC_TURNLEFT, KEY_LEFTARROW },
-	{ "Turn right", GC_TURNRIGHT, KEY_RIGHTARROW },
+	{ "Turn Left", GC_TURNLEFT, KEY_LEFTARROW },
+	{ "Turn Right", GC_TURNRIGHT, KEY_RIGHTARROW },
 	{ "Look Up", GC_LOOKUP, KEY_UPARROW },
 	{ "Look Down", GC_LOOKDOWN, KEY_DOWNARROW },
 	{ "Jump", GC_JUMP, KEY_SPACE },
@@ -84,9 +82,9 @@ static const struct srb2_button g_buttons[] = {
 	{ "Custom 3", GC_CUSTOM3, 'c' },
 	{ "Pause", GC_PAUSE, 'p' },
 	/* the menus' own keys, a prompt's too (M_Responder: Enter or Space is yes,
-	 * escape no) */
+	 * Escape no) */
 	{ "Enter", GC_NULL, KEY_ENTER },
-	{ "escape", GC_NULL, KEY_ESCAPE },
+	{ "Escape", GC_NULL, KEY_ESCAPE },
 };
 #define NBUTTONS ((int)(sizeof g_buttons / sizeof g_buttons[0]))
 
