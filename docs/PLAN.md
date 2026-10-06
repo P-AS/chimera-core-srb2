@@ -304,14 +304,19 @@ A movie row is **SRB2's own keyboard plus four axes**:
 - **The buttons are the game's controls in its default keyboard scheme** ("FPS", `gamecontroldefault[gcs_fps]`):
   Forward (W), Backward (S), Strafe Left/Right (A/D), Turn Left/Right (←/→), Look Up/Down (↑/↓), Jump
   (Space), Spin (Left Shift), Center View (Left Ctrl), Camera Reset (R), Camera Toggle (V), Custom 1-3 (Z/X/C),
-  Pause (P), and the menus' Enter and escape (a prompt's yes and no too: Enter or Space, escape; the Y and
+  Pause (P), and the menus' Enter and Escape (a prompt's yes and no too: Enter or Space, Escape; the Y and
   N buttons were dropped 2026-10-05, user-decided, as redundant). **The ring-slinger controls - Fire,
   Fire Normal, Toss Flag, Weapon Next/Prev, Weapon 1-7 - are commented out for now** (user-decided, 2026-10-04:
   multiplayer's, and they crowded the UI); their keys keep SRB2's bindings and are never pressed.
-- **TAStudio's letters** are Chimera's (`MnemonicLookup.cs`, keyed by the system ID `SRB2`), not the
-  declaration's, and an unofficial core has no table there: each name's last word is used, so the names are
-  chosen to differ (see "CI"). Turn Left/Right became Turn left/right, Camera Reset Reset Camera, Escape
-  escape (e beside Enter's E; Enter was Select until 2026-10-05).
+- **What the controls are called is the core's** (2026-10-06, after Chimera's 74d25e1 "Chimera knows no
+  system": it dropped its `MnemonicLookup` and `SystemNames` tables). `waterbox.config` declares
+  `systemNames` (SRB2 is "Sonic Robo Blast 2"), `mnemonics` (a letter for every button: Doom's directions,
+  ^ v < > for moving and { } for turning, U/D looking, J S C R T, 1-3, P, Enter E and Escape e) and a
+  `header` on every axis (Fwd, Side, Turn, Aim). `build-package.sh` refuses a package whose buttons lack a
+  letter, share one or have one an entry cannot carry (`.`, `|`, non-ASCII), or whose axes lack a header.
+  The button names are the natural ones again - Turn Left/Right, Escape - no longer bent so that the
+  frontend's fallback (a name's last word) would differ; no compatibility is kept with movies under the old
+  names (user-decided: none exist yet).
 - **Default keys** (`default_keybinds.json`) are Chimera's merged modifiers: Spin is Shift and Center View Ctrl
   (Chimera binds Shift, not LeftShift, unless asked to tell them apart). A button that changes is a key event (`D_PostEvent`), so the menus, the
   title, a prompt and the game read it as a keyboard, and the game builds its tic command with all its own
@@ -458,16 +463,13 @@ uploads `srb2-<sha>`.
 
 **It depends on no Chimera change.** This is an unofficial core (github.com/P-AS/chimera-core-srb2,
 user-decided 2026-10-04): it is not in Chimera's roster (`official-cores.json`), which is the Chimera project's
-to grant, and installs by hand. TAStudio's column letters come from Chimera's own `MnemonicLookup` table, which
-has no SRB2 entry, so **the button names are chosen so that its fallback (a name's last word) differs for every
-one**: Turn left/right (l, r) beside Strafe Left/Right (L, R), Reset Camera (C), Enter (E) beside escape
-(e: lowercase for its letter), Pause (p); the axes abbreviate to FM, SM, T, A. Chimera's
-contract tests built from its stock main pass on the package, all eight, the mnemonic uniqueness and axis-width
-checks among them. `docs/chimera-proposal.patch` is two commits Chimera could adopt, for proposing upstream (nothing
-depends on them): a mnemonics table instead (Doom's direction symbols), and the system's name. Chimera spells a
-system out from its own table (`SystemNames.cs`), keyed by the systemId - a package cannot name it - so stock
-Chimera shows the core as "SRB2" (its `coreName`) on the system "SRB2" (the id, which movies and projects are
-keyed by, unchanged) until it adopts `["SRB2"] = "Sonic Robo Blast 2"`.
+to grant, and installs by hand. Since Chimera's 74d25e1 a package says what its system and its controls are
+called, so nothing about SRB2 needs a Chimera change: `waterbox.config`'s `systemNames`, `mnemonics` and axis
+`header`s (see "The controller") are what TAStudio, the movie text and the system lists show. Chimera's
+contract tests from its stock main run on the package, `MnemonicUniquenessTests` among them (which now holds a
+core that declares letters to declaring all of them, each writable). The former `docs/chimera-proposal.patch`
+(a `MnemonicLookup` entry and a `SystemNames` entry for SRB2) is gone: both tables left Chimera, and what it
+proposed is the core's declaration now.
 
 Checked before any push: the job's core steps in an `ubuntu:24.04` container (GCC 13.3, as `ubuntu-latest`) -
 miniBox's C++ toolchain from scratch, the data fetched and checked, both builds, the whole gate, the package.

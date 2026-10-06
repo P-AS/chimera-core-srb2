@@ -8,8 +8,8 @@
       "Backward": "S",
       "Strafe Left": "A",
       "Strafe Right": "D",
-      "Turn left": "Left",
-      "Turn right": "Right",
+      "Turn Left": "Left",
+      "Turn Right": "Right",
       "Look Up": "Up",
       "Look Down": "Down",
       "Jump": "Space",
@@ -22,7 +22,7 @@
       "Custom 3": "C",
       "Pause": "P",
       "Enter": "Enter",
-      "escape": "Escape"
+      "Escape": "Escape"
     }
   }
 }

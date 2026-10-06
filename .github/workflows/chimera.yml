@@ -167,10 +167,9 @@ jobs:
       - name: The package through the real frontend
         # Chimera's own contract tests, run against THIS package: readable,
         # built for an ABI this frontend runs, a working factory, binding only
-        # buttons its controller declares, stamping a version - and TAStudio's
-        # column letters distinct: this is an unofficial core, so Chimera has no
-        # table for it, and the button names are chosen so its fallback letters
-        # differ (waterbox/srb2-input.c).
+        # buttons its controller declares, stamping a version - and the letters
+        # waterbox.config declares for its buttons all there, writable and
+        # distinct.
         working-directory: chimera-checkout
         env:
           CHIMERA_CORES_DIR: ${{ github.workspace }}/chimera-checkout/build/Cores
