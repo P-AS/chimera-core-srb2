@@ -121,8 +121,20 @@ PNG_CFLAGS_COMMON := -std=gnu11 -O2 -DNDEBUG -DPNG_INTEL_SSE_OPT=0 -DPNG_ARM_NEO
 # ---- the core: its platform layer (platform/) and the driver
 PLATFORM_NAMES := i_system i_video ogl_chimera gl_compat i_sound i_threads i_net files detmath comptime
 CORE_C_NAMES := $(addprefix platform/,$(PLATFORM_NAMES)) srb2-driver srb2-input wbx-entry
-# libco (miniBox's extern/libco, public domain): the engine's cothread
+# libco (miniBox's extern/libco, public domain): the engine's cothread, for
+# the CPU both builds run on
+ifeq ($(shell uname -m),aarch64)
+LIBCO_SRC := $(MB)/extern/libco/aarch64.c
+else
 LIBCO_SRC := $(MB)/extern/libco/amd64.c
+endif
+# On aarch64 the guest computes as x86-64 does - no fused multiply-add, signed
+# char (miniBox's aarch64 machine, guest.mk's WBCPU) - and the native
+# reference must compute the same, or the gate's equivalence leg compares two
+# different games. Nothing on x86-64, where both are already so.
+ifeq ($(shell uname -m),aarch64)
+ARITH_FLAGS := -ffp-contract=off -fsigned-char
+endif
 CORE_HDRS := $(wildcard *.h) $(wildcard platform/*.h) $(wildcard compat/*/*.h)
 CORE_CFLAGS_COMMON := $(SRB2_CFLAGS_COMMON) -I$(MB)/extern/libco
 
