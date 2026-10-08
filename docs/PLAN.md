@@ -345,7 +345,8 @@ The harnesses take a movie as text (`--input FILE`: `FROM-TO: Button; Axis=value
 
 The user asked for a Lua TAS info script (`lua/tasinfo.lua`): speed, the angle in hex and in decimal to 4 places
 (on lines of their own), the position and the momentum on three axes, and the speed shoes, invincibility, space
-and air timers; then (the same day) the conveyor and platform momentum on three axes. Until then the core exposed no memory at all, so a script had nothing to read: the core now has
+and air timers; then (the same day) the conveyor and platform momentum on three axes, and a spindash rev counter,
+with the conveyor and platform momentum, the revs and the timers hidden while 0. Until then the core exposed no memory at all, so a script had nothing to read: the core now has
 the `Game State` domain and a property table (Chimera's `docs/game-cores.md`, "Properties"), as the DSDA core
 has. Decisions:
 
@@ -356,7 +357,11 @@ has. Decisions:
   for the speed, the game's own number (`P_AproxDistance` of the momentum against the floor, so it is not the
   Euclidean length); `powers[]` for the timers; `player->cmomx`/`cmomy` (what a conveyor or a platform carrying the player adds;
 `momx - cmomx` is the player's own) and `mo->pmomz` (the moving floor's vertical momentum) for the conveyor and
-platform momentum. Out of a level all of them are 0 and `Player.In Level` false.
+platform momentum. **A spindash rev is a tic of charge**: SRB2 has no discrete revs (Sonic 2's); revving adds
+1.0 to `player->dashspeed` every tic Spin is held, from the skin's `mindash` to its `maxdash`, and the rev sound
+marks sixths of that. So the table carries `dashspeed`, `mindash`, `maxdash` and `pflags` (with `PF_STARTDASH`
+as a named bit, `Player.Charging Spindash`, its bit worked out from the header), and the script counts
+`(dashspeed - mindash)` in whole units while charging: revs so far / revs to full. Out of a level all of them are 0 and `Player.In Level` false.
 - **The raw values**: 16.16 fixed point, the 32-bit angle, tics. The script turns them into units, degrees
   and seconds; RAM Watch shows them as they are, as a TASer of SRB2 is used to.
 - The script reads by name (`game.get`), never by offset, and says so in the console when the core has no
@@ -365,9 +370,10 @@ platform momentum. Out of a level all of them are 0 and `Player.In Level` false.
 Gate leg `properties`: the harnesses' `--game-state` writes every step's block and the table; on Greenflower's
 movie, read by the table, the position moves with Forward, the jump lifts, the angle turns only with the Turn
 axis, and in the air the speed is the momentum's `P_AproxDistance` exactly; with `tests/timers.lua` loaded (an
-SRB2 Lua add-on that sets the four timers after the game's think) every timer and the conveyor and platform momenta are what it set, every step;
-native == sandbox == rerecord byte for byte. Teeth: the table with angle and speed swapped, or air and space,
-fails. The script itself was run under Lua 5.4 with `game`, `gui` and `emu` stubbed over the leg's dumps
+SRB2 Lua add-on that sets the four timers after the game's think) every timer and the conveyor and platform momenta are what it set, every step; on `tests/spindash.txt` (Spin
+held 40 tics from a standstill) the charge starts at Min Dash, rises 1.0 a tic, and launches the player at it;
+native == sandbox == rerecord byte for byte. Teeth: the table with angle and speed swapped, air and space, or
+dash speed and max dash, fails. The script itself was run under Lua 5.4 with `game`, `gui` and `emu` stubbed over the leg's dumps
 (in a level, out of one, the timers running): it was not run in Chimera's Lua Console here. On the development host a libchimera
 built there crashes opening the package (2026-10-08: f39db76's and c7c06d7's alike, though c7c06d7 passed two
 days before with the same core.wbx); a CI-built bundle's (e51a141) opens it and plays the engine leg's 450

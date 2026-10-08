@@ -39,10 +39,13 @@
 #                movie did (moved by Forward, lifted by Jump, turned only by
 #                Turn; in the air, speed is the momentum's P_AproxDistance), and
 #                with tests/timers.lua loaded the speed shoes, invincibility,
-#                air and space timers are what it set; every step's block the
-#                same native, sandboxed and rerecorded. Its teeth - the table
-#                with two fields swapped (angle and speed; air and space) does
-#                not pass
+#                air and space timers and the conveyor and platform momenta are
+#                what it set; on tests/spindash.txt the spindash charges from Min
+#                Dash a tic at a time while Spin is held (Charging Spindash, a
+#                bit of Player.Flags) and launches at its charge; every step's
+#                block the same native, sandboxed and rerecorded. Its teeth -
+#                the table with two fields swapped (angle and speed; air and
+#                space; dash speed and max dash) does not pass
 #   audio        the core's mixer: the intro's music and Greenflower's sounds are
 #                heard (not silence), and the same native and sandboxed (every
 #                leg compares the sound too: the run line carries its hash); a
@@ -258,18 +261,24 @@ box gfz1 -n 400 -p 0 --input "$tests/gfz1-run.txt" --game-state "$g/props-movie-
 box gfz1 -n 400 -p 0 --input "$tests/gfz1-run.txt" --rerecord --game-state "$g/props-movie-rerecord.bin" >/dev/null
 nat props -n 260 -p 0 --input "$tests/gfz1-run.txt" --game-state "$g/props-timers-native.bin" >/dev/null
 box props -n 260 -p 0 --input "$tests/gfz1-run.txt" --game-state "$g/props-timers-sandbox.bin" >/dev/null
+nat gfz1 -n 160 -p 0 --input "$tests/spindash.txt" --game-state "$g/props-spindash-native.bin" >/dev/null
+box gfz1 -n 160 -p 0 --input "$tests/spindash.txt" --game-state "$g/props-spindash-sandbox.bin" >/dev/null
+box gfz1 -n 160 -p 0 --input "$tests/spindash.txt" --rerecord --game-state "$g/props-spindash-rerecord.bin" >/dev/null
 same() { cmp -s "$1" "$2" && cmp -s "$1.json" "$2.json"; }
-for kind in movie timers; do
+for kind in movie timers spindash; do
 	r="$(python3 "$tests/check-properties.py" "$g/props-$kind-native.bin" "$kind" 2>&1 || true)"
 	if [ "${r#ok}" != "$r" ] && same "$g/props-$kind-native.bin" "$g/props-$kind-sandbox.bin" \
-		&& { [ "$kind" = timers ] || same "$g/props-movie-native.bin" "$g/props-movie-rerecord.bin"; }; then
-		pass "properties: $r; every step's block native == sandbox$([ "$kind" = movie ] && echo ' == rerecord')"
+		&& { [ "$kind" = timers ] || same "$g/props-$kind-native.bin" "$g/props-$kind-rerecord.bin"; }; then
+		pass "properties: $r; every step's block native == sandbox$([ "$kind" = timers ] || echo ' == rerecord')"
 	else
 		bad "properties: $kind: $r (or the blocks differ native, sandboxed, rerecorded)"
 	fi
 done
-for t in "movie Player.Angle Player.Speed" "timers Timers.Air Timers.Space"; do
-	set -- $t
+for t in "movie|Player.Angle|Player.Speed" "timers|Timers.Air|Timers.Space" "spindash|Player.Dash Speed|Player.Max Dash"; do
+	IFS='|' read -r kind a b <<EOT
+$t
+EOT
+	set -- "$kind" "$a" "$b"
 	r="$(python3 "$tests/check-properties.py" "$g/props-$1-native.bin" "$1" --swap "$2" "$3" 2>&1 || true)"
 	case "$r" in
 	FAIL*) pass "properties teeth: $2 and $3 swapped in the table: $r" ;;

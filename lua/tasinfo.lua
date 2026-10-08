@@ -1,6 +1,6 @@
 -- tasinfo.lua - SRB2 TAS info for Chimera: the player's speed, angle,
--- position, momentum, the momentum a conveyor or moving platform adds, and the
--- power timers, drawn over the game every frame.
+-- position, momentum, the momentum a conveyor or moving platform adds, the
+-- spindash's revs and the power timers, drawn over the game every frame.
 --
 -- Open it in Chimera's Lua Console (Tools > Lua Console) with an SRB2 project
 -- loaded. It reads the core's Game State properties by name (game.get; the
@@ -13,6 +13,13 @@
 -- game's own 32-bit value in hex (0x40000000 a quarter turn, counterclockwise
 -- from east) and in degrees to 4 decimal places. Timers are tics left (35 a
 -- second), and seconds.
+--
+-- Spindash revs: SRB2 charges a spindash 1.0 of speed for every tic Spin is
+-- held, from the character's least charge to its most (Sonic: 15 to 70), so a
+-- rev is a tic of charge; shown as revs so far / the revs to full charge.
+--
+-- The conveyor and platform momentum, the spindash revs and the four timers
+-- are shown only while they are not 0.
 
 -- where the text goes, in the window's pixels, and the room a line takes
 local X, Y, LINE = 2, 2, 14
@@ -24,7 +31,7 @@ local TICRATE = 35
 -- the core must have its Game State: a build from before it has no properties
 local function has_properties()
 	for _, name in ipairs(game.list()) do
-		if name == "Player.Speed" then return true end
+		if name == "Player.Charging Spindash" then return true end
 	end
 	return false
 end
@@ -36,6 +43,13 @@ end
 local function timer(name)
 	local tics = game.get(name)
 	return string.format("%d (%.2fs)", tics, tics / TICRATE)
+end
+
+-- a tic of charge each, while revving (0 when not)
+local function spindash_revs()
+	if game.get("Player.Charging Spindash") == 0 then return 0, 0 end
+	local least = game.get("Player.Min Dash")
+	return (game.get("Player.Dash Speed") - least) // FRACUNIT, (game.get("Player.Max Dash") - least) // FRACUNIT
 end
 
 local function draw()
@@ -55,13 +69,19 @@ local function draw()
 		add("Mom X: " .. fixed("Player.Momentum X"))
 		add("Mom Y: " .. fixed("Player.Momentum Y"))
 		add("Mom Z: " .. fixed("Player.Momentum Z"))
-		add("Conveyor Mom X: " .. fixed("Player.Conveyor Momentum X"))
-		add("Conveyor Mom Y: " .. fixed("Player.Conveyor Momentum Y"))
-		add("Platform Mom Z: " .. fixed("Player.Platform Momentum Z"))
-		add("Shoes: " .. timer("Timers.Speed Shoes"))
-		add("Invincibility: " .. timer("Timers.Invincibility"))
-		add("Space: " .. timer("Timers.Space"))
-		add("Air: " .. timer("Timers.Air"))
+		-- the rest only while not 0
+		local function nonzero(label, name, show)
+			if game.get(name) ~= 0 then add(label .. show(name)) end
+		end
+		nonzero("Conveyor Mom X: ", "Player.Conveyor Momentum X", fixed)
+		nonzero("Conveyor Mom Y: ", "Player.Conveyor Momentum Y", fixed)
+		nonzero("Platform Mom Z: ", "Player.Platform Momentum Z", fixed)
+		local revs, full = spindash_revs()
+		if revs ~= 0 then add(string.format("Spindash revs: %d/%d", revs, full)) end
+		nonzero("Shoes: ", "Timers.Speed Shoes", timer)
+		nonzero("Invincibility: ", "Timers.Invincibility", timer)
+		nonzero("Space: ", "Timers.Space", timer)
+		nonzero("Air: ", "Timers.Air", timer)
 	end
 
 	for i, text in ipairs(lines) do

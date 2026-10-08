@@ -3,7 +3,7 @@
 the way Chimera reads it - by the property table (GetGameProperties), never by
 the struct - holds what the game did.
 
-usage: check-properties.py <dump> <movie|timers> [--swap NAME NAME]
+usage: check-properties.py <dump> <movie|timers|spindash> [--swap NAME NAME]
 
 <dump> is what a harness's --game-state wrote: every step's Game State block,
 one after the other, and the property table beside it in <dump>.json.
@@ -18,6 +18,10 @@ one after the other, and the property table beside it in <dump>.json.
           air 1000 + leveltime and space 3000 + leveltime, and the conveyor and
           platform momenta 5000 + leveltime, -(5000 + leveltime) and
           7000 + leveltime
+  spindash  waterbox/tests/spindash.txt in Greenflower Zone Act 1: Spin held
+          from a standstill revs a spindash - charging from the character's
+          Min Dash, 1.0 more a tic, never past Max Dash - and letting go
+          launches the player at the charge, which goes back to 0
 
 --swap NAME NAME reads the two properties each where the table puts the
 other: the leg's teeth (a table that misplaces two fields of the same type
@@ -35,8 +39,10 @@ WANT = ["Game.Tic", "Game.Level Time", "Game.State", "Game.Map", "Player.In Leve
         "Player.X", "Player.Y", "Player.Z", "Player.Momentum X", "Player.Momentum Y", "Player.Momentum Z",
         "Player.Angle", "Player.Speed",
         "Timers.Speed Shoes", "Timers.Invincibility", "Timers.Space", "Timers.Air",
-        "Player.Conveyor Momentum X", "Player.Conveyor Momentum Y", "Player.Platform Momentum Z"]
-SET_BY_TIMERS = WANT[13:]
+        "Player.Conveyor Momentum X", "Player.Conveyor Momentum Y", "Player.Platform Momentum Z",
+        "Player.Dash Speed", "Player.Min Dash", "Player.Max Dash", "Player.Flags", "Player.Charging Spindash"]
+SET_BY_TIMERS = ["Timers.Speed Shoes", "Timers.Invincibility", "Timers.Space", "Timers.Air",
+                 "Player.Conveyor Momentum X", "Player.Conveyor Momentum Y", "Player.Platform Momentum Z"]
 GS_LEVEL = 1
 
 
@@ -58,7 +64,7 @@ def main():
         i = args.index("--swap")
         swap = args[i + 1:i + 3]
         del args[i:i + 3]
-    if len(args) != 2 or args[1] not in ("movie", "timers"):
+    if len(args) != 2 or args[1] not in ("movie", "timers", "spindash"):
         print(__doc__, file=sys.stderr)
         sys.exit(2)
     dump, mode = args
@@ -78,8 +84,8 @@ def main():
 
     data = open(dump, "rb").read()
     # the block's size: the dump is whole steps of it, at least as large as
-    # the table reaches (72 bytes now; the table may not run past it)
-    block = 72
+    # the table reaches (88 bytes now; the table may not run past it)
+    block = 88
     if len(data) % block or size > block:
         fail(f"the dump ({len(data)} bytes) is not whole {block}-byte blocks, or the table reaches {size}")
     steps = []
@@ -91,7 +97,10 @@ def main():
             fmt = FORMATS[p["type"]]
             if off < 0 or off + struct.calcsize(fmt) > block:
                 fail(f"{p['name']} read at {off}, outside the block")
-            v[p["name"]] = struct.unpack_from(fmt, b, off)[0]
+            x = struct.unpack_from(fmt, b, off)[0]
+            if "bit" in p:
+                x = (x >> p["bit"]) & ((1 << p["bits"]) - 1)
+            v[p["name"]] = x
         steps.append(v)
 
     level = [(i + 1, v) for i, v in enumerate(steps) if v["Game.State"] == GS_LEVEL and v["Player.In Level"]]
@@ -134,11 +143,36 @@ def main():
         if airborne < 10:
             fail(f"only {airborne} airborne steps to compare speed with momentum")
         # nothing collected, no conveyor and no moving floor on the movie's path
-        for name in SET_BY_TIMERS:
+        for name in SET_BY_TIMERS + ["Player.Dash Speed", "Player.Charging Spindash"]:
             if any(v[name] for v in steps):
                 fail(f"{name} is not 0 on the movie's path")
         print(f"ok movie: {len(level)} steps in the level; moved {moved / 65536:.0f} units, jumped, "
               f"{len(turned)} angles while turning, speed the momentum's on {airborne} airborne steps")
+    elif mode == "spindash":
+        charging = [s for s, v in level if v["Player.Charging Spindash"]]
+        if len(charging) < 30 or charging != list(range(charging[0], charging[-1] + 1)):
+            fail(f"Spin held from a standstill: charging on steps {charging[:3]}..{charging[-3:]}, not one run of 30 or more")
+        at = dict(level)
+        least, most = at[charging[0]]["Player.Min Dash"], at[charging[0]]["Player.Max Dash"]
+        if not 0 < least < most:
+            fail(f"Min Dash {least}, Max Dash {most}")
+        if at[charging[0]]["Player.Dash Speed"] != least:
+            fail(f"the charge starts at {at[charging[0]]['Player.Dash Speed']}, not Min Dash {least}")
+        for s in charging[1:]:
+            d, before = at[s]["Player.Dash Speed"], at[s - 1]["Player.Dash Speed"]
+            if not (d == min(before + 65536, most) or (s == charging[-1] and d == before)):
+                fail(f"step {s}: charge {d / 65536}, after {before / 65536}")
+            if d > most:
+                fail(f"step {s}: charge {d / 65536} past Max Dash")
+        launched = at[charging[-1] + 1]
+        last = at[charging[-1]]["Player.Dash Speed"]
+        if launched["Player.Dash Speed"] != 0 or launched["Player.Speed"] != last:
+            fail(f"let go: charge {launched['Player.Dash Speed']}, speed {launched['Player.Speed'] / 65536}, not 0 and {last / 65536}")
+        if any(at[s]["Player.Dash Speed"] for s in at if s < charging[0]):
+            fail("a charge before Spin was held")
+        revs = (last - least) // 65536
+        print(f"ok spindash: charged {least / 65536:.0f} to {last / 65536:.0f} ({revs} revs of {(most - least) // 65536}) "
+              f"over {len(charging)} steps, launched at {last / 65536:.0f}")
     else:
         seen = 0
         for s, v in level:

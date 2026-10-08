@@ -83,8 +83,8 @@ every step, and a new host mid-wipe, change nothing. `declaration`: the package'
 `opengl`: the OpenGL renderer draws, deterministically, and savestates change nothing. `engine` (with `-c`) also
 runs `opengl-hw` through the GPU bridge where the machine has a context: the same game as the Mesa, and the
 picture right again after a rewind and a reopen.
-`properties`: the Game State domain, read by its property table, holds what Greenflower's movie did, and the timers
-`tests/timers.lua` sets.
+`properties`: the Game State domain, read by its property table, holds what Greenflower's movie did, the timers
+`tests/timers.lua` sets, and a spindash's charge (`tests/spindash.txt`).
 `input`: movies through the menus and in Greenflower,
 the same every way. `files`: what the game writes is kept in the machine and exported identically. `time`: a
 host stall mid-run changes nothing. `audio`: the music and sounds are heard, and every leg's run line carries
@@ -117,12 +117,17 @@ Add Game Properties), RAM Search and Lua's `game.get` see them by name. The core
 every step; they are read-only. `Game.Tic`, `Game.Level Time`, `Game.State`, `Game.Map`; `Player.In Level`,
 `Player.X`/`Y`/`Z`, `Player.Momentum X`/`Y`/`Z`, `Player.Conveyor Momentum X`/`Y` (`player->cmomx`/`cmomy`: what a
 conveyor or a moving platform adds), `Player.Platform Momentum Z` (`mo->pmomz`: the moving floor's) and
-`Player.Speed` (16.16 fixed point: 65536 is one unit; speed is the game's own `player->speed`), `Player.Angle` (2^32 a turn); `Timers.Speed Shoes`, `Timers.Invincibility`,
+`Player.Speed` (16.16 fixed point: 65536 is one unit; speed is the game's own `player->speed`), `Player.Dash Speed`,
+`Player.Min Dash`, `Player.Max Dash` (the spindash's charge and its bounds, 16.16), `Player.Flags` (`pflags`) and
+`Player.Charging Spindash` (its `PF_STARTDASH` bit), `Player.Angle` (2^32 a turn); `Timers.Speed Shoes`, `Timers.Invincibility`,
 `Timers.Space`, `Timers.Air` (tics left). Out of a level the player's fields are 0.
 
 `lua/tasinfo.lua` draws them over the game: open it in Tools > Lua Console with an SRB2 project loaded. It shows
 speed, the angle in hex and in degrees (each to 4 decimal places, on lines of their own), the position and the
-momentum, the conveyor and platform momentum, and the four timers in tics and seconds.
+momentum, the conveyor and platform momentum, the spindash's revs, and the four timers in tics and seconds. SRB2
+has no discrete revs: a spindash charges 1.0 of speed a tic while Spin is held, from Min Dash to Max Dash (Sonic: 15
+to 70), so the script counts a rev a tic, as revs so far / revs to full charge. The conveyor and platform momentum,
+the revs and the timers are shown only while they are not 0.
 
 The harnesses' `--game-state FILE` writes every step's block, and the table beside it in `FILE.json`.
 
