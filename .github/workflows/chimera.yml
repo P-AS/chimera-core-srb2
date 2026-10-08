@@ -19,6 +19,14 @@ name: chimera waterbox core
 # gate's engine leg) and Chimera's contract tests. Every release also carries
 # lua/tasinfo.lua, the TAS info overlay for Chimera's Lua Console (the
 # publish-lua job), checked to parse by the gate job.
+#
+# The gate runs twice, once per host CPU, on a runner of that CPU: x86-64
+# against Chimera's public main, and aarch64 (miniBox's aarch64 machine)
+# against the aarch64 forks of Chimera and miniBox (github.com/P-AS/chimera,
+# branch aarch64, whose extern/chimera-common-minibox is
+# github.com/P-AS/chimera-common-minibox). Both must pass for a release; only
+# the x86-64 package is published, since Chimera's publish names the asset by
+# core and version alone, and the aarch64 one is the run's artifact.
 
 on:
   pull_request:
@@ -47,15 +55,25 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}
   cancel-in-progress: true
 
-env:
-  CHIMERA_REF: main
-
 jobs:
 
   gate:
-    name: gate (package, declaration, Chimera contract)
-    runs-on: ubuntu-latest
+    name: gate ${{ matrix.arch }} (package, declaration, Chimera contract)
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 120
+    strategy:
+      # one CPU's failure says nothing about the other's
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            runner: ubuntu-latest
+            chimera-repo: ToolAssisted-run/chimera
+            chimera-ref: main
+          - arch: aarch64
+            runner: ubuntu-26.04-arm
+            chimera-repo: P-AS/chimera
+            chimera-ref: aarch64
     steps:
       - uses: actions/checkout@v6
         with:
@@ -65,8 +83,8 @@ jobs:
       - name: Check out Chimera
         uses: actions/checkout@v6
         with:
-          repository: ToolAssisted-run/chimera
-          ref: ${{ env.CHIMERA_REF }}
+          repository: ${{ matrix.chimera-repo }}
+          ref: ${{ matrix.chimera-ref }}
           path: chimera-checkout
           submodules: recursive
 
@@ -97,7 +115,7 @@ jobs:
           path: |
             chimera-checkout/extern/chimera-common-minibox/build/meson-linux
             chimera-checkout/extern/chimera-common-minibox/build/meson-cpp
-          key: guest-cpp-${{ runner.os }}-${{ hashFiles('chimera-checkout/extern/chimera-common-minibox/.git') }}-${{ hashFiles('chimera-checkout/extern/chimera-common-minibox/meson.build') }}
+          key: guest-cpp-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('chimera-checkout/extern/chimera-common-minibox/.git') }}-${{ hashFiles('chimera-checkout/extern/chimera-common-minibox/meson.build') }}
 
       - name: Build miniBox (host + C++ guest toolchain)
         # GME and libopenmpt are C++: the guest links miniBox's libstdc++. Its
@@ -140,7 +158,7 @@ jobs:
             build/mesa/docs/license.rst
             build/mesa/subprojects/expat-2.5.0/COPYING
             build/mesa/subprojects/zlib-1.3.1/LICENSE
-          key: guest-mesa-v2-${{ runner.os }}-${{ hashFiles('waterbox/setup-mesa.sh') }}-${{ hashFiles('chimera-checkout/extern/chimera-common-minibox/.git') }}
+          key: guest-mesa-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('waterbox/setup-mesa.sh') }}-${{ hashFiles('chimera-checkout/extern/chimera-common-minibox/.git') }}
 
       - name: Build the guest Mesa
         # Mesa 24.0.9's softpipe behind OSMesa, for the OpenGL renderer (about
@@ -187,7 +205,7 @@ jobs:
       - name: Publish the core package
         uses: actions/upload-artifact@v7
         with:
-          name: srb2-${{ github.sha }}
+          name: srb2-${{ github.sha }}-${{ matrix.arch }}
           path: chimera-checkout/build/Cores/srb2.chimeraCore
           if-no-files-found: error
 
@@ -195,7 +213,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v7
         with:
-          name: gate-work
+          name: gate-work-${{ matrix.arch }}
           # the gate's outputs, not the game's data (build/gate holds links to it)
           path: |
             build/gate/*.txt
@@ -215,7 +233,7 @@ jobs:
     uses: ToolAssisted-run/chimera/.github/workflows/publish-core.yml@main
     with:
       core-id: srb2
-      artifact: srb2-${{ github.sha }}
+      artifact: srb2-${{ github.sha }}-x86_64
       package: srb2.chimeraCore
       kind: ${{ github.event.inputs.kind }}
 
