@@ -341,6 +341,37 @@ A movie row is **SRB2's own keyboard plus four axes**:
 The harnesses take a movie as text (`--input FILE`: `FROM-TO: Button; Axis=value` a line);
 `waterbox/tests/` holds the gate's two.
 
+## Game State and the TAS info script (2026-10-08, user-asked)
+
+The user asked for a Lua TAS info script (`lua/tasinfo.lua`): speed, the angle in hex and in decimal to 4 places
+(on lines of their own), the position and the momentum on three axes, and the speed shoes, invincibility, space
+and air timers; then (the same day) the conveyor and platform momentum on three axes. Until then the core exposed no memory at all, so a script had nothing to read: the core now has
+the `Game State` domain and a property table (Chimera's `docs/game-cores.md`, "Properties"), as the DSDA core
+has. Decisions:
+
+- **A copy, read-only**, made at the end of every step (`srb2-driver.c`, `update_game_state`), as DSDA's: the
+  fields are what the game works out afresh each tic, so a poke would do nothing, and the copy cannot change
+  the game - the run's hashes are unchanged. It is in the machine's memory, so a savestate carries it.
+- **The player's object** (`players[consoleplayer].mo`) for the position, momentum and angle; `player->speed`
+  for the speed, the game's own number (`P_AproxDistance` of the momentum against the floor, so it is not the
+  Euclidean length); `powers[]` for the timers; `player->cmomx`/`cmomy` (what a conveyor or a platform carrying the player adds;
+`momx - cmomx` is the player's own) and `mo->pmomz` (the moving floor's vertical momentum) for the conveyor and
+platform momentum. Out of a level all of them are 0 and `Player.In Level` false.
+- **The raw values**: 16.16 fixed point, the 32-bit angle, tics. The script turns them into units, degrees
+  and seconds; RAM Watch shows them as they are, as a TASer of SRB2 is used to.
+- The script reads by name (`game.get`), never by offset, and says so in the console when the core has no
+  such properties (a package from before them).
+
+Gate leg `properties`: the harnesses' `--game-state` writes every step's block and the table; on Greenflower's
+movie, read by the table, the position moves with Forward, the jump lifts, the angle turns only with the Turn
+axis, and in the air the speed is the momentum's `P_AproxDistance` exactly; with `tests/timers.lua` loaded (an
+SRB2 Lua add-on that sets the four timers after the game's think) every timer and the conveyor and platform momenta are what it set, every step;
+native == sandbox == rerecord byte for byte. Teeth: the table with angle and speed swapped, or air and space,
+fails. The script itself was run under Lua 5.4 with `game`, `gui` and `emu` stubbed over the leg's dumps
+(in a level, out of one, the timers running): it could not be run in Chimera on the development host, whose
+engine leg crashes for a reason of the host's (2026-10-08, the same with Chimera c7c06d7, which passed two days
+before with the same core.wbx).
+
 ## Wipes are steps (2026-10-04)
 
 SRB2 draws its wipes in loops that run a frame a tic without running the game: the fade to and from black on

@@ -327,11 +327,15 @@ ECL_EXPORT int GetVsyncDenominator(void) { return 1; }
 /* a step that built no tic command is lag: a wipe's frame, the title card */
 ECL_EXPORT int InputWasRead(void) { return srb2_input_was_read(); }
 
-ECL_EXPORT int GetMemoryDomainCount(void) { return 0; }
-ECL_EXPORT const char *GetMemoryDomainName(int i) { (void)i; return ""; }
-ECL_EXPORT uint8_t *GetMemoryDomainPtr(int i) { (void)i; return NULL; }
-ECL_EXPORT int64_t GetMemoryDomainSize(int i) { (void)i; return 0; }
+/* Game State (srb2-driver.c): a copy made after every step, so read-only */
+ECL_EXPORT int GetMemoryDomainCount(void) { return srb2_domain_count(); }
+ECL_EXPORT const char *GetMemoryDomainName(int i) { return srb2_domain_name(i); }
+ECL_EXPORT uint8_t *GetMemoryDomainPtr(int i) { return srb2_domain_ptr(i); }
+ECL_EXPORT int64_t GetMemoryDomainSize(int i) { return srb2_domain_size(i); }
 ECL_EXPORT int GetMemoryDomainWritable(int i) { (void)i; return 0; }
+/* the property table: the Game State block's fields by name, for RAM Watch
+ * and Lua's game.get (Chimera's docs/game-cores.md) */
+ECL_EXPORT const char *GetGameProperties(void) { return srb2_game_properties(); }
 
 /* the machine's clock, in I_GetPrecisePrecision() units */
 ECL_EXPORT uint64_t GetCycleCount(void) { return chimera_clock_precise(); }

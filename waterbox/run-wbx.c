@@ -54,6 +54,9 @@ typedef void (MB_GUEST_ABI *setfn)(int32_t, int32_t);
 static setfn g_SetButton, g_SetAxis;
 static intfn g_GetButtonCount, g_GetAxisCount;
 static ptrfn_i32 g_GetButtonName, g_GetAxisName;
+static ptrfn_i32 g_GetMemoryDomainPtr;
+static i64fn_i32 g_GetMemoryDomainSize;
+static ptrfn g_GetGameProperties;
 
 static uintptr_t proc(const char *n)
 {
@@ -92,6 +95,12 @@ static const char *core_axis_name(int32_t i) { return (const char *)g_GetAxisNam
 static const char *core_sd_name(int32_t i) { return (const char *)g_GetSaveDataFileName(i); }
 static int64_t core_sd_size(int32_t i) { return g_GetSaveDataFileSize(i); }
 static const uint8_t *core_sd_buffer(int32_t i) { return (const uint8_t *)g_GetSaveDataFileBuffer(i); }
+static const uint8_t *core_game_state(int64_t *size)
+{
+	*size = g_GetMemoryDomainSize(0);
+	return (const uint8_t *)g_GetMemoryDomainPtr(0);
+}
+static const char *core_game_properties(void) { return (const char *)g_GetGameProperties(); }
 
 typedef struct { uint8_t *b; size_t len, cap, pos; } membuf;
 static int32_t mem_write(uintptr_t ud, const uint8_t *d, uintptr_t n)
@@ -187,6 +196,9 @@ static void build_host(void)
 	g_GetSaveDataFileName = (ptrfn_i32)proc("GetSaveDataFileName");
 	g_GetSaveDataFileSize = (i64fn_i32)proc("GetSaveDataFileSize");
 	g_GetSaveDataFileBuffer = (ptrfn_i32)proc("GetSaveDataFileBuffer");
+	g_GetMemoryDomainPtr = (ptrfn_i32)proc("GetMemoryDomainPtr");
+	g_GetMemoryDomainSize = (i64fn_i32)proc("GetMemoryDomainSize");
+	g_GetGameProperties = (ptrfn)proc("GetGameProperties");
 
 	/* Init runs before Seal: the started machine is the sealed baseline */
 	if (g_Init() != 1)
@@ -291,6 +303,8 @@ int main(int argc, char **argv)
 		.savedata_name = core_sd_name,
 		.savedata_size = core_sd_size,
 		.savedata_buffer = core_sd_buffer,
+		.game_state = core_game_state,
+		.game_properties = core_game_properties,
 		.pre_frame = pre_frame,
 	};
 	const int ret = harness_run(&c, &o);

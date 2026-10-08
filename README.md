@@ -83,6 +83,8 @@ every step, and a new host mid-wipe, change nothing. `declaration`: the package'
 `opengl`: the OpenGL renderer draws, deterministically, and savestates change nothing. `engine` (with `-c`) also
 runs `opengl-hw` through the GPU bridge where the machine has a context: the same game as the Mesa, and the
 picture right again after a rewind and a reopen.
+`properties`: the Game State domain, read by its property table, holds what Greenflower's movie did, and the timers
+`tests/timers.lua` sets.
 `input`: movies through the menus and in Greenflower,
 the same every way. `files`: what the game writes is kept in the machine and exported identically. `time`: a
 host stall mid-run changes nothing. `audio`: the music and sounds are heard, and every leg's run line carries
@@ -107,6 +109,22 @@ of the game, so a movie is its renderer's), OpenGL Shaders (On; the picture's al
 SRB2's default keyboard as buttons (Forward, Jump, Spin... the menus' Enter and Escape, which answer a prompt too),
 pressed as keys, so menus and play work as on a keyboard (the ring-slinger controls are left out for now); plus axes for exact values: Forward Move, Side Move, Turn, Aim. The
 harnesses take a movie as text, `--input FILE` with `FROM-TO: Button; Axis=value` lines (`waterbox/tests/`).
+
+## Game State and the TAS info script
+
+The core exposes one memory domain, `Game State`, and a property table naming its fields, so RAM Watch (Watches >
+Add Game Properties), RAM Search and Lua's `game.get` see them by name. The core copies them from the game after
+every step; they are read-only. `Game.Tic`, `Game.Level Time`, `Game.State`, `Game.Map`; `Player.In Level`,
+`Player.X`/`Y`/`Z`, `Player.Momentum X`/`Y`/`Z`, `Player.Conveyor Momentum X`/`Y` (`player->cmomx`/`cmomy`: what a
+conveyor or a moving platform adds), `Player.Platform Momentum Z` (`mo->pmomz`: the moving floor's) and
+`Player.Speed` (16.16 fixed point: 65536 is one unit; speed is the game's own `player->speed`), `Player.Angle` (2^32 a turn); `Timers.Speed Shoes`, `Timers.Invincibility`,
+`Timers.Space`, `Timers.Air` (tics left). Out of a level the player's fields are 0.
+
+`lua/tasinfo.lua` draws them over the game: open it in Tools > Lua Console with an SRB2 project loaded. It shows
+speed, the angle in hex and in degrees (each to 4 decimal places, on lines of their own), the position and the
+momentum, the conveyor and platform momentum, and the four timers in tics and seconds.
+
+The harnesses' `--game-state FILE` writes every step's block, and the table beside it in `FILE.json`.
 
 ## Licence
 

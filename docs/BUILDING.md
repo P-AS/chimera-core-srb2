@@ -265,8 +265,8 @@ Chimera's own engine runs the package. The content is the game's start (the
 intro) and Greenflower Zone Act 1, the movies in `waterbox/tests/`, and two
 PWADs the gate makes (a GME song and a tracker module). The legs, as the
 script's header lists them, each with its teeth: equivalence, steps,
-savestates, input, audio, files, exports, declaration, settings, resolution,
-opengl, engine and time.
+savestates, input, properties, audio, files, exports, declaration, settings,
+resolution, opengl, engine and time.
 
 Usage: `run-gate.sh [-d <SRB2 data folder>] [-m <miniBox dir>] [-c <Chimera bundle or build/>]`
 

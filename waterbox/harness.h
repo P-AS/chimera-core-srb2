@@ -17,6 +17,9 @@
  *   --wav FILE      write the run's sound (every step's samples) as a WAVE
  *   --savedata-out DIR  after the run, write the save data export (the files
  *                   the game wrote) under DIR, as chimera-run --export-savedata
+ *   --game-state FILE   after every step, append the Game State domain's bytes
+ *                   to FILE; after the run, write the property table
+ *                   (GetGameProperties) to FILE.json (the properties leg)
  *
  * It ends with "run <hash> tic <n> clock <c> lag <l> audio <hash> peak <p> state
  * <hash>": the hash of every step's picture in order, the engine's tic
@@ -60,6 +63,9 @@ struct harness_core
 	const char *(*savedata_name)(int32_t i);
 	int64_t (*savedata_size)(int32_t i);
 	const uint8_t *(*savedata_buffer)(int32_t i);
+	/* the Game State domain (domain 0) and the property table naming it */
+	const uint8_t *(*game_state)(int64_t *size);
+	const char *(*game_properties)(void);
 	/* before each step (run-wbx's savestate legs); may be NULL */
 	void (*pre_frame)(long step);
 };
@@ -71,6 +77,7 @@ struct harness_opts
 	const char *savedata_out;
 	const char *input;
 	const char *wav;
+	const char *game_state;
 };
 
 /* parses argv[first..]; an option it does not know is left to the caller
@@ -85,6 +92,7 @@ static int harness_parse(int argc, char **argv, int first, struct harness_opts *
 	o->savedata_out = NULL;
 	o->input = NULL;
 	o->wav = NULL;
+	o->game_state = NULL;
 	for (int i = first; i < argc; i++)
 	{
 		if (!strcmp(argv[i], "-n") && i + 1 < argc)
@@ -97,6 +105,8 @@ static int harness_parse(int argc, char **argv, int first, struct harness_opts *
 			o->wav = argv[++i];
 		else if (!strcmp(argv[i], "--input") && i + 1 < argc)
 			o->input = argv[++i];
+		else if (!strcmp(argv[i], "--game-state") && i + 1 < argc)
+			o->game_state = argv[++i];
 		else if (!strcmp(argv[i], "--savedata-out") && i + 1 < argc)
 			o->savedata_out = argv[++i];
 		else if (!strcmp(argv[i], "--stall-at") && i + 1 < argc)
@@ -302,6 +312,14 @@ static int harness_run(const struct harness_core *c, const struct harness_opts *
 	}
 	if (o->input && !harness_load_input(c, o->input))
 		return 2;
+	/* open and write, as the picture and the sound: the native build's stdio
+	 * is the machine's filesystem (platform/files.c) */
+	int gs = -1;
+	if (o->game_state && (gs = open(o->game_state, O_WRONLY | O_CREAT | O_TRUNC, 0644)) < 0)
+	{
+		perror(o->game_state);
+		return 1;
+	}
 	int w = 0, h = 0;
 	const uint32_t *px = NULL;
 	for (long f = 1; f <= o->frames; f++)
@@ -327,6 +345,13 @@ static int harness_run(const struct harness_core *c, const struct harness_opts *
 				peak = abs(as[i]);
 		if (wav >= 0 && write(wav, as, (size_t)an * 4) == (ssize_t)an * 4)
 			wav_bytes += (uint32_t)an * 4;
+		if (gs >= 0)
+		{
+			int64_t size;
+			const uint8_t *b = c->game_state(&size);
+			if (write(gs, b, (size_t)size) != (ssize_t)size)
+				perror(o->game_state);
+		}
 		const uint64_t pic = harness_fnv1a(px, sizeof(uint32_t) * (size_t)w * (size_t)h);
 		run = (run ^ pic) * 0x100000001b3ull;
 		if (o->every > 0 && (f % o->every == 0 || f == o->frames))
@@ -353,6 +378,20 @@ static int harness_run(const struct harness_core *c, const struct harness_opts *
 		if (lseek(wav, 0, SEEK_SET) != 0 || write(wav, h, 44) != 44)
 			perror(o->wav);
 		close(wav);
+	}
+	if (gs >= 0)
+	{
+		close(gs);
+		char path[4096];
+		snprintf(path, sizeof path, "%s.json", o->game_state);
+		const char *table = c->game_properties();
+		const int j = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+		if (j < 0 || write(j, table, strlen(table)) != (ssize_t)strlen(table))
+		{
+			perror(path);
+			return 1;
+		}
+		close(j);
 	}
 	fflush(stdout);
 	if (o->ppm && px && harness_write_ppm(o->ppm, px, w, h) != 0)

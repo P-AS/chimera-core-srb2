@@ -33,6 +33,16 @@
 #                through the intro, the title, the menus, into a new game) and gfz1-run.txt (Forward, Jump, the Turn axis in
 #                Greenflower); each the same native, sandboxed, rerecorded and
 #                in a new host. Its teeth - the run without the input is not
+#   properties   the Game State domain, read by its property table as Chimera
+#                reads it (RAM Watch, Lua's game.get): on Greenflower's movie
+#                the player's position, momentum, angle and speed are what the
+#                movie did (moved by Forward, lifted by Jump, turned only by
+#                Turn; in the air, speed is the momentum's P_AproxDistance), and
+#                with tests/timers.lua loaded the speed shoes, invincibility,
+#                air and space timers are what it set; every step's block the
+#                same native, sandboxed and rerecorded. Its teeth - the table
+#                with two fields swapped (angle and speed; air and space) does
+#                not pass
 #   audio        the core's mixer: the intro's music and Greenflower's sounds are
 #                heard (not silence), and the same native and sandboxed (every
 #                leg compares the sound too: the run line carries its hash); a
@@ -137,6 +147,9 @@ content gme '{}'
 python3 "$here/tests/make-wad.py" "$root/build/gate/gme/gmetest.wad" O_GMETST="$root/extern/SRB2/libs/gme/test.nsf"
 printf 'addfile gmetest.wad\ntunes gmetst\n' > "$root/build/gate/gme/autoexec.cfg"
 content mod '{}'
+content props '{"warp": "1"}'
+cp "$here/tests/timers.lua" "$root/build/gate/props/timers.lua"
+printf 'addfile timers.lua\n' > "$root/build/gate/props/autoexec.cfg"
 python3 "$here/tests/make-wad.py" "$root/build/gate/mod/modtest.wad" O_MODTST="$root/extern/openmpt/test/test.mod"
 printf 'addfile modtest.wad\ntunes modtst\n' > "$root/build/gate/mod/autoexec.cfg"
 printf 'saveconfig mine.cfg\nexec mine.cfg\nwait 20\nsaveconfig late.cfg\n' > "$root/build/gate/files/autoexec.cfg"
@@ -236,6 +249,32 @@ for m in "intro menu-to-new-game 450" "gfz1 gfz1-run 260"; do
 	none="$(nat "$1" -n "$3" -p 25)"
 	[ "$n" != "$none" ] && pass "input teeth: $2: the run without the input is not the run with it" \
 		|| bad "input teeth: $2: the input changed nothing - the leg cannot fail"
+done
+
+# ---- properties: the Game State domain, by its property table
+g="$root/build/gate"
+nat gfz1 -n 400 -p 0 --input "$tests/gfz1-run.txt" --game-state "$g/props-movie-native.bin" >/dev/null
+box gfz1 -n 400 -p 0 --input "$tests/gfz1-run.txt" --game-state "$g/props-movie-sandbox.bin" >/dev/null
+box gfz1 -n 400 -p 0 --input "$tests/gfz1-run.txt" --rerecord --game-state "$g/props-movie-rerecord.bin" >/dev/null
+nat props -n 260 -p 0 --input "$tests/gfz1-run.txt" --game-state "$g/props-timers-native.bin" >/dev/null
+box props -n 260 -p 0 --input "$tests/gfz1-run.txt" --game-state "$g/props-timers-sandbox.bin" >/dev/null
+same() { cmp -s "$1" "$2" && cmp -s "$1.json" "$2.json"; }
+for kind in movie timers; do
+	r="$(python3 "$tests/check-properties.py" "$g/props-$kind-native.bin" "$kind" 2>&1 || true)"
+	if [ "${r#ok}" != "$r" ] && same "$g/props-$kind-native.bin" "$g/props-$kind-sandbox.bin" \
+		&& { [ "$kind" = timers ] || same "$g/props-movie-native.bin" "$g/props-movie-rerecord.bin"; }; then
+		pass "properties: $r; every step's block native == sandbox$([ "$kind" = movie ] && echo ' == rerecord')"
+	else
+		bad "properties: $kind: $r (or the blocks differ native, sandboxed, rerecorded)"
+	fi
+done
+for t in "movie Player.Angle Player.Speed" "timers Timers.Air Timers.Space"; do
+	set -- $t
+	r="$(python3 "$tests/check-properties.py" "$g/props-$1-native.bin" "$1" --swap "$2" "$3" 2>&1 || true)"
+	case "$r" in
+	FAIL*) pass "properties teeth: $2 and $3 swapped in the table: $r" ;;
+	*) bad "properties teeth: $2 and $3 swapped in the table still passed: $r" ;;
+	esac
 done
 
 # ---- audio
