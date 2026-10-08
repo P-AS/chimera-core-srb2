@@ -2,14 +2,22 @@
 
 [Sonic Robo Blast 2](https://srb2.org/) (Sonic Team Junior's 3D Sonic fangame, from Doom Legacy) as an
 **unofficial** [Chimera](https://github.com/ToolAssisted-run/chimera) **game core** (`"kind": "game"`, see Chimera's
-`docs/game-cores.md`). It is not part of Chimera's official roster and is not maintained by the Chimera project:
-install it by hand (File > Core Manager lists it as added by hand) from this repository's releases
-(github.com/P-AS/chimera-core-srb2). See `docs/PLAN.md` for the milestones and decisions.
+`docs/game-cores.md`). It is not maintained by the Chimera project and is not among the cores Chimera's README
+lists; it needs no change to Chimera. See `docs/PLAN.md` for the milestones and decisions.
 
 The engine is upstream SRB2 (`extern/SRB2`, master, net-compatible with 2.2.15), compiled from source with a
 platform layer of the core's own (`waterbox/platform/`) in place of SDL: no window, no audio device (the core
 mixes the sound itself, in the machine), no network, no threads. The game's data - srb2.pk3, zones.pk3,
 characters.pk3, music.pk3 - is firmware: the core carries none of it.
+
+## Using it in Chimera
+
+Chimera ships no cores and downloads nothing. Download the core's `srb2.chimeraCore` package from this repository's
+[Releases](https://github.com/P-AS/chimera-core-srb2/releases) page (a rolling `dev` build, dated
+`nightly-YYYY-MM-DD` builds), or build it, and put it in the `Cores` folder beside `Chimera.exe` (or the folder
+chosen in File > Core Manager > Change folder...). The same file works on Linux and on Windows. None of the game's
+data is in the package: a project brings SRB2 2.2.15's srb2.pk3, zones.pk3, characters.pk3 and music.pk3 as
+firmware.
 
 ## Building
 
@@ -48,6 +56,10 @@ against the declared firmware (default `build/srb2-2.2.15`); `run-gate.sh -d <fo
 ```
 waterbox/build-package.sh [-r <Chimera bundle or checkout>]   # build/package/srb2.chimeraCore, or into its Cores
 ```
+
+`-r <chimera>` writes the package into a Chimera source checkout's `build/Cores` (a bundle's `Cores`). The whole
+build, as CI does it, is in [docs/BUILDING.md](docs/BUILDING.md); [AGENTS.md](AGENTS.md) is the guide for an AI
+coding agent.
 
 ## Running the native reference
 

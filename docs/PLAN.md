@@ -462,10 +462,16 @@ the commit, runs Chimera's contract tests on it (`InstalledCorePackagesTests`, `
 uploads `srb2-<sha>`.
 
 **It depends on no Chimera change.** This is an unofficial core (github.com/P-AS/chimera-core-srb2,
-user-decided 2026-10-04): it is not in Chimera's roster (`official-cores.json`), which is the Chimera project's
-to grant, and installs by hand. Since Chimera's 74d25e1 a package says what its system and its controls are
-called, so nothing about SRB2 needs a Chimera change: `waterbox.config`'s `systemNames`, `mnemonics` and axis
-`header`s (see "The controller") are what TAStudio, the movie text and the system lists show. Chimera's
+user-decided 2026-10-04): it is not in Chimera's list of cores (`official-cores.json`, and the README's table),
+which is the Chimera project's to grant. Since Chimera's ecc06b8 (2026-10-07) that list makes no difference to a
+user: Chimera ships no cores and downloads nothing, the Core Manager lists the packages in the cores folder, and
+every core, official or not, gets there because somebody put its package there (from its releases page, or built).
+The core was adapted for that at Chimera f39db76: the README's "Using it in Chimera", `docs/BUILDING.md` and
+`AGENTS.md`, after the DSDA core's d994c4f; the build, the package and the publish job were unchanged.
+
+Since Chimera's 74d25e1 a package says what its system and its controls are called, so nothing about SRB2 needs
+a Chimera change: `waterbox.config`'s `systemNames`, `mnemonics` and axis `header`s (see "The controller") are
+what TAStudio, the movie text and the system lists show. Chimera's
 contract tests from its stock main run on the package, `MnemonicUniquenessTests` among them (which now holds a
 core that declares letters to declaring all of them, each writable). The former `docs/chimera-proposal.patch`
 (a `MnemonicLookup` entry and a `SystemNames` entry for SRB2) is gone: both tables left Chimera, and what it
