@@ -510,6 +510,15 @@ runs `run-gate.sh` with the engine leg on the checkout's installed `libchimera`,
 the commit, runs Chimera's contract tests on it (`InstalledCorePackagesTests`, `MnemonicUniquenessTests`), and
 uploads `srb2-<sha>`.
 
+**Every release carries `tasinfo.lua`** (user-asked, 2026-10-08): the `publish-lua` job, after `publish`, uploads
+`lua/tasinfo.lua` into the release just made and adds a line to its notes. Chimera's `publish-core.sh` uploads
+only the package and deletes and recreates `dev` each time, so the script cannot ride along in it and must go up
+after; and the shared workflow is the Chimera project's, so the job is this repository's own. The release is the
+one `publish-core.yml` picks (a nightly for the schedule or kind `nightly`, else `dev`); a nightly is found as the
+newest `nightly-*` tag at the commit by name - the API's tags are lightweight, their creator date the commit's.
+The gate job checks the scripts parse (`luac5.4 -p`). The job's shell was run against a scratch repository with a
+stand-in `gh` (dev, nightly, two nightlies at one commit, none); the workflow itself first runs on GitHub.
+
 **It depends on no Chimera change.** This is an unofficial core (github.com/P-AS/chimera-core-srb2,
 user-decided 2026-10-04): it is not in Chimera's list of cores (`official-cores.json`, and the README's table),
 which is the Chimera project's to grant. Since Chimera's ecc06b8 (2026-10-07) that list makes no difference to a
