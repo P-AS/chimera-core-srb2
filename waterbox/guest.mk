@@ -30,11 +30,22 @@ CXXGLUE := $(MBUILD)/source/guest/cxxglue.c.o
 LIBSTDCXX := $(SR)/lib/libstdc++.a
 
 # BizHawk waterbox's frozen guest flags, as miniBox's source/guest/meson.build
-# gives them to a guest
-WBFLAGS := -fvisibility=hidden -mcmodel=large -mno-red-zone -mstack-protector-guard=global \
-	-fno-stack-protector -fno-pic -fno-pie -fcf-protection=none -DNDEBUG -DCHIMERA_GUEST
+# gives them to a guest. The guest is built for the CPU it runs on: x86-64, or
+# miniBox's aarch64 machine (no return-address signing, no outline atomics, and
+# x86-64's arithmetic: no fused multiply-add, signed char). The musl specs
+# carry the CPU flags for C only, so they are given here for C++ as well.
+GUEST_CPU := $(shell uname -m)
+ifeq ($(GUEST_CPU),aarch64)
+WBCPU := -mbranch-protection=none -mno-outline-atomics -ffp-contract=off -fsigned-char
+GUEST_TRIPLET := aarch64-linux-musl
+else
+WBCPU := -mcmodel=large -mno-red-zone -fcf-protection=none
+GUEST_TRIPLET := x86_64-linux-musl
+endif
+WBFLAGS := -fvisibility=hidden $(WBCPU) -mstack-protector-guard=global \
+	-fno-stack-protector -fno-pic -fno-pie -DNDEBUG -DCHIMERA_GUEST
 MBINCS := -I$(MB)/extern/emulibc -I$(MB)/source/guest/include -I$(MB)/extern/jsmn
-CXXINCS := -I$(SR)/include/c++/$(GCCVER) -I$(SR)/include/c++/$(GCCVER)/x86_64-linux-musl
+CXXINCS := -I$(SR)/include/c++/$(GCCVER) -I$(SR)/include/c++/$(GCCVER)/$(GUEST_TRIPLET)
 
 SRB2_CFLAGS := $(WBFLAGS) $(SRB2_CFLAGS_COMMON) -w $(SRB2_RENAMES)
 ZLIB_CFLAGS := $(WBFLAGS) $(ZLIB_CFLAGS_COMMON) -w

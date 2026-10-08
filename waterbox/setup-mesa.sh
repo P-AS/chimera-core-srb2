@@ -145,6 +145,19 @@ elif [ -d /usr/include/asm ]; then
 fi
 
 # large code model, static reloc, no %fs stack guard, the guest's own libstdc++.
+# On aarch64, miniBox's aarch64 machine instead: the small code model (any
+# base works there), no return-address signing, no outline atomics, and
+# x86-64's arithmetic - no fused multiply-add, signed char (guest.mk's WBCPU).
+case "$(uname -m)" in
+aarch64)
+	cpu_family=aarch64
+	triplet=aarch64-linux-musl
+	cpu_args="'-mbranch-protection=none', '-mno-outline-atomics', '-ffp-contract=off', '-fsigned-char'" ;;
+*)
+	cpu_family=x86_64
+	triplet=x86_64-linux-musl
+	cpu_args="'-mcmodel=large', '-fcf-protection=none'" ;;
+esac
 cat > "$mesa/guest-cross.ini" <<EOF
 [binaries]
 c = '$mesa/gw-cc'
@@ -155,16 +168,16 @@ pkg-config = 'pkg-config'
 
 [host_machine]
 system = 'linux'
-cpu_family = 'x86_64'
-cpu = 'x86_64'
+cpu_family = '$cpu_family'
+cpu = '$cpu_family'
 endian = 'little'
 
 [properties]
 needs_exe_wrapper = true
 
 [built-in options]
-c_args = ['-mcmodel=large', '-mstack-protector-guard=global', '-fno-stack-protector', '-fno-pic', '-fno-pie', '-fcf-protection=none', '-idirafter', '$uapi']
-cpp_args = ['-mcmodel=large', '-mstack-protector-guard=global', '-fno-stack-protector', '-fno-pic', '-fno-pie', '-fcf-protection=none', '-fexceptions', '-I$sr/include/c++/$gccver', '-I$sr/include/c++/$gccver/x86_64-linux-musl', '-idirafter', '$uapi']
+c_args = [$cpu_args, '-mstack-protector-guard=global', '-fno-stack-protector', '-fno-pic', '-fno-pie', '-idirafter', '$uapi']
+cpp_args = [$cpu_args, '-mstack-protector-guard=global', '-fno-stack-protector', '-fno-pic', '-fno-pie', '-fexceptions', '-I$sr/include/c++/$gccver', '-I$sr/include/c++/$gccver/$triplet', '-idirafter', '$uapi']
 EOF
 
 # softpipe + gallium OSMesa, static, no LLVM, nothing that pulls a host lib.

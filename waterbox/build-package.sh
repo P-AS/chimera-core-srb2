@@ -131,7 +131,7 @@ json.dump({
                "dirty": "-dirty" in version},
     "toolchain": {"compiler": "gcc " + run("gcc", "-dumpfullversion"),
                   "binutils": (run("ld", "--version").splitlines() or ["unknown"])[0].split()[-1],
-                  "target": "x86_64-linux-musl",
+                  "target": run("uname", "-m") + "-linux-musl",
                   "musl": open(mb + "/extern/musl/VERSION").read().strip()},
     "guestKit": {"name": "miniBox", "commit": git(mb, "rev-parse", "--short=12", "HEAD")},
     "upstream": {name: git(root + "/extern/" + name, "describe", "--tags", "--always")
