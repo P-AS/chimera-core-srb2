@@ -18,6 +18,7 @@
  * the machine where it stands. The engine's cothread is never resumed again,
  * and the machine keeps answering, silent and still, with I_Error's message
  * kept. */
+#include <stddef.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -197,6 +198,107 @@ const char *chimera_player_skin(void)
 	return gamestate == GS_LEVEL && playeringame[consoleplayer] ? skins[players[consoleplayer].skin]->name : "(none)";
 }
 
+/* ---- the Game State domain (Chimera's docs/game-cores.md, "Properties"): a
+ * copy of what a TASer watches, made after every step - the player's object
+ * (its position, momentum and angle), the speed the game reckons, the
+ * powers' timers, and what a conveyor or a moving platform adds to the
+ * player's momentum. Read-only: the game would overwrite a poke on its next tic.
+ * In the machine's memory, so a savestate carries it. */
+struct game_state
+{
+	INT32 tic;            /* 0: gametic */
+	INT32 level_time;     /* 4: leveltime */
+	INT32 game_state;     /* 8: gamestate */
+	INT32 map;            /* 12: gamemap */
+	UINT8 in_level;       /* 16: the player has an object in a level */
+	UINT8 pad[3];
+	INT32 x, y, z;        /* 20: fixed point, 16.16 */
+	INT32 momx, momy, momz; /* 32 */
+	UINT32 angle;         /* 44: the object's angle, 2^32 a turn */
+	INT32 speed;          /* 48: player->speed, 16.16 */
+	UINT16 shoes;         /* 52: pw_sneakers, tics left */
+	UINT16 invincibility; /* 54: pw_invulnerability */
+	UINT16 space;         /* 56: pw_spacetime */
+	UINT16 air;           /* 58: pw_underwater */
+	INT32 cmomx, cmomy;   /* 60: player->cmomx/cmomy: a conveyor's or a platform's, 16.16 */
+	INT32 pmomz;          /* 68: mo->pmomz: the moving floor's, 16.16 */
+};
+
+static struct game_state g_state;
+
+static void update_game_state(void)
+{
+	memset(&g_state, 0, sizeof g_state);
+	g_state.tic = (INT32)gametic;
+	g_state.level_time = (INT32)leveltime;
+	g_state.game_state = (INT32)gamestate;
+	g_state.map = (INT32)gamemap;
+	const player_t *p = &players[consoleplayer];
+	const mobj_t *mo = gamestate == GS_LEVEL && playeringame[consoleplayer] ? p->mo : NULL;
+	if (!mo)
+		return;
+	g_state.in_level = 1;
+	g_state.x = mo->x;
+	g_state.y = mo->y;
+	g_state.z = mo->z;
+	g_state.momx = mo->momx;
+	g_state.momy = mo->momy;
+	g_state.momz = mo->momz;
+	g_state.angle = mo->angle;
+	g_state.speed = p->speed;
+	g_state.shoes = p->powers[pw_sneakers];
+	g_state.invincibility = p->powers[pw_invulnerability];
+	g_state.space = p->powers[pw_spacetime];
+	g_state.air = p->powers[pw_underwater];
+	g_state.cmomx = p->cmomx;
+	g_state.cmomy = p->cmomy;
+	g_state.pmomz = mo->pmomz;
+}
+
+int srb2_domain_count(void) { return 1; }
+const char *srb2_domain_name(int i) { return i == 0 ? "Game State" : ""; }
+UINT8 *srb2_domain_ptr(int i) { return i == 0 ? (UINT8 *)&g_state : NULL; }
+long long srb2_domain_size(int i) { return i == 0 ? (long long)sizeof g_state : 0; }
+
+/* the property table: what the Game State block holds, by name */
+const char *srb2_game_properties(void)
+{
+	static char json[8192];
+	if (json[0])
+		return json;
+	int n = 0, first = 1;
+#define P(...) n += snprintf(json + n, sizeof json - (size_t)n, __VA_ARGS__)
+#define GS(name, field, type, group, desc) \
+	P("%s    { \"name\": \"%s\", \"domain\": \"Game State\", \"offset\": %d, \"type\": \"%s\", \"group\": \"%s\", " \
+	  "\"writable\": false, \"description\": \"%s\" }", first ? "" : ",\n", \
+	  name, (int)offsetof(struct game_state, field), type, group, desc), first = 0
+	P("{\n  \"properties\": [\n");
+	GS("Game.Tic", tic, "s32", "Game", "The game's tic (gametic)");
+	GS("Game.Level Time", level_time, "s32", "Game", "Tics on this level (leveltime)");
+	GS("Game.State", game_state, "s32", "Game", "gamestate (1: in a level)");
+	GS("Game.Map", map, "s32", "Game", "gamemap");
+	GS("Player.In Level", in_level, "bool", "Player", "The player has an object in a level; the rest of Player and Timers is 0 when not");
+	GS("Player.X", x, "s32", "Player", "Position, 16.16 fixed point: 65536 is one unit");
+	GS("Player.Y", y, "s32", "Player", "Position, 16.16 fixed point");
+	GS("Player.Z", z, "s32", "Player", "Height, 16.16 fixed point");
+	GS("Player.Momentum X", momx, "s32", "Player", "Units a tic, 16.16 fixed point");
+	GS("Player.Momentum Y", momy, "s32", "Player", "Units a tic, 16.16 fixed point");
+	GS("Player.Momentum Z", momz, "s32", "Player", "Units a tic, 16.16 fixed point");
+	GS("Player.Angle", angle, "u32", "Player", "The player object's angle: 2^32 is a full turn, 0 is east, counterclockwise");
+	GS("Player.Speed", speed, "s32", "Player", "Horizontal speed as the game reckons it (player->speed, against the floor it stands on), 16.16 fixed point");
+	GS("Timers.Speed Shoes", shoes, "u16", "Timers", "Tics of speed shoes left (pw_sneakers)");
+	GS("Timers.Invincibility", invincibility, "u16", "Timers", "Tics of invincibility left (pw_invulnerability)");
+	GS("Timers.Space", space, "u16", "Timers", "Tics of air left in space (pw_spacetime)");
+	GS("Timers.Air", air, "u16", "Timers", "Tics of air left underwater (pw_underwater)");
+	GS("Player.Conveyor Momentum X", cmomx, "s32", "Player", "What a conveyor or a moving platform carrying the player adds to Momentum X (player->cmomx), 16.16 fixed point");
+	GS("Player.Conveyor Momentum Y", cmomy, "s32", "Player", "What a conveyor or a moving platform carrying the player adds to Momentum Y (player->cmomy), 16.16 fixed point");
+	GS("Player.Platform Momentum Z", pmomz, "s32", "Player", "The vertical momentum of the moving floor the player stands on (mo->pmomz), kept on leaving it; 16.16 fixed point");
+	P("\n  ]\n}\n");
+#undef GS
+#undef P
+	return json;
+}
+
 void srb2_frame(void)
 {
 	g_input_read = 0;
@@ -207,6 +309,7 @@ void srb2_frame(void)
 	chimera_clock_step();
 	srb2_input_post();
 	co_switch(g_engine);
+	update_game_state();
 }
 
 int srb2_halted(void) { return g_halted; }

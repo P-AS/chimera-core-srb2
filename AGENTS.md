@@ -29,14 +29,18 @@ firmware.
 - `waterbox/fetch-data.sh`: downloads STJr's 2.2.15 release and takes out the
   four pk3s, checked (the gate's data where none is installed).
 - `waterbox/build-package.sh`: builds the package. `run-gate.sh`: the gate.
-- `waterbox/srb2-driver.c`: the machine. `srb2-input.c`: the controller.
+- `waterbox/srb2-driver.c`: the machine, and the Game State domain and its
+  property table (`GetGameProperties`). `srb2-input.c`: the controller.
   `wbx-entry.c`: the exports. `platform/`, `compat/`, `native-shim/`: what
   stands in for SRB2's SDL code. `platform/gl_compat.c`: the GPU bridge's
   guest half.
 - `waterbox/waterbox.config`, `default_keybinds.json`, `file_slots.json`: the
   declaration, written by hand. `package-licenses.json`: the licence terms the
   package carries.
-- `waterbox/tests/`: the gate's movies and helper scripts.
+- `waterbox/tests/`: the gate's movies and helper scripts
+  (`check-properties.py` and `timers.lua`: the properties leg).
+- `lua/`: Lua scripts for Chimera's Lua Console: `tasinfo.lua`, the TAS info
+  overlay. They read the core's Game State properties by name (`game.get`).
 - `.github/workflows/chimera.yml`: CI. It gates, packages and publishes.
 - `build/`: every output. Ignored by git.
 
@@ -149,6 +153,9 @@ CHIMERA_CORES_DIR=<chimera>/build/Cores dotnet test source/gui/Chimera.Tests.Cli
 - `build-package.sh` refuses a package whose `default_keybinds.json` and
   declared buttons disagree, or whose button letters, system name or axis
   headers are missing: change `waterbox.config` and the keybinds together.
+- A Game State property's name is what RAM Watch, freezes and scripts store
+  (`lua/` among them): rename or remove one only with everything that uses
+  it. Its offset may move; `check-properties.py` reads by the table.
 - Determinism is the product. The guest must not read host time, host
   randomness or anything else that differs between runs, and a savestate must
   round-trip. The gate checks it (equivalence, steps, savestates, time,

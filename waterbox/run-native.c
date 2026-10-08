@@ -46,6 +46,9 @@ extern int32_t GetSaveDataFileCount(void);
 extern const char *GetSaveDataFileName(int32_t index);
 extern int64_t GetSaveDataFileSize(int32_t index);
 extern const uint8_t *GetSaveDataFileBuffer(int32_t index);
+extern uint8_t *GetMemoryDomainPtr(int i);
+extern int64_t GetMemoryDomainSize(int i);
+extern const char *GetGameProperties(void);
 
 static void frame(void) { FrameAdvance(0); }
 static const uint32_t *video(int *w, int *h)
@@ -59,6 +62,12 @@ static const int16_t *audio(int *n)
 {
 	*n = GetAudioSampleCount();
 	return GetAudio();
+}
+
+static const uint8_t *game_state(int64_t *size)
+{
+	*size = GetMemoryDomainSize(0);
+	return GetMemoryDomainPtr(0);
 }
 
 /* the engine's option by name (srb2-driver.c) */
@@ -153,6 +162,13 @@ int main(int argc, char **argv)
 		strcat(sd_abs, o.savedata_out);
 		o.savedata_out = sd_abs;
 	}
+	static char gs_abs[4096];
+	if (o.game_state && o.game_state[0] != '/' && getcwd(gs_abs, sizeof gs_abs - strlen(o.game_state) - 2))
+	{
+		strcat(gs_abs, "/");
+		strcat(gs_abs, o.game_state);
+		o.game_state = gs_abs;
+	}
 	if (chdir(argv[1]) != 0)
 	{
 		perror(argv[1]);
@@ -179,6 +195,8 @@ int main(int argc, char **argv)
 		.savedata_name = GetSaveDataFileName,
 		.savedata_size = GetSaveDataFileSize,
 		.savedata_buffer = GetSaveDataFileBuffer,
+		.game_state = game_state,
+		.game_properties = GetGameProperties,
 	};
 	if (c.init() != 1)
 	{

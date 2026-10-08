@@ -19,6 +19,13 @@ const char *srb2_error(void);
 int srb2_input_was_read(void);
 /* the engine's tic counter */
 unsigned srb2_gametic(void);
+/* the memory domains (one: Game State, the step's copy of what a TASer
+ * watches) and the property table that names what is in it */
+int srb2_domain_count(void);
+const char *srb2_domain_name(int i);
+unsigned char *srb2_domain_ptr(int i);
+long long srb2_domain_size(int i);
+const char *srb2_game_properties(void);
 #ifdef __cplusplus
 }
 #endif
