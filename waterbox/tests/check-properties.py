@@ -3,7 +3,7 @@
 the way Chimera reads it - by the property table (GetGameProperties), never by
 the struct - holds what the game did.
 
-usage: check-properties.py <dump> <movie|timers|spindash> [--swap NAME NAME]
+usage: check-properties.py <dump> <movie|timers|spindash|boss> [--swap NAME NAME]
 
 <dump> is what a harness's --game-state wrote: every step's Game State block,
 one after the other, and the property table beside it in <dump>.json.
@@ -22,6 +22,11 @@ one after the other, and the property table beside it in <dump>.json.
           from a standstill revs a spindash - charging from the character's
           Min Dash, 1.0 more a tic, never past Max Dash - and letting go
           launches the player at the charge, which goes back to 0
+  boss    Greenflower Zone Act 1 with waterbox/tests/boss.lua loaded: no boss
+          until leveltime 30, then an Egg Mobile at full health, not flashing;
+          hit at 40, one health less and flashing, until its pain state ends,
+          then not flashing at that health; Metal Sonic's dash mode counter
+          2000 + leveltime from 20; the normal speed Sonic's (36)
 
 --swap NAME NAME reads the two properties each where the table puts the
 other: the leg's teeth (a table that misplaces two fields of the same type
@@ -40,7 +45,8 @@ WANT = ["Game.Tic", "Game.Level Time", "Game.State", "Game.Map", "Player.In Leve
         "Player.Angle", "Player.Speed",
         "Timers.Speed Shoes", "Timers.Invincibility", "Timers.Space", "Timers.Air",
         "Player.Conveyor Momentum X", "Player.Conveyor Momentum Y", "Player.Platform Momentum Z",
-        "Player.Dash Speed", "Player.Min Dash", "Player.Max Dash", "Player.Flags", "Player.Charging Spindash"]
+        "Player.Dash Speed", "Player.Min Dash", "Player.Max Dash", "Player.Flags", "Player.Charging Spindash",
+        "Player.Dashmode", "Player.Normal Speed", "Boss.Active", "Boss.Health", "Boss.Max Health", "Boss.Flashing"]
 SET_BY_TIMERS = ["Timers.Speed Shoes", "Timers.Invincibility", "Timers.Space", "Timers.Air",
                  "Player.Conveyor Momentum X", "Player.Conveyor Momentum Y", "Player.Platform Momentum Z"]
 GS_LEVEL = 1
@@ -64,7 +70,7 @@ def main():
         i = args.index("--swap")
         swap = args[i + 1:i + 3]
         del args[i:i + 3]
-    if len(args) != 2 or args[1] not in ("movie", "timers", "spindash"):
+    if len(args) != 2 or args[1] not in ("movie", "timers", "spindash", "boss"):
         print(__doc__, file=sys.stderr)
         sys.exit(2)
     dump, mode = args
@@ -84,8 +90,8 @@ def main():
 
     data = open(dump, "rb").read()
     # the block's size: the dump is whole steps of it, at least as large as
-    # the table reaches (88 bytes now; the table may not run past it)
-    block = 88
+    # the table reaches (108 bytes now; the table may not run past it)
+    block = 108
     if len(data) % block or size > block:
         fail(f"the dump ({len(data)} bytes) is not whole {block}-byte blocks, or the table reaches {size}")
     steps = []
@@ -143,7 +149,8 @@ def main():
         if airborne < 10:
             fail(f"only {airborne} airborne steps to compare speed with momentum")
         # nothing collected, no conveyor and no moving floor on the movie's path
-        for name in SET_BY_TIMERS + ["Player.Dash Speed", "Player.Charging Spindash"]:
+        for name in SET_BY_TIMERS + ["Player.Dash Speed", "Player.Charging Spindash", "Player.Dashmode",
+                                     "Boss.Active", "Boss.Health", "Boss.Max Health", "Boss.Flashing"]:
             if any(v[name] for v in steps):
                 fail(f"{name} is not 0 on the movie's path")
         print(f"ok movie: {len(level)} steps in the level; moved {moved / 65536:.0f} units, jumped, "
@@ -173,6 +180,38 @@ def main():
         revs = (last - least) // 65536
         print(f"ok spindash: charged {least / 65536:.0f} to {last / 65536:.0f} ({revs} revs of {(most - least) // 65536}) "
               f"over {len(charging)} steps, launched at {last / 65536:.0f}")
+    elif mode == "boss":
+        flash_end = None
+        for s, v in level:
+            lt = v["Game.Level Time"]
+            where = f"step {s} (leveltime {lt})"
+            if v["Player.Normal Speed"] != 36 * 65536:
+                fail(f"{where}: normal speed {v['Player.Normal Speed'] / 65536}, not Sonic's 36")
+            if lt >= 20 and v["Player.Dashmode"] != 2000 + lt:
+                fail(f"{where}: dash mode {v['Player.Dashmode']}, boss.lua set {2000 + lt}")
+            active, health, most, flashing = (v["Boss.Active"], v["Boss.Health"], v["Boss.Max Health"], v["Boss.Flashing"])
+            if lt < 30:
+                if active or health or most or flashing:
+                    fail(f"{where}: a boss before boss.lua spawned one")
+                continue
+            if not active or most <= 1:
+                fail(f"{where}: active {active}, max health {most}")
+            if lt < 40:
+                if health != most or flashing:
+                    fail(f"{where}: health {health}/{most}, flashing {flashing} before the hit")
+                continue
+            if health != most - 1:
+                fail(f"{where}: health {health}/{most} after one hit")
+            if lt == 40 and not flashing:
+                fail(f"{where}: not flashing when hit")
+            if flash_end is None and not flashing:
+                flash_end = lt
+            if flash_end is not None and flashing:
+                fail(f"{where}: flashing again at {lt}, after it stopped at {flash_end}")
+        if flash_end is None:
+            fail("the boss never stopped flashing")
+        print(f"ok boss: none until leveltime 30, then {most}/{most}; hit at 40: {most - 1}/{most}, flashing until {flash_end}; "
+              f"dash mode as boss.lua set it; normal speed 36")
     else:
         seen = 0
         for s, v in level:

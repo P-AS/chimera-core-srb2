@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """engine-open.py - opens the package the way Chimera does, through its engine.
 
-usage: engine-open.py <libchimera.so> <srb2.chimeraCore> <data folder> [steps] [settings JSON] [--ppm FILE] [--gpu]
+usage: engine-open.py <libchimera.so> <srb2.chimeraCore> <data folder> [steps] [settings JSON] [--ppm FILE] [--gpu] [--table]
 
 Chimera's engine (libchimera, a bundle's dll/) opens the package with the four
 pk3s as firmware and the settings as overrides - every check the frontend's
@@ -9,7 +9,9 @@ session makes: the required exports, the declaration, Init - then steps it,
 pressing Enter every 50 steps (through the intro, the title, the menus, into a new game), and
 reports each failure the engine names. With --ppm, the last picture. With
 --gpu, the engine is asked for the GPU bridge first (ce_gl_request), as a
-project with a hardware renderer does."""
+project with a hardware renderer does. With --table, after the steps, the
+property table as the engine took it (ce_session_property_table: the
+properties and the problems it left out), as one JSON line "table {...}"."""
 import ctypes
 import hashlib
 import json
@@ -21,6 +23,9 @@ args = [a for a in sys.argv[1:]]
 gpu = "--gpu" in args
 if gpu:
     args.remove("--gpu")
+table = "--table" in args
+if table:
+    args.remove("--table")
 ppm = None
 if "--ppm" in args:
     i = args.index("--ppm")
@@ -52,6 +57,8 @@ for f in ("ce_session_video_width", "ce_session_video_height"):
 ce.ce_session_audio.argtypes = [ctypes.c_void_p, ctypes.POINTER(ctypes.c_int32)]
 ce.ce_session_audio.restype = ctypes.POINTER(ctypes.c_int16)
 ce.ce_session_free.argtypes = [ctypes.c_void_p]
+ce.ce_session_property_table.argtypes = [ctypes.c_void_p]
+ce.ce_session_property_table.restype = ctypes.c_char_p
 
 with zipfile.ZipFile(package) as z:
     cfg = json.loads(z.read("waterbox.config"))
@@ -96,4 +103,7 @@ if ppm:
     with open(ppm, "wb") as f:
         f.write(b"P6\n%d %d\n255\n" % (w, h))
         f.write(bytes(px[i + c] for i in range(0, len(px), 4) for c in (2, 1, 0)))
+if table:
+    t = ce.ce_session_property_table(s)
+    print("table " + json.dumps(json.loads(t.decode()) if t else None))
 ce.ce_session_free(s)

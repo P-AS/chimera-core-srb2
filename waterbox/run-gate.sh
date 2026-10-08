@@ -42,10 +42,16 @@
 #                air and space timers and the conveyor and platform momenta are
 #                what it set; on tests/spindash.txt the spindash charges from Min
 #                Dash a tic at a time while Spin is held (Charging Spindash, a
-#                bit of Player.Flags) and launches at its charge; every step's
+#                bit of Player.Flags) and launches at its charge; with
+#                tests/boss.lua loaded an Egg Mobile it spawns and hits reads
+#                full health, then one less and flashing until its pain state
+#                ends (the first MF_BOSS thinker, as the SRB2 TAS build finds
+#                the boss), and Metal Sonic's dash mode counter is what it set;
+#                every step's
 #                block the same native, sandboxed and rerecorded. Its teeth -
 #                the table with two fields swapped (angle and speed; air and
-#                space; dash speed and max dash) does not pass
+#                space; dash speed and max dash; boss health and max health)
+#                does not pass
 #   audio        the core's mixer: the intro's music and Greenflower's sounds are
 #                heard (not silence), and the same native and sandboxed (every
 #                leg compares the sound too: the run line carries its hash); a
@@ -153,6 +159,9 @@ content mod '{}'
 content props '{"warp": "1"}'
 cp "$here/tests/timers.lua" "$root/build/gate/props/timers.lua"
 printf 'addfile timers.lua\n' > "$root/build/gate/props/autoexec.cfg"
+content boss '{"warp": "1"}'
+cp "$here/tests/boss.lua" "$root/build/gate/boss/boss.lua"
+printf 'addfile boss.lua\n' > "$root/build/gate/boss/autoexec.cfg"
 python3 "$here/tests/make-wad.py" "$root/build/gate/mod/modtest.wad" O_MODTST="$root/extern/openmpt/test/test.mod"
 printf 'addfile modtest.wad\ntunes modtst\n' > "$root/build/gate/mod/autoexec.cfg"
 printf 'saveconfig mine.cfg\nexec mine.cfg\nwait 20\nsaveconfig late.cfg\n' > "$root/build/gate/files/autoexec.cfg"
@@ -264,8 +273,11 @@ box props -n 260 -p 0 --input "$tests/gfz1-run.txt" --game-state "$g/props-timer
 nat gfz1 -n 160 -p 0 --input "$tests/spindash.txt" --game-state "$g/props-spindash-native.bin" >/dev/null
 box gfz1 -n 160 -p 0 --input "$tests/spindash.txt" --game-state "$g/props-spindash-sandbox.bin" >/dev/null
 box gfz1 -n 160 -p 0 --input "$tests/spindash.txt" --rerecord --game-state "$g/props-spindash-rerecord.bin" >/dev/null
+nat boss -n 200 -p 0 --game-state "$g/props-boss-native.bin" >/dev/null
+box boss -n 200 -p 0 --game-state "$g/props-boss-sandbox.bin" >/dev/null
+box boss -n 200 -p 0 --rerecord --game-state "$g/props-boss-rerecord.bin" >/dev/null
 same() { cmp -s "$1" "$2" && cmp -s "$1.json" "$2.json"; }
-for kind in movie timers spindash; do
+for kind in movie timers spindash boss; do
 	r="$(python3 "$tests/check-properties.py" "$g/props-$kind-native.bin" "$kind" 2>&1 || true)"
 	if [ "${r#ok}" != "$r" ] && same "$g/props-$kind-native.bin" "$g/props-$kind-sandbox.bin" \
 		&& { [ "$kind" = timers ] || same "$g/props-$kind-native.bin" "$g/props-$kind-rerecord.bin"; }; then
@@ -274,7 +286,7 @@ for kind in movie timers spindash; do
 		bad "properties: $kind: $r (or the blocks differ native, sandboxed, rerecorded)"
 	fi
 done
-for t in "movie|Player.Angle|Player.Speed" "timers|Timers.Air|Timers.Space" "spindash|Player.Dash Speed|Player.Max Dash"; do
+for t in "movie|Player.Angle|Player.Speed" "timers|Timers.Air|Timers.Space" "spindash|Player.Dash Speed|Player.Max Dash" "boss|Boss.Health|Boss.Max Health"; do
 	IFS='|' read -r kind a b <<EOT
 $t
 EOT
