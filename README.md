@@ -122,7 +122,7 @@ conveyor or a moving platform adds), `Player.Platform Momentum Z` (`mo->pmomz`: 
 `Player.Charging Spindash` (its `PF_STARTDASH` bit), `Player.Angle` (2^32 a turn); `Timers.Speed Shoes`, `Timers.Invincibility`,
 `Timers.Space`, `Timers.Air` (tics left). Out of a level the player's fields are 0.
 
-`lua/tasinfo.lua` draws them over the game: open it in Tools > Lua Console with an SRB2 project loaded. It shows
+`lua/tasinfo.lua` draws them in the bottom right corner of the game, clear of Chimera's own HUD: open it in Tools > Lua Console with an SRB2 project loaded. It shows
 speed, the angle in hex and in degrees (each to 4 decimal places, on lines of their own), the position and the
 momentum, the conveyor and platform momentum, the spindash's revs, and the four timers in tics and seconds. SRB2
 has no discrete revs: a spindash charges 1.0 of speed a tic while Spin is held, from Min Dash to Max Dash (Sonic: 15

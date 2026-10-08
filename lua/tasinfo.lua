@@ -21,8 +21,13 @@
 -- The conveyor and platform momentum, the spindash revs and the four timers
 -- are shown only while they are not 0.
 
--- where the text goes, in the window's pixels, and the room a line takes
+-- where the text goes: the bottom right corner, clear of Chimera's own HUD
+-- (FPS, frame and lag counters, input, re-records: top left; messages: bottom
+-- left; autohold and game time: top right). X and Y are the gap to the right
+-- and bottom edges in the window's pixels; LINE is the room a line takes,
+-- as Chimera's HUD spaces its own lines. Each line is right-aligned.
 local X, Y, LINE = 2, 2, 14
+local ANCHOR = "bottomright"
 local COLOR = 0xFFFFFFFF
 
 local FRACUNIT = 65536
@@ -84,8 +89,9 @@ local function draw()
 		nonzero("Air: ", "Timers.Air", timer)
 	end
 
+	-- from the bottom up: the last line nearest the corner, the first on top
 	for i, text in ipairs(lines) do
-		gui.text(X, Y + (i - 1) * LINE, text, COLOR)
+		gui.text(X, Y + (#lines - i) * LINE, text, COLOR, ANCHOR)
 	end
 end
 
