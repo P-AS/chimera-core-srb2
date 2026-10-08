@@ -368,9 +368,10 @@ axis, and in the air the speed is the momentum's `P_AproxDistance` exactly; with
 SRB2 Lua add-on that sets the four timers after the game's think) every timer and the conveyor and platform momenta are what it set, every step;
 native == sandbox == rerecord byte for byte. Teeth: the table with angle and speed swapped, or air and space,
 fails. The script itself was run under Lua 5.4 with `game`, `gui` and `emu` stubbed over the leg's dumps
-(in a level, out of one, the timers running): it could not be run in Chimera on the development host, whose
-engine leg crashes for a reason of the host's (2026-10-08, the same with Chimera c7c06d7, which passed two days
-before with the same core.wbx).
+(in a level, out of one, the timers running): it was not run in Chimera's Lua Console here. On the development host a libchimera
+built there crashes opening the package (2026-10-08: f39db76's and c7c06d7's alike, though c7c06d7 passed two
+days before with the same core.wbx); a CI-built bundle's (e51a141) opens it and plays the engine leg's 450
+steps with the hashes that passed then - so the crash is the host's build of the engine, not the core.
 
 ## Wipes are steps (2026-10-04)
 
