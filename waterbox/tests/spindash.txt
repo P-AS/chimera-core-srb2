@@ -1,0 +1,3 @@
+# Greenflower Zone Act 1 (settings: warp 1), 160 steps: the entry is lag until
+# step 64; then a spindash revved from a standstill for 40 tics, and let go
+70-109: Spin

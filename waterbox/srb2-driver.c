@@ -201,8 +201,8 @@ const char *chimera_player_skin(void)
 /* ---- the Game State domain (Chimera's docs/game-cores.md, "Properties"): a
  * copy of what a TASer watches, made after every step - the player's object
  * (its position, momentum and angle), the speed the game reckons, the
- * powers' timers, and what a conveyor or a moving platform adds to the
- * player's momentum. Read-only: the game would overwrite a poke on its next tic.
+ * powers' timers, what a conveyor or a moving platform adds to the player's
+ * momentum, and the spindash's charge. Read-only: the game would overwrite a poke on its next tic.
  * In the machine's memory, so a savestate carries it. */
 struct game_state
 {
@@ -222,6 +222,9 @@ struct game_state
 	UINT16 air;           /* 58: pw_underwater */
 	INT32 cmomx, cmomy;   /* 60: player->cmomx/cmomy: a conveyor's or a platform's, 16.16 */
 	INT32 pmomz;          /* 68: mo->pmomz: the moving floor's, 16.16 */
+	INT32 dashspeed;      /* 72: the spindash's charge, 16.16 */
+	INT32 mindash, maxdash; /* 76: the character's least and most charge */
+	UINT32 pflags;        /* 84: player->pflags */
 };
 
 static struct game_state g_state;
@@ -253,6 +256,10 @@ static void update_game_state(void)
 	g_state.cmomx = p->cmomx;
 	g_state.cmomy = p->cmomy;
 	g_state.pmomz = mo->pmomz;
+	g_state.dashspeed = p->dashspeed;
+	g_state.mindash = p->mindash;
+	g_state.maxdash = p->maxdash;
+	g_state.pflags = (UINT32)p->pflags;
 }
 
 int srb2_domain_count(void) { return 1; }
@@ -293,6 +300,14 @@ const char *srb2_game_properties(void)
 	GS("Player.Conveyor Momentum X", cmomx, "s32", "Player", "What a conveyor or a moving platform carrying the player adds to Momentum X (player->cmomx), 16.16 fixed point");
 	GS("Player.Conveyor Momentum Y", cmomy, "s32", "Player", "What a conveyor or a moving platform carrying the player adds to Momentum Y (player->cmomy), 16.16 fixed point");
 	GS("Player.Platform Momentum Z", pmomz, "s32", "Player", "The vertical momentum of the moving floor the player stands on (mo->pmomz), kept on leaving it; 16.16 fixed point");
+	GS("Player.Dash Speed", dashspeed, "s32", "Player", "The spindash's charge (player->dashspeed): Min Dash when it starts, 1.0 more each tic Spin is held, up to Max Dash; the speed it launches at. 16.16 fixed point");
+	GS("Player.Min Dash", mindash, "s32", "Player", "The character's least spindash charge (player->mindash), 16.16 fixed point");
+	GS("Player.Max Dash", maxdash, "s32", "Player", "The character's most spindash charge (player->maxdash), 16.16 fixed point");
+	GS("Player.Flags", pflags, "u32", "Player", "player->pflags (PF_*)");
+	P(",\n    { \"name\": \"Player.Charging Spindash\", \"domain\": \"Game State\", \"offset\": %d, \"type\": \"u32\", "
+	  "\"bit\": %d, \"bits\": 1, \"group\": \"Player\", \"writable\": false, "
+	  "\"description\": \"Revving a spindash (PF_STARTDASH, a bit of Player.Flags)\" }",
+	  (int)offsetof(struct game_state, pflags), __builtin_ctz((unsigned)PF_STARTDASH));
 	P("\n  ]\n}\n");
 #undef GS
 #undef P
