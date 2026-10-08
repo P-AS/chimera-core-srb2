@@ -346,7 +346,8 @@ The harnesses take a movie as text (`--input FILE`: `FROM-TO: Button; Axis=value
 The user asked for a Lua TAS info script (`lua/tasinfo.lua`): speed, the angle in hex and in decimal to 4 places
 (on lines of their own), the position and the momentum on three axes, and the speed shoes, invincibility, space
 and air timers; then (the same day) the conveyor and platform momentum on three axes, and a spindash rev counter,
-with the conveyor and platform momentum, the revs and the timers hidden while 0. Until then the core exposed no memory at all, so a script had nothing to read: the core now has
+with the conveyor and platform momentum, the revs and the timers hidden while 0; then the boss's flashing and
+health, and Metal Sonic's dash mode, after the SRB2 TAS build (the user's `TASBuild.2215.patch`). Until then the core exposed no memory at all, so a script had nothing to read: the core now has
 the `Game State` domain and a property table (Chimera's `docs/game-cores.md`, "Properties"), as the DSDA core
 has. Decisions:
 
@@ -361,7 +362,14 @@ platform momentum. **A spindash rev is a tic of charge**: SRB2 has no discrete r
 1.0 to `player->dashspeed` every tic Spin is held, from the skin's `mindash` to its `maxdash`, and the rev sound
 marks sixths of that. So the table carries `dashspeed`, `mindash`, `maxdash` and `pflags` (with `PF_STARTDASH`
 as a named bit, `Player.Charging Spindash`, its bit worked out from the header), and the script counts
-`(dashspeed - mindash)` in whole units while charging: revs so far / revs to full. Out of a level all of them are 0 and `Player.In Level` false.
+`(dashspeed - mindash)` in whole units while charging: revs so far / revs to full. (The SRB2 TAS build counts
+its revs otherwise - the rev sound's sixths, 1 to 7; that was not taken over.)
+- **The boss as the SRB2 TAS build finds it** (`P_GetBossInfo`): the first `MF_BOSS` object among the
+  thinkers; its health, flashing while `MF2_FRET` (which each boss's states clear, so there is no flash timer
+  to show), and - beyond the build - its type's `spawnhealth`, for health as left / at the start.
+- **Metal Sonic's dash mode as the build shows it**: `player->dashmode` (up a tic at top speed to
+  `DASHMODE_MAX`, 108; dash mode from 105; down 3 a tic below it), and at 108 `player->normalspeed`, the top
+  speed dash mode raises. Out of a level all of them are 0 and `Player.In Level` false.
 - **The raw values**: 16.16 fixed point, the 32-bit angle, tics. The script turns them into units, degrees
   and seconds; RAM Watch shows them as they are, as a TASer of SRB2 is used to.
 - The script reads by name (`game.get`), never by offset, and says so in the console when the core has no
@@ -372,8 +380,11 @@ movie, read by the table, the position moves with Forward, the jump lifts, the a
 axis, and in the air the speed is the momentum's `P_AproxDistance` exactly; with `tests/timers.lua` loaded (an
 SRB2 Lua add-on that sets the four timers after the game's think) every timer and the conveyor and platform momenta are what it set, every step; on `tests/spindash.txt` (Spin
 held 40 tics from a standstill) the charge starts at Min Dash, rises 1.0 a tic, and launches the player at it;
-native == sandbox == rerecord byte for byte. Teeth: the table with angle and speed swapped, air and space, or
-dash speed and max dash, fails. The script itself was run under Lua 5.4 with `game`, `gui` and `emu` stubbed over the leg's dumps
+with `tests/boss.lua` loaded (an Egg Mobile spawned at leveltime 30 and hit at 40; dash mode set every tic) the
+boss reads 8/8, then 7/8 and flashing until its pain state ends (leveltime 80), and dash mode what it set;
+native == sandbox == rerecord byte for byte. Teeth: the table with angle and speed swapped, air and space,
+dash speed and max dash, or boss health and max health, fails. Metal Sonic's real counter was watched counting
+(Greenflower straight ahead: 4, 24, 40, then down at a wall) and the script's 108 line with a forced value. The script itself was run under Lua 5.4 with `game`, `gui` and `emu` stubbed over the leg's dumps
 (in a level, out of one, the timers running): it was not run in Chimera's Lua Console here. On the development host a libchimera
 built there crashes opening the package (2026-10-08: f39db76's and c7c06d7's alike, though c7c06d7 passed two
 days before with the same core.wbx); a CI-built bundle's (e51a141) opens it and plays the engine leg's 450

@@ -202,7 +202,7 @@ const char *chimera_player_skin(void)
  * copy of what a TASer watches, made after every step - the player's object
  * (its position, momentum and angle), the speed the game reckons, the
  * powers' timers, what a conveyor or a moving platform adds to the player's
- * momentum, and the spindash's charge. Read-only: the game would overwrite a poke on its next tic.
+ * momentum, the spindash's charge, Metal Sonic's dash mode, and the boss. Read-only: the game would overwrite a poke on its next tic.
  * In the machine's memory, so a savestate carries it. */
 struct game_state
 {
@@ -225,6 +225,13 @@ struct game_state
 	INT32 dashspeed;      /* 72: the spindash's charge, 16.16 */
 	INT32 mindash, maxdash; /* 76: the character's least and most charge */
 	UINT32 pflags;        /* 84: player->pflags */
+	UINT8 boss_active;    /* 88: a boss is in the level */
+	UINT8 boss_flashing;  /* 89: it is flashing from a hit (MF2_FRET) */
+	UINT8 pad2[2];
+	INT32 boss_health;    /* 92: its health */
+	INT32 boss_max_health; /* 96: its type's spawnhealth */
+	UINT32 dashmode;      /* 100: player->dashmode, tics */
+	INT32 normalspeed;    /* 104: player->normalspeed, 16.16 */
 };
 
 static struct game_state g_state;
@@ -260,6 +267,24 @@ static void update_game_state(void)
 	g_state.mindash = p->mindash;
 	g_state.maxdash = p->maxdash;
 	g_state.pflags = (UINT32)p->pflags;
+	g_state.dashmode = (UINT32)p->dashmode;
+	g_state.normalspeed = p->normalspeed;
+
+	/* the boss as the SRB2 TAS build finds it (P_GetBossInfo): the first
+	 * object with MF_BOSS among the thinkers */
+	for (thinker_t *th = thlist[THINK_MOBJ].next; th && th != &thlist[THINK_MOBJ]; th = th->next)
+	{
+		if (th->function == (actionf_p1)P_RemoveThinkerDelayed)
+			continue;
+		const mobj_t *b = (const mobj_t *)th;
+		if (!(b->flags & MF_BOSS))
+			continue;
+		g_state.boss_active = 1;
+		g_state.boss_flashing = (b->flags2 & MF2_FRET) != 0;
+		g_state.boss_health = b->health;
+		g_state.boss_max_health = b->info->spawnhealth;
+		break;
+	}
 }
 
 int srb2_domain_count(void) { return 1; }
@@ -308,6 +333,12 @@ const char *srb2_game_properties(void)
 	  "\"bit\": %d, \"bits\": 1, \"group\": \"Player\", \"writable\": false, "
 	  "\"description\": \"Revving a spindash (PF_STARTDASH, a bit of Player.Flags)\" }",
 	  (int)offsetof(struct game_state, pflags), __builtin_ctz((unsigned)PF_STARTDASH));
+	GS("Player.Dashmode", dashmode, "u32", "Player", "Metal Sonic's dash mode (player->dashmode): tics at running speed; at 105 (DASHMODE_THRESHOLD) dash mode starts, and it stops counting at 108 (DASHMODE_MAX)");
+	GS("Player.Normal Speed", normalspeed, "s32", "Player", "The player's top running speed (player->normalspeed), raised in dash mode; 16.16 fixed point");
+	GS("Boss.Active", boss_active, "bool", "Boss", "A boss is in the level: the first object with MF_BOSS among the thinkers, as the SRB2 TAS build finds it; the rest of Boss is 0 when not");
+	GS("Boss.Health", boss_health, "s32", "Boss", "The boss's health (hits left)");
+	GS("Boss.Max Health", boss_max_health, "s32", "Boss", "The boss's health at the start (its type's spawnhealth)");
+	GS("Boss.Flashing", boss_flashing, "bool", "Boss", "The boss is flashing from a hit (MF2_FRET): it cannot be hit again until it stops");
 	P("\n  ]\n}\n");
 #undef GS
 #undef P
