@@ -18,15 +18,16 @@ name: chimera waterbox core
 # context (a runner has no GPU: llvmpipe, or a SKIP); the package through Chimera's own engine (the
 # gate's engine leg) and Chimera's contract tests. Every release also carries
 # lua/tasinfo.lua, the TAS info overlay for Chimera's Lua Console (the
-# publish-lua job), checked to parse by the gate job.
+# publish-assets job), checked to parse by the gate job.
 #
 # The gate runs twice, once per host CPU, on a runner of that CPU: x86-64
 # against Chimera's public main, and aarch64 (miniBox's aarch64 machine)
 # against the aarch64 forks of Chimera and miniBox (github.com/P-AS/chimera,
 # branch aarch64, whose extern/chimera-common-minibox is
-# github.com/P-AS/chimera-common-minibox). Both must pass for a release; only
-# the x86-64 package is published, since Chimera's publish names the asset by
-# core and version alone, and the aarch64 one is the run's artifact.
+# github.com/P-AS/chimera-common-minibox). Both must pass for a release, and
+# both packages are in it: srb2-<version>.chimeraCore, x86-64, through
+# Chimera's publish, and srb2-<version>-aarch64.chimeraCore beside it (the
+# publish-assets job).
 
 on:
   pull_request:
@@ -237,21 +238,24 @@ jobs:
       package: srb2.chimeraCore
       kind: ${{ github.event.inputs.kind }}
 
-  publish-lua:
-    # lua/tasinfo.lua as an asset of the release publish just made, dev or
-    # nightly. Chimera's publish-core.sh uploads only the package, and deletes
-    # and recreates `dev` every time, so the script goes up after it, from this
-    # same commit. The release is the one publish-core.yml picks: a nightly for
-    # the schedule or kind nightly, else dev; a nightly is the newest
-    # nightly-* tag at this commit, by its name (the releases API makes
-    # lightweight tags, whose creator date is the commit's, so the date in the
-    # name is the only order); an unmoved main publishes none, and that
-    # nightly, from an earlier run, gets the script if it lacks it.
-    name: publish tasinfo.lua
+  publish-assets:
+    # The aarch64 package and lua/tasinfo.lua as assets of the release publish
+    # just made, dev or nightly. Chimera's publish-core.sh uploads one package,
+    # named by core and version alone (the x86-64 one), and deletes and
+    # recreates `dev` every time, so these go up after it, from this same
+    # commit. The release is the one publish-core.yml picks: a nightly for the
+    # schedule or kind nightly, else dev; a nightly is the newest nightly-* tag
+    # at this commit, by its name (the releases API makes lightweight tags,
+    # whose creator date is the commit's, so the date in the name is the only
+    # order); an unmoved main publishes none, and that nightly, from an earlier
+    # run, gets what it lacks. A nightly's aarch64 package, once there, is
+    # never replaced (a movie may name it); the version index is then written
+    # again, so it lists the aarch64 package too.
+    name: publish the aarch64 package and tasinfo.lua
     needs: [ publish ]
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     permissions:
       contents: write
     steps:
@@ -260,7 +264,21 @@ jobs:
           fetch-depth: 0
           submodules: false
 
-      - name: Upload it into the release
+      - name: Check out Chimera (for tools/write-core-index.sh)
+        uses: actions/checkout@v6
+        with:
+          repository: ToolAssisted-run/chimera
+          ref: main
+          path: chimera-checkout
+          submodules: false
+
+      - name: Fetch the gated aarch64 package
+        uses: actions/download-artifact@v5
+        with:
+          name: srb2-${{ github.sha }}-aarch64
+          path: package-aarch64
+
+      - name: Upload them into the release
         env:
           GH_TOKEN: ${{ github.token }}
           KIND: ${{ github.event.inputs.kind }}
@@ -277,15 +295,51 @@ jobs:
           fi
           [ -n "$tag" ] || { echo "no $KIND release at ${GITHUB_SHA}" >&2; exit 1; }
           # the API answers 5xx now and then (as publish-core.sh retries for)
-          for n in 1 2 3 4; do
-            gh release upload "$tag" lua/tasinfo.lua --clobber && break
-            [ "$n" -lt 4 ] || exit 1
-            sleep $((n * 15))
-          done
+          upload() {
+            for n in 1 2 3 4; do
+              gh release upload "$tag" "$@" && return 0
+              [ "$n" -lt 4 ] || return 1
+              sleep $((n * 15))
+            done
+          }
+
+          # named as publish-core.sh names the x86-64 one, by the version the
+          # package stamps, with the CPU after it
+          pkg=$(find package-aarch64 -name srb2.chimeraCore -print -quit)
+          [ -n "$pkg" ] || { echo "no srb2.chimeraCore in the aarch64 artifact" >&2; exit 1; }
+          version=$(python3 - "$pkg" <<'PY'
+          import json, sys, zipfile
+          with zipfile.ZipFile(sys.argv[1]) as z:
+              print(json.loads(z.read("waterbox.config").decode("utf-8")).get("version", ""))
+          PY
+          )
+          [ "$version" = "$GITHUB_SHA" ] || { echo "the aarch64 package stamps '$version', not $GITHUB_SHA" >&2; exit 1; }
+          asset="srb2-$version-aarch64.chimeraCore"
+          cp "$pkg" "$asset"
+          if [ "$tag" != dev ] && gh release view "$tag" --json assets --jq '.assets[].name' | grep -qx "$asset"; then
+            echo "$tag already carries $asset; a nightly's package is never replaced"
+          else
+            upload "$asset" --clobber
+            echo "$asset -> $tag"
+          fi
+
+          upload lua/tasinfo.lua --clobber
+          echo "tasinfo.lua -> $tag"
+
           notes=$(gh release view "$tag" --json body --jq .body)
           case "$notes" in
-            *tasinfo.lua*) ;;
-            *) printf '%s\n\n%s\n' "$notes" "\`tasinfo.lua\` is the TAS info overlay (speed, angle, position, momentum, spindash revs, timers, boss): open it in Chimera's **Tools > Lua Console** with an SRB2 project loaded (the README's \"Game State and the TAS info script\")." > notes.md
-               gh release edit "$tag" --notes-file notes.md ;;
+            *aarch64*) ;;
+            *) notes=$(printf '%s\n\n%s' "$notes" "Two packages, one per CPU: \`srb2-<version>.chimeraCore\` is for x86-64, \`srb2-<version>-aarch64.chimeraCore\` for aarch64 (ARM64, such as Apple Silicon under Asahi Linux). Put the one for your machine in Chimera's \`Cores\` folder.") ;;
           esac
-          echo "tasinfo.lua -> $tag"
+          case "$notes" in
+            *tasinfo.lua*) ;;
+            *) notes=$(printf '%s\n\n%s' "$notes" "\`tasinfo.lua\` is the TAS info overlay (speed, angle, position, momentum, spindash revs, timers, boss): open it in Chimera's **Tools > Lua Console** with an SRB2 project loaded (the README's \"Game State and the TAS info script\").") ;;
+          esac
+          printf '%s\n' "$notes" > notes.md
+          gh release edit "$tag" --notes-file notes.md
+
+      - name: Publish the version index again
+        # publish-core.yml wrote it before the aarch64 package was there
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: ./chimera-checkout/tools/write-core-index.sh --repo '${{ github.repository }}'
