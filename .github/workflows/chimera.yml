@@ -3,7 +3,7 @@ name: chimera waterbox core
 # The core as Chimera ships it: a sandboxed core.wbx package. An unofficial
 # core (github.com/P-AS/chimera-core-srb2), not in Chimera's roster: it builds
 # against Chimera's public main and publishes into this repository's own
-# releases, by the rules of Chimera's tools/publish-core.sh (the publish job).
+# releases through Chimera's reusable publish workflow (the aarch64 fork's).
 #
 # SRB2's data is Sonic Team Junior's, freely distributed by them and never
 # carried here: the gate downloads STJr's own 2.2.15 release
@@ -17,8 +17,8 @@ name: chimera waterbox core
 # runs opengl-hw through Chimera's GPU bridge when the runner's EGL gives a
 # context (a runner has no GPU: llvmpipe, or a SKIP); the package through Chimera's own engine (the
 # gate's engine leg) and Chimera's contract tests. Every release also carries
-# lua/tasinfo.lua, the TAS info overlay for Chimera's Lua Console,
-# checked to parse by the gate job.
+# lua/tasinfo.lua, the TAS info overlay for Chimera's Lua Console (the
+# publish-lua job), checked to parse by the gate job.
 #
 # The gate runs twice, once per host CPU, on a runner of that CPU: x86-64
 # against Chimera's public main, and aarch64 (miniBox's aarch64 machine)
@@ -202,28 +202,14 @@ jobs:
             -c Release --nologo \
             --filter "FullyQualifiedName~InstalledCorePackagesTests|FullyQualifiedName~MnemonicUniquenessTests"
 
-      - name: Name the package for its release
-        # srb2-<version>-<cpu>.chimeraCore, as the release carries it: the
-        # version read OUT OF THE PACKAGE (what the build stamped, what a movie
-        # cites), as Chimera's publish-core.sh reads it
-        run: |
-          set -eu
-          pkg=chimera-checkout/build/Cores/srb2.chimeraCore
-          version=$(python3 - "$pkg" <<'PY'
-          import json, sys, zipfile
-          with zipfile.ZipFile(sys.argv[1]) as z:
-              print(json.loads(z.read("waterbox.config").decode("utf-8")).get("version", ""))
-          PY
-          )
-          [ "$version" = "$GITHUB_SHA" ] || { echo "the package stamps '$version', not $GITHUB_SHA" >&2; exit 1; }
-          mkdir -p build/release
-          cp "$pkg" "build/release/srb2-$version-${{ matrix.arch }}.chimeraCore"
-
       - name: Publish the core package
+        # as srb2-<sha>-<arch>: the shared publish names it for the release,
+        # srb2-<version>-<arch>.chimeraCore, and checks its core.wbx is built
+        # for that CPU
         uses: actions/upload-artifact@v7
         with:
           name: srb2-${{ github.sha }}-${{ matrix.arch }}
-          path: build/release/srb2-${{ github.sha }}-${{ matrix.arch }}.chimeraCore
+          path: chimera-checkout/build/Cores/srb2.chimeraCore
           if-no-files-found: error
 
       - name: Upload the gate work dir on failure
@@ -240,30 +226,41 @@ jobs:
   publish:
     # What the gate passed, published as this core's own release: a rolling
     # `dev` on every green push to main, an immutable `nightly-YYYY-MM-DD` from
-    # the scheduled run (or kind nightly), each carrying both packages,
-    # srb2-<version>-x86_64.chimeraCore and srb2-<version>-aarch64.chimeraCore,
-    # and lua/tasinfo.lua. Chimera's tools/publish-core.sh, through its
-    # reusable publish-core.yml, does this for one package named by core and
-    # version alone, so the same rules are kept here for two:
-    #   - `dev` is deleted with its tag and recreated at this commit, through
-    #     the releases API (a workflow token may not push a tag at a commit
-    #     whose workflow files differ from the default branch's).
-    #   - a nightly is published only when main moved: when a nightly-* tag
-    #     already points at this commit (the newest by its name: the releases
-    #     API makes lightweight tags, whose creator date is the commit's), that
-    #     nightly is the one, and only what it lacks goes up. A package in a
-    #     nightly is never replaced: a movie may name it. Today's nightly at
-    #     another commit, with a package in it, is never republished.
-    #   - every API call is retried (it answers 5xx now and then), and the
-    #     release is ensured rather than created, since a create whose answer
-    #     was lost may still have happened.
-    # Then Chimera's tools/write-core-index.sh writes the version index again,
-    # from the full release list.
+    # the scheduled run, each carrying both packages,
+    # srb2-<version>-x86_64.chimeraCore and srb2-<version>-aarch64.chimeraCore.
+    # The logic is Chimera's tools/publish-core.sh, through the one reusable
+    # workflow every core publishes with - the aarch64 fork's, which publishes
+    # a package per CPU, running the fork's own publish-core.sh.
     name: publish
     needs: [ gate ]
     if: github.event_name != 'pull_request'
+    permissions:
+      contents: write
+    uses: P-AS/chimera/.github/workflows/publish-core.yml@aarch64
+    with:
+      core-id: srb2
+      artifact: srb2-${{ github.sha }}
+      package: srb2.chimeraCore
+      arches: x86_64 aarch64
+      kind: ${{ github.event.inputs.kind }}
+      chimera-repository: P-AS/chimera
+      chimera-ref: aarch64
+
+  publish-lua:
+    # lua/tasinfo.lua as an asset of the release publish just made, dev or
+    # nightly. Chimera's publish-core.sh uploads only the package, and deletes
+    # and recreates `dev` every time, so the script goes up after it, from this
+    # same commit. The release is the one publish-core.yml picks: a nightly for
+    # the schedule or kind nightly, else dev; a nightly is the newest
+    # nightly-* tag at this commit, by its name (the releases API makes
+    # lightweight tags, whose creator date is the commit's, so the date in the
+    # name is the only order); an unmoved main publishes none, and that
+    # nightly, from an earlier run, gets the script if it lacks it.
+    name: publish tasinfo.lua
+    needs: [ publish ]
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 10
     permissions:
       contents: write
     steps:
@@ -272,22 +269,7 @@ jobs:
           fetch-depth: 0
           submodules: false
 
-      - name: Check out Chimera (for tools/write-core-index.sh)
-        uses: actions/checkout@v6
-        with:
-          repository: ToolAssisted-run/chimera
-          ref: main
-          path: chimera-checkout
-          submodules: false
-
-      - name: Fetch the gated packages
-        uses: actions/download-artifact@v5
-        with:
-          pattern: srb2-${{ github.sha }}-*
-          path: packages
-          merge-multiple: true
-
-      - name: Publish them into the release
+      - name: Upload it into the release
         env:
           GH_TOKEN: ${{ github.token }}
           KIND: ${{ github.event.inputs.kind }}
@@ -296,95 +278,23 @@ jobs:
           if [ -z "$KIND" ]; then
             if [ "${{ github.event_name }}" = schedule ]; then KIND=nightly; else KIND=dev; fi
           fi
-          case "$KIND" in
-            dev|nightly) ;;
-            *) echo "kind must be dev or nightly" >&2; exit 1 ;;
-          esac
-          for cpu in x86_64 aarch64; do
-            [ -f "packages/srb2-$GITHUB_SHA-$cpu.chimeraCore" ] || {
-              echo "no srb2-$GITHUB_SHA-$cpu.chimeraCore among the gated packages" >&2; ls -l packages >&2; exit 1; }
-          done
-
-          retry() {
-            for n in 1 2 3 4; do
-              "$@" && return 0
-              [ "$n" -lt 4 ] || return 1
-              echo "retrying in $((n * 15))s: $1 $2 $3" >&2
-              sleep $((n * 15))
-            done
-          }
-          ensure_release() { # <tag> <title> <flags...>
-            t=$1 title=$2; shift 2
-            for n in 1 2 3 4; do
-              gh release view "$t" >/dev/null 2>&1 && return 0
-              gh release create "$t" --target "$GITHUB_SHA" "$@" --title "$title" --notes-file notes.md && return 0
-              [ "$n" -lt 4 ] || return 1
-              echo "retrying in $((n * 15))s: release $t" >&2
-              sleep $((n * 15))
-            done
-          }
-
-          {
-            echo "Core package for [Chimera](https://github.com/ToolAssisted-run/chimera)."
-            echo
-            echo "Download the \`.chimeraCore\` file below for your machine's CPU -"
-            echo "\`x86_64\`, or \`aarch64\` (ARM64, such as Apple Silicon under Asahi"
-            echo "Linux) - and put it in Chimera's \`Cores\` folder (**File > Core"
-            echo "Manager** shows where that is). Chimera downloads nothing itself."
-            echo
-            echo "| | |"
-            echo "|---|---|"
-            echo "| Core | \`srb2\` |"
-            echo "| Version | \`$GITHUB_SHA\` |"
-            echo "| Built from | \`$GITHUB_SHA\` |"
-            echo
-            if [ "$KIND" = dev ]; then
-              echo "This is a **development build**: it is replaced on every change, so it"
-              echo "may stop being downloadable. For a build that is kept permanently -"
-              echo "which is what a movie needs to stay replayable - take a nightly."
-            else
-              echo "This is a **nightly**: it is never deleted. A movie recorded on this"
-              echo "package can be replayed against it for as long as this repository"
-              echo "exists."
-            fi
-            echo
-            echo "\`tasinfo.lua\` is the TAS info overlay (speed, angle, position, momentum, spindash revs, timers, boss): open it in Chimera's **Tools > Lua Console** with an SRB2 project loaded (the README's \"Game State and the TAS info script\")."
-          } > notes.md
-
           git fetch --tags --force --quiet
           if [ "$KIND" = dev ]; then
             tag=dev
-            gh release delete dev --yes --cleanup-tag 2>/dev/null || true
-            ensure_release dev "Development build ${GITHUB_SHA:0:8}" --prerelease --latest=false
           else
             tag=$(git tag --points-at HEAD --sort=-refname -l 'nightly-*' | head -1)
-            if [ -z "$tag" ]; then
-              tag="nightly-$(date -u +%Y-%m-%d)"
-              if gh release view "$tag" --json assets --jq '.assets[].name' 2>/dev/null | grep -q '^srb2-.*\.chimeraCore$'; then
-                echo "$tag already exists, from another commit; a nightly is never republished"
-                exit 0
-              fi
-            fi
-            ensure_release "$tag" "Nightly ${tag#nightly-}" --latest
           fi
-
-          have=$(gh release view "$tag" --json assets --jq '.assets[].name')
-          for cpu in x86_64 aarch64; do
-            asset="srb2-$GITHUB_SHA-$cpu.chimeraCore"
-            if [ "$tag" != dev ] && printf '%s\n' "$have" | grep -qx "$asset"; then
-              echo "$tag already carries $asset; a nightly's package is never replaced"
-            else
-              retry gh release upload "$tag" "packages/$asset" --clobber
-              echo "$asset -> $tag"
-            fi
+          [ -n "$tag" ] || { echo "no $KIND release at ${GITHUB_SHA}" >&2; exit 1; }
+          # the API answers 5xx now and then (as publish-core.sh retries for)
+          for n in 1 2 3 4; do
+            gh release upload "$tag" lua/tasinfo.lua --clobber && break
+            [ "$n" -lt 4 ] || exit 1
+            sleep $((n * 15))
           done
-          retry gh release upload "$tag" lua/tasinfo.lua --clobber
+          notes=$(gh release view "$tag" --json body --jq .body)
+          case "$notes" in
+            *tasinfo.lua*) ;;
+            *) printf '%s\n\n%s\n' "$notes" "\`tasinfo.lua\` is the TAS info overlay (speed, angle, position, momentum, spindash revs, timers, boss): open it in Chimera's **Tools > Lua Console** with an SRB2 project loaded (the README's \"Game State and the TAS info script\")." > notes.md
+               gh release edit "$tag" --notes-file notes.md ;;
+          esac
           echo "tasinfo.lua -> $tag"
-
-      # Chimera reads this file instead of asking the API (write-core-index.sh
-      # says why). Written last, from the full release list, so it describes
-      # what is actually there.
-      - name: Publish the version index
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: ./chimera-checkout/tools/write-core-index.sh --repo '${{ github.repository }}'
