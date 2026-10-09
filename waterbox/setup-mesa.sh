@@ -153,10 +153,13 @@ aarch64)
 	cpu_family=aarch64
 	triplet=aarch64-linux-musl
 	cpu_args="'-mbranch-protection=none', '-mno-outline-atomics', '-ffp-contract=off', '-fsigned-char'" ;;
-*)
+x86_64)
 	cpu_family=x86_64
 	triplet=x86_64-linux-musl
 	cpu_args="'-mcmodel=large', '-fcf-protection=none'" ;;
+*)
+	echo "setup-mesa.sh: miniBox runs on x86-64 and aarch64 only, not $(uname -m)" >&2
+	exit 1 ;;
 esac
 cat > "$mesa/guest-cross.ini" <<EOF
 [binaries]
