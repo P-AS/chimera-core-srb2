@@ -67,10 +67,23 @@ build="$mesa/build-guest2"
 cache="${CHIMERA_DEPS_DIR:-$root/build/deps}"
 tarball="${MESA_TARBALL:-$cache/mesa-$version.tar.xz}"
 
+# A build is this script's only while the script is what it was: the flags it
+# gives Mesa are in here (the guest's CPU flags among them), and archives
+# built with others link without a word. So a build records the hash of the
+# script that made it, and one made by another script is thrown away and
+# built again from nothing - a cross file's flags do not reliably reach a
+# reconfigured build. CI keys its Mesa cache on the same hash and keeps the
+# record with the build.
+self_sha="$(sha256sum "$here/setup-mesa.sh" | cut -d' ' -f1)"
+stamp="$build/setup-mesa.sha256"
 if [ -d "$build" ] && find "$build" -name '*.a' -print -quit 2>/dev/null | grep -q . \
 	&& find "$build/src/gallium/targets/osmesa" -name 'target.c.o' -print -quit 2>/dev/null | grep -q .; then
-	echo "mesa: already built in $build"
-	exit 0
+	if [ "$(cat "$stamp" 2>/dev/null)" = "$self_sha" ]; then
+		echo "mesa: already built in $build"
+		exit 0
+	fi
+	echo "mesa: $build was built by another setup-mesa.sh; building again"
+	rm -rf "$build"
 fi
 
 if [ ! -f "$tarball" ]; then
@@ -147,12 +160,13 @@ fi
 # large code model, static reloc, no %fs stack guard, the guest's own libstdc++.
 # On aarch64, miniBox's aarch64 machine instead: the small code model (any
 # base works there), no return-address signing, no outline atomics, and
-# x86-64's arithmetic - no fused multiply-add, signed char (guest.mk's WBCPU).
+# x86-64's arithmetic - no fused multiply-add, signed char - and x18 left
+# alone, the register Windows and macOS keep for themselves (guest.mk's WBCPU).
 case "$(uname -m)" in
 aarch64)
 	cpu_family=aarch64
 	triplet=aarch64-linux-musl
-	cpu_args="'-mbranch-protection=none', '-mno-outline-atomics', '-ffp-contract=off', '-fsigned-char'" ;;
+	cpu_args="'-mbranch-protection=none', '-mno-outline-atomics', '-ffp-contract=off', '-fsigned-char', '-ffixed-x18'" ;;
 x86_64)
 	cpu_family=x86_64
 	triplet=x86_64-linux-musl
@@ -225,6 +239,7 @@ fi
 target_o="$(find "$build/src/gallium/targets/osmesa" -name 'target.c.o' 2>/dev/null | head -1)"
 archives="$(find "$build" -name '*.a' 2>/dev/null | wc -l)"
 if [ -n "$target_o" ] && [ "$archives" -gt 0 ]; then
+	echo "$self_sha" > "$stamp"
 	echo "mesa: ready - $archives archives + $target_o"
 else
 	echo "mesa: the build did NOT produce the osmesa target.c.o / archives" >&2

@@ -26,6 +26,11 @@ firmware.
 - `waterbox/setup-mesa.sh`: builds Mesa's softpipe for the guest
   (`build/mesa/`), which the OpenGL renderer draws on and both builds take
   their GL headers from.
+- `waterbox/check-portable.sh`: run on every aarch64 link. Everything built
+  here must leave register x18 alone (`-ffixed-x18` in `guest.mk` and
+  `setup-mesa.sh`): Windows keeps the TEB there and macOS clears it, so code
+  using it ties the package to Linux. It also lists what the guest kit (musl,
+  libstdc++, libgcc) still does with x18, without failing on it.
 - `waterbox/fetch-data.sh`: downloads STJr's 2.2.15 release and takes out the
   four pk3s, checked (the gate's data where none is installed).
 - `waterbox/build-package.sh`: builds the package. `run-gate.sh`: the gate.
