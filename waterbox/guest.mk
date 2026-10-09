@@ -34,9 +34,18 @@ LIBSTDCXX := $(SR)/lib/libstdc++.a
 # miniBox's aarch64 machine (no return-address signing, no outline atomics, and
 # x86-64's arithmetic: no fused multiply-add, signed char). The musl specs
 # carry the CPU flags for C only, so they are given here for C++ as well.
+#
+# And on aarch64, x18 left alone (-ffixed-x18). A package is machine code for
+# a CPU, not an OS, and x18 is the one register the OSes disagree on: Linux
+# lets code use it, Windows keeps the thread's TEB in it (its ARM64 ABI:
+# "reserved platform register"), and macOS zeroes it when it likes. A core
+# that uses it could only ever run on Linux, and the package a movie cites
+# cannot be rebuilt later without becoming a different package - so it is
+# kept out now, while there are no aarch64 nightlies to keep.
+# check-portable.sh holds every object built here to it.
 GUEST_CPU := $(shell uname -m)
 ifeq ($(GUEST_CPU),aarch64)
-WBCPU := -mbranch-protection=none -mno-outline-atomics -ffp-contract=off -fsigned-char
+WBCPU := -mbranch-protection=none -mno-outline-atomics -ffp-contract=off -fsigned-char -ffixed-x18
 GUEST_TRIPLET := aarch64-linux-musl
 else ifeq ($(GUEST_CPU),x86_64)
 WBCPU := -mcmodel=large -mno-red-zone -fcf-protection=none
@@ -162,6 +171,7 @@ $(B)/core.wbx: $(CORE_OBJS) $(SRB2_OBJS) $(PNG_OBJS) $(XIPH_OBJS) $(GME_OBJS) $(
 		-Wl,-u,pthread_once -Wl,-u,pthread_cond_wait -Wl,-u,pthread_cond_broadcast -Wl,-u,pthread_key_create \
 		-o $@.tmp $(filter-out $(MESA_TARGET),$^) $(MESA_LINK) $(CXXGLUE) $(EMULIBC) $(WRAP_FLAGS) -L$(SR)/lib -lstdc++ -lm -lgcc -lgcc_eh -lc
 	sh $(MB)/source/guest/check-wbx.sh $@.tmp
+	sh check-portable.sh $@.tmp $(filter-out $(MESA_TARGET),$^) $(MESA_TARGET) $(MESA_ARCHIVES)
 	mv $@.tmp $@
 
 clean:

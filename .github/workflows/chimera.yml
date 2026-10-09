@@ -147,13 +147,15 @@ jobs:
         # what the build uses of it: the archives, the objects they name (Meson's
         # archives are thin: a member is a path to its .o, not a copy) and the
         # osmesa target (the guest link), the GL headers (both builds), the
-        # licence files (the package)
+        # licence files (the package), and the hash of the setup-mesa.sh that
+        # built it, without which the script builds it again
         uses: actions/cache@v4
         with:
           path: |
             build/mesa/build-guest2/**/*.a
             build/mesa/build-guest2/**/*.o
             build/mesa/build-guest2/src/gallium/targets/osmesa
+            build/mesa/build-guest2/setup-mesa.sha256
             build/mesa/include
             build/mesa/docs/license.rst
             build/mesa/subprojects/expat-2.5.0/COPYING
