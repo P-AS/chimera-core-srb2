@@ -523,25 +523,30 @@ if [ -n "$bundle" ]; then
 	# core's); with no bridge asked for, opengl-hw is the Mesa, the same run
 	pkg="$root/build/gate/package/srb2.chimeraCore"
 	eo() { LD_LIBRARY_PATH="$bundle/dll" python3 "$here/tests/engine-open.py" "$bundle/dll/libchimera.so" "$pkg" "$data" "$@" 2>&1; }
-	mesa="$(eo 120 '{"renderer": "opengl", "resolution": "320x200", "warp": "1"}' | grep '^120 steps')"
-	nobridge="$(eo 120 '{"renderer": "opengl-hw", "resolution": "320x200", "warp": "1"}')"
+	mesa="$(eo 120 '{"renderer": "opengl", "resolution": "320x200", "warp": "1"}' | grep '^120 steps' || true)"
+	nobridge="$(eo 120 '{"renderer": "opengl-hw", "resolution": "320x200", "warp": "1"}' || true)"
 	if echo "$nobridge" | grep -q "no GPU bridge (none offered); OpenGL on the Mesa softpipe" \
 		&& [ -n "$mesa" ] && [ "$(echo "$nobridge" | grep '^120 steps')" = "$mesa" ]; then
 		pass "engine: opengl-hw with no bridge offered says so and is the Mesa's run"
 	else
 		bad "engine: opengl-hw without a bridge is not the Mesa's run"
 	fi
-	gpu="$(eo 120 '{"renderer": "opengl-hw", "resolution": "320x200", "warp": "1"}' --gpu)"
+	gpu="$(eo 120 '{"renderer": "opengl-hw", "resolution": "320x200", "warp": "1"}' --gpu || true)"
 	if echo "$gpu" | grep -q "OpenGL on the GPU outside the sandbox"; then
 		driver="$(echo "$gpu" | grep -m1 '^chimera gl: ' | sed 's/^chimera gl: //')"
 		hwsound="$(field "$(echo "$gpu" | grep '^120 steps' | tr -d ',')" sound)"
 		mesasound="$(field "$(echo "$mesa" | tr -d ',')" sound)"
-		states="$(LD_LIBRARY_PATH="$bundle/dll" python3 "$tests/engine-gpu-states.py" "$bundle/dll/libchimera.so" "$pkg" "$data" 2>/dev/null)"
+		# A failing check exits nonzero, and under set -e a failing command in an
+		# assignment ends the gate there with nothing said (2026-10-09: on an M1,
+		# whose GPU the engine reaches, the gate stopped after this leg and never
+		# ran the time leg). Its verdict is the PASS lines read below, so a
+		# failure is reported there like any other.
+		states="$(LD_LIBRARY_PATH="$bundle/dll" python3 "$tests/engine-gpu-states.py" "$bundle/dll/libchimera.so" "$pkg" "$data" 2>/dev/null || true)"
 		# the character select: flat fills drawn with the renderer's imageless
 		# NOTEXTURE bound, which drew black on the GPU until gl_compat.c took an
 		# imageless texture as texturing off (2026-10-05, from use)
-		eo 300 '{"renderer": "opengl", "resolution": "320x200"}' --ppm "$root/build/gate/cs-mesa.ppm" >/dev/null
-		eo 300 '{"renderer": "opengl-hw", "resolution": "320x200"}' --ppm "$root/build/gate/cs-gpu.ppm" --gpu >/dev/null
+		eo 300 '{"renderer": "opengl", "resolution": "320x200"}' --ppm "$root/build/gate/cs-mesa.ppm" >/dev/null || true
+		eo 300 '{"renderer": "opengl-hw", "resolution": "320x200"}' --ppm "$root/build/gate/cs-gpu.ppm" --gpu >/dev/null || true
 		apart="$(python3 -c '
 import sys
 a, b = (open(p, "rb").read().split(b"\n", 3)[3] for p in sys.argv[1:3])
