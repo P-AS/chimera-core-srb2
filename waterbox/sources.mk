@@ -125,8 +125,10 @@ CORE_C_NAMES := $(addprefix platform/,$(PLATFORM_NAMES)) srb2-driver srb2-input 
 # the CPU both builds run on
 ifeq ($(shell uname -m),aarch64)
 LIBCO_SRC := $(MB)/extern/libco/aarch64.c
-else
+else ifeq ($(shell uname -m),x86_64)
 LIBCO_SRC := $(MB)/extern/libco/amd64.c
+else
+$(error miniBox runs on x86-64 and aarch64 only, not $(shell uname -m))
 endif
 # On aarch64 the guest computes as x86-64 does - no fused multiply-add, signed
 # char (miniBox's aarch64 machine, guest.mk's WBCPU) - and the native
@@ -134,6 +136,10 @@ endif
 # different games. Nothing on x86-64, where both are already so.
 ifeq ($(shell uname -m),aarch64)
 ARITH_FLAGS := -ffp-contract=off -fsigned-char
+else ifeq ($(shell uname -m),x86_64)
+ARITH_FLAGS :=
+else
+$(error miniBox runs on x86-64 and aarch64 only, not $(shell uname -m))
 endif
 CORE_HDRS := $(wildcard *.h) $(wildcard platform/*.h) $(wildcard compat/*/*.h)
 CORE_CFLAGS_COMMON := $(SRB2_CFLAGS_COMMON) -I$(MB)/extern/libco

@@ -38,9 +38,11 @@ GUEST_CPU := $(shell uname -m)
 ifeq ($(GUEST_CPU),aarch64)
 WBCPU := -mbranch-protection=none -mno-outline-atomics -ffp-contract=off -fsigned-char
 GUEST_TRIPLET := aarch64-linux-musl
-else
+else ifeq ($(GUEST_CPU),x86_64)
 WBCPU := -mcmodel=large -mno-red-zone -fcf-protection=none
 GUEST_TRIPLET := x86_64-linux-musl
+else
+$(error miniBox runs on x86-64 and aarch64 only, not $(GUEST_CPU))
 endif
 WBFLAGS := -fvisibility=hidden $(WBCPU) -mstack-protector-guard=global \
 	-fno-stack-protector -fno-pic -fno-pie -DNDEBUG -DCHIMERA_GUEST
