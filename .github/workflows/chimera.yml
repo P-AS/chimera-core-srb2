@@ -1,9 +1,12 @@
 name: chimera waterbox core
 
-# The core as Chimera ships it: a sandboxed core.wbx package. An unofficial
-# core (github.com/P-AS/chimera-core-srb2), not in Chimera's roster: it builds
-# against Chimera's public main and publishes into this repository's own
-# releases through Chimera's reusable publish workflow (the aarch64 fork's).
+# The core as Chimera ships it: a sandboxed core.wbx package. An official core,
+# on Chimera's roster since Chimera's 9aff711 (2026-10-10), published by its
+# author outside the ToolAssisted-run organisation
+# (github.com/P-AS/chimera-core-srb2): it builds against Chimera's public main
+# and publishes into this repository's own releases through Chimera's reusable
+# publish workflow (the aarch64 fork's). Chimera's CI fetches the newest
+# nightly's x64 package on every run and runs its package tests on it.
 #
 # SRB2's data is Sonic Team Junior's, freely distributed by them and never
 # carried here: the gate downloads STJr's own 2.2.15 release
@@ -257,7 +260,9 @@ jobs:
     # nightly-* tag at this commit, by its name (the releases API makes
     # lightweight tags, whose creator date is the commit's, so the date in the
     # name is the only order); an unmoved main publishes none, and that
-    # nightly, from an earlier run, gets the script if it lacks it.
+    # nightly, from an earlier run, gets the script if it lacks it. The notes
+    # get two paragraphs: which package most users want (x64), above the table
+    # that names both, and what tasinfo.lua is, at the end.
     name: publish tasinfo.lua
     needs: [ publish ]
     if: github.event_name != 'pull_request'
@@ -294,9 +299,21 @@ jobs:
             sleep $((n * 15))
           done
           notes=$(gh release view "$tag" --json body --jq .body)
+          changed=0
+          # which package to take, before the table that names both
+          hint='**You most likely want the x64 package.** Take the arm64 one only if you know you are using an arm64 device.'
+          case "$notes" in
+            *"most likely want the x64"*) ;;
+            *) notes=$(printf '%s\n' "$notes" | awk -v h="$hint" '!done && /^\|/ { print h; print ""; done = 1 } { print } END { if (!done) { print ""; print h } }')
+               changed=1 ;;
+          esac
           case "$notes" in
             *tasinfo.lua*) ;;
-            *) printf '%s\n\n%s\n' "$notes" "\`tasinfo.lua\` is the TAS info overlay (speed, angle, position, momentum, spindash revs, timers, boss): open it in Chimera's **Tools > Lua Console** with an SRB2 project loaded (the README's \"Game State and the TAS info script\")." > notes.md
-               gh release edit "$tag" --notes-file notes.md ;;
+            *) notes=$(printf '%s\n\n%s' "$notes" "\`tasinfo.lua\` is the TAS info overlay (speed, angle, position, momentum, spindash revs, timers, boss): open it in Chimera's **Tools > Lua Console** with an SRB2 project loaded (the README's \"Game State and the TAS info script\").")
+               changed=1 ;;
           esac
+          if [ "$changed" = 1 ]; then
+            printf '%s\n' "$notes" > notes.md
+            gh release edit "$tag" --notes-file notes.md
+          fi
           echo "tasinfo.lua -> $tag"
