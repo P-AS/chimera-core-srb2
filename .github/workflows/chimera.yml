@@ -26,7 +26,7 @@ name: chimera waterbox core
 # branch aarch64, whose extern/chimera-common-minibox is
 # github.com/P-AS/chimera-common-minibox). Both must pass for a release, and
 # both packages are in it, each named by the leg's CPU:
-# srb2-<version>-x86_64.chimeraCore and srb2-<version>-aarch64.chimeraCore.
+# srb2-<version>-x64.chimeraCore and srb2-<version>-arm64.chimeraCore.
 
 on:
   pull_request:
@@ -66,11 +66,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - arch: x86_64
+          - arch: x64
             runner: ubuntu-latest
             chimera-repo: ToolAssisted-run/chimera
             chimera-ref: main
-          - arch: aarch64
+          - arch: arm64
             runner: ubuntu-26.04-arm
             chimera-repo: P-AS/chimera
             chimera-ref: aarch64
@@ -229,7 +229,7 @@ jobs:
     # What the gate passed, published as this core's own release: a rolling
     # `dev` on every green push to main, an immutable `nightly-YYYY-MM-DD` from
     # the scheduled run, each carrying both packages,
-    # srb2-<version>-x86_64.chimeraCore and srb2-<version>-aarch64.chimeraCore.
+    # srb2-<version>-x64.chimeraCore and srb2-<version>-arm64.chimeraCore.
     # The logic is Chimera's tools/publish-core.sh, through the one reusable
     # workflow every core publishes with - the aarch64 fork's, which publishes
     # a package per CPU, running the fork's own publish-core.sh.
@@ -243,7 +243,7 @@ jobs:
       core-id: srb2
       artifact: srb2-${{ github.sha }}
       package: srb2.chimeraCore
-      arches: x86_64 aarch64
+      arches: x64 arm64
       kind: ${{ github.event.inputs.kind }}
       chimera-repository: P-AS/chimera
       chimera-ref: aarch64
