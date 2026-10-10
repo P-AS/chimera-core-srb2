@@ -207,7 +207,7 @@ checking and encoding a movie, not for playing one: that is 8b's.
 (`source/gl/gl-entry-points.txt`), which has no fixed-function GL, and on Linux it asks EGL for a 3.3 context,
 which is a core profile; SRB2's renderer is GL 1.x (matrix stacks, client-side arrays, `glTexEnv`,
 `glAlphaFunc`, lights and materials for models: ~30 of its ~80 calls) and its GLSL uses the compatibility
-built-ins. The core cannot change Chimera (an unofficial core), so the translation is the core's own,
+built-ins. The core cannot change Chimera (a third-party core), so the translation is the core's own,
 `platform/gl_compat.c`, between `GetGLFunc` and the bridge:
 
 - **matrices**: the three stacks kept in the core and handed to every program as uniforms (each program
@@ -519,10 +519,10 @@ newest `nightly-*` tag at the commit by name - the API's tags are lightweight, t
 The gate job checks the scripts parse (`luac5.4 -p`). The job's shell was run against a scratch repository with a
 stand-in `gh` (dev, nightly, two nightlies at one commit, none); the workflow itself first runs on GitHub.
 
-**It depends on no Chimera change.** This is an unofficial core (github.com/P-AS/chimera-core-srb2,
-user-decided 2026-10-04): it is not in Chimera's list of cores (`official-cores.json`, and the README's table),
-which is the Chimera project's to grant. Since Chimera's ecc06b8 (2026-10-07) that list makes no difference to a
-user: Chimera ships no cores and downloads nothing, the Core Manager lists the packages in the cores folder, and
+**It depends on no Chimera change.** It began as an unofficial core (github.com/P-AS/chimera-core-srb2,
+user-decided 2026-10-04); it has been on Chimera's roster since 2026-10-10 (see "On Chimera's roster"), which the
+Chimera project granted without a change here. Since Chimera's ecc06b8 (2026-10-07) the roster makes no difference
+to how a user gets a core: Chimera ships no cores and downloads nothing, the Core Manager lists the packages in the cores folder, and
 every core, official or not, gets there because somebody put its package there (from its releases page, or built).
 The core was adapted for that at Chimera f39db76: the README's "Using it in Chimera", `docs/BUILDING.md` and
 `AGENTS.md`, after the DSDA core's d994c4f; the build, the package and the publish job were unchanged.
@@ -542,6 +542,31 @@ gate prints - pictures, sounds, game states, at every resolution - was the same 
 compilers, one machine. Two things that run surfaced, both fixed in the gate: a relative `-d` made the work
 folders' links to the data dangle (it is made absolute), and a run that printed nothing ended the gate silently
 under `set -e` (an empty run is now a leg's FAIL).
+
+## On Chimera's roster (2026-10-10)
+
+Chimera's 9aff711 (2026-10-10, at its owner's request) made SRB2 an **official core**: a row in
+`official-cores.json` (`"repo": "P-AS/chimera-core-srb2"`, `"kind": "game"`), and a line in Chimera's README with
+the game cores saying its author, P-AS, publishes it. It is the first official core published outside the
+ToolAssisted-run organisation: this repository stays the user's, as a third party, and nothing about the build or
+the publish changed. Chimera's issue to us is #1 here.
+
+What it means for this repository:
+- **Chimera's CI depends on our nightlies.** Every Chimera CI run downloads the newest `nightly-*` release here
+  (`tools/fetch-cores.sh`) and runs its package tests on it (`Nightly 2026-10-10` passed, 15 of 15). A nightly
+  those tests refuse fails Chimera's CI until a fixed nightly is out, so a nightly must never carry a package that
+  Chimera's stock main refuses - which the gate's contract tests already check before publishing. Chimera's
+  fetch script drops the `-arm64` package: Chimera runs x64 guests only.
+- **Release notifications** (#1, open): each roster core announces its releases in Chimera's Discord through a
+  webhook of its repository (Settings > Webhooks, payload URL the channel's webhook + `/github`,
+  `application/json`, the Releases event only). Only the owner can add it, and the URL is a credential, asked of
+  Sergio Martin in private - not done from here.
+- **Which package** (#1's notes, user-decided 2026-10-10): the README no longer calls the core unofficial or names
+  the package `srb2.chimeraCore`, which is only the name inside a build; a release carries
+  `srb2-<version>-x64.chimeraCore` and `srb2-<version>-arm64.chimeraCore`. The README and every release's notes
+  say most users want the x64 one, the arm64 one only for those who know their device is arm64. The notes come
+  from the shared `publish-core.sh`; the `publish-lua` job, which edits them already, puts that line above the
+  table naming the two packages (once: it looks for the line first, as for `tasinfo.lua`'s).
 
 ## The game's home
 

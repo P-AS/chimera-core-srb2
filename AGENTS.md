@@ -3,9 +3,12 @@
 This repository builds Sonic Robo Blast 2 (Sonic Team Junior's 3D Sonic
 fangame) as a GAME core (one game engine built as a core, not an emulator)
 for Chimera (https://github.com/ToolAssisted-run/chimera), a frontend for
-tool-assisted speedruns. It is an UNOFFICIAL core
+tool-assisted speedruns. It is an official core, on Chimera's roster, but
+published outside the ToolAssisted-run organisation by its author
 (https://github.com/P-AS/chimera-core-srb2): the Chimera project does not
-maintain it, and nothing here may depend on a change to Chimera. It produces
+maintain it, and nothing here may depend on a change to Chimera. Chimera's CI
+tests this repository's newest nightly, so a nightly must pass Chimera's
+package tests. It produces
 one file, `srb2.chimeraCore`: the engine as a sandboxed guest (`core.wbx`)
 and its declarations. The game's data (srb2.pk3, zones.pk3, characters.pk3,
 music.pk3) is never in the repository or the package: it is the user's

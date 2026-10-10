@@ -2,9 +2,10 @@
 
 This repository builds Sonic Robo Blast 2 as a Chimera game core: one game
 engine built as a core, not an emulator (Chimera's `docs/game-cores.md`). It
-is an unofficial core, not maintained by the Chimera project. The result is
-one file, `srb2.chimeraCore`, which Chimera loads; the game's data is the
-user's. The steps below follow `.github/workflows/chimera.yml`, which builds
+is an official core, on Chimera's roster, but written and published here by
+its author (P-AS), outside the ToolAssisted-run organisation. The result is
+one file, `srb2.chimeraCore`, which Chimera loads (a release names it
+`srb2-<version>-<x64|arm64>.chimeraCore`); the game's data is the user's. The steps below follow `.github/workflows/chimera.yml`, which builds
 and gates the core from a fresh clone on a public Ubuntu runner.
 
 Placeholders used below:
@@ -232,13 +233,16 @@ There is no manual equivalent.
 
 Chimera ships no cores and downloads nothing: it has no network code. A core
 gets into Chimera because somebody put its package file in the cores folder.
-This core is not in the list of cores Chimera's README links to; that is the
-Chimera project's to decide, and nothing here depends on it.
+This core is in the list of cores Chimera's README links to (since Chimera's
+9aff711), but nothing here depends on it.
 
-- **A release bundle of Chimera**: download `srb2.chimeraCore` from this
+- **A release bundle of Chimera**: download the package from this
   repository's Releases page
   (https://github.com/P-AS/chimera-core-srb2/releases), or build it, and put
-  it in the `Cores` folder beside `Chimera.exe`. Another folder can be chosen
+  it in the `Cores` folder beside `Chimera.exe`. A release has
+  `srb2-<version>-x64.chimeraCore` and `srb2-<version>-arm64.chimeraCore`:
+  you most likely want the x64 one; take the arm64 one only if you know you
+  are using an arm64 device. Put only one of them in the folder. Another folder can be chosen
   in File > Core Manager > Change folder...
   `./waterbox/build-package.sh -r <bundle>` writes it there.
 - **A Chimera source checkout**: the cores folder is `<chimera>/build/Cores/`.

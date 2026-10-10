@@ -1,9 +1,11 @@
 # chimera-core-srb2
 
-[Sonic Robo Blast 2](https://srb2.org/) (Sonic Team Junior's 3D Sonic fangame, from Doom Legacy) as an
-**unofficial** [Chimera](https://github.com/ToolAssisted-run/chimera) **game core** (`"kind": "game"`, see Chimera's
-`docs/game-cores.md`). It is not maintained by the Chimera project and is not among the cores Chimera's README
-lists; it needs no change to Chimera. See `docs/PLAN.md` for the milestones and decisions.
+[Sonic Robo Blast 2](https://srb2.org/) (Sonic Team Junior's 3D Sonic fangame, from Doom Legacy) as a
+[Chimera](https://github.com/ToolAssisted-run/chimera) **game core** (`"kind": "game"`, see Chimera's
+`docs/game-cores.md`). It is an **official core**: on Chimera's roster (`official-cores.json`) since Chimera's
+9aff711 (2026-10-10), and listed in Chimera's README with the game cores. It is the first official core published
+outside the ToolAssisted-run organisation: its author, P-AS, writes and publishes it from this repository, as a
+third party. It needs no change to Chimera. See `docs/PLAN.md` for the milestones and decisions.
 
 The engine is upstream SRB2 (`extern/SRB2`, master, net-compatible with 2.2.15), compiled from source with a
 platform layer of the core's own (`waterbox/platform/`) in place of SDL: no window, no audio device (the core
@@ -12,12 +14,16 @@ characters.pk3, music.pk3 - is firmware: the core carries none of it.
 
 ## Using it in Chimera
 
-Chimera ships no cores and downloads nothing. Download the core's `srb2.chimeraCore` package from this repository's
+Chimera ships no cores and downloads nothing. Download the core's package from this repository's
 [Releases](https://github.com/P-AS/chimera-core-srb2/releases) page (a rolling `dev` build, dated
 `nightly-YYYY-MM-DD` builds), or build it, and put it in the `Cores` folder beside `Chimera.exe` (or the folder
-chosen in File > Core Manager > Change folder...). The same file works on Linux and on Windows. None of the game's
-data is in the package: a project brings SRB2 2.2.15's srb2.pk3, zones.pk3, characters.pk3 and music.pk3 as
-firmware.
+chosen in File > Core Manager > Change folder...).
+
+Each release has two packages, one per CPU: `srb2-<version>-x64.chimeraCore` and
+`srb2-<version>-arm64.chimeraCore`. **You most likely want the x64 one.** Take the arm64 one only if you know you
+are using an arm64 device. Put only one of them in the `Cores` folder: two packages of one core list it twice. The
+same file works on Linux and on Windows. None of the game's data is in the package: a project brings SRB2 2.2.15's
+srb2.pk3, zones.pk3, characters.pk3 and music.pk3 as firmware.
 
 ## Building
 
@@ -48,8 +54,12 @@ nothing). `extern/openmpt` is shallow: `git submodule update --init` fetches onl
 
 `waterbox/fetch-data.sh [<folder>]` downloads STJr's own SRB2 2.2.15 release and takes out the four pk3s, checked
 against the declared firmware (default `build/srb2-2.2.15`); `run-gate.sh -d <folder>` runs on them. CI
-(`.github/workflows/chimera.yml`) does this, then the gate, the package and Chimera's contract tests, and publishes
-`dev` and nightly releases.
+(`.github/workflows/chimera.yml`) does this, then the gate, the package and Chimera's contract tests, on x64 and
+on arm64, and publishes `dev` and nightly releases with both packages.
+
+Being on Chimera's roster, the newest nightly is also checked by Chimera's own CI: every run there downloads it
+(the x64 package) and runs Chimera's package tests on it. A nightly those tests refuse fails Chimera's CI until a
+fixed nightly is out.
 
 ## The package
 
