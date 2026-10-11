@@ -3,27 +3,19 @@
  * unchanged: it reaches OpenGL only through GetGLFunc, by name, and this file
  * answers it.
  *
- * In the guest the answer is Mesa's softpipe behind OSMesa, compiled into the
- * core (waterbox/setup-mesa.sh): plain C, no JIT, no dispatch on the host's
- * CPU, so the picture is decided by code the core carries and is the same on
- * every machine, and every byte of the GL's state - textures, shaders, the
- * framebuffer - is guest memory, in every savestate like the rest of the
- * machine. The native reference has no OpenGL: LoadGL fails, and the engine
- * stays on the software renderer (i_video.c says so).
- *
- * The frame: OSMesa draws into a buffer of the machine's own, BGRA and top
- * row first (OSMESA_Y_UP 0), which is the frontend's layout. A finished frame
- * is copied out (chimera_gl_frame) before the renderer draws the screen
+ * The answer is the machine's GPU, outside the sandbox, through the GPU bridge
+ * Chimera offers: GetGLFunc is gl_compat.c's, which turns the renderer's GL
+ * 1.x into the core GL the bridge carries, and a finished frame is read back
+ * from its framebuffer (chimera_gl_frame) before the renderer draws the screen
  * texture back for the next frame's effects, as upstream does after its swap.
+ * The GL is not the machine's: a state brings back names the driver no longer
+ * means, so at the top of every step a moved context (the bridge's id) or a
+ * state loaded since makes the renderer forget every name and make its
+ * objects again (chimera_gl_step, patches/0008).
  *
- * With renderer opengl-hw and a host that offers Chimera's GPU bridge, the
- * answer is instead the machine's GPU, outside the sandbox: GetGLFunc is
- * gl_compat.c's, which turns the renderer's GL 1.x into the core GL the bridge
- * carries, and the frame is read back from its framebuffer. The GL is then not
- * the machine's: a state brings back names the driver no longer means, so at
- * the top of every step a moved context (the bridge's id) or a state loaded
- * since makes the renderer forget every name and make its objects again
- * (chimera_gl_step, patches/0008). No bridge offered: the Mesa, the same game. */
+ * No bridge offered, or one that will not start, and LoadGL fails: the engine
+ * draws in software, which is another game (i_video.c), so the log says why.
+ * The native reference has no OpenGL at all. */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -44,32 +36,12 @@
 
 #include "chimera-platform.h"
 
-#ifdef CHIMERA_GUEST
-/* OSMesa's entry points, declared rather than included: <GL/osmesa.h> brings
- * its own gl.h, which r_opengl.h already has */
-typedef struct osmesa_context *OSMesaContext;
-typedef void (*OSMESAproc)(void);
-OSMesaContext OSMesaCreateContextExt(GLenum format, GLint depthBits, GLint stencilBits, GLint accumBits,
-	OSMesaContext sharelist);
-GLboolean OSMesaMakeCurrent(OSMesaContext ctx, void *buffer, GLenum type, GLsizei width, GLsizei height);
-void OSMesaPixelStore(GLint pname, GLint value);
-OSMESAproc OSMesaGetProcAddress(const char *funcName);
-#define OSMESA_BGRA 0x1
-#define OSMESA_Y_UP 0x11
-
-static OSMesaContext g_ctx;
-#endif
-
 /* what upstream's ogl_sdl.c defines for r_opengl */
 PFNglClear pglClear;
 PFNglGetIntegerv pglGetIntegerv;
 PFNglGetString pglGetString;
 INT32 oglflags = 0;
 
-typedef void (APIENTRY *PFNglFinish)(void);
-static PFNglFinish pglFinish;
-
-static UINT32 *g_surface; /* what OSMesa draws into */
 static UINT32 *g_frame;   /* the last finished frame */
 static UINT32 *g_scratch; /* the bridge's readback, bottom row first */
 static INT32 g_w, g_h;
@@ -118,57 +90,34 @@ void chimera_gl_step(void)
 void *GetGLFunc(const char *proc)
 {
 #ifdef CHIMERA_GUEST
-	if (g_bridged)
-		return glc_proc(proc);
-	return g_ctx ? (void *)OSMesaGetProcAddress(proc) : NULL;
+	return g_bridged ? glc_proc(proc) : NULL;
 #else
 	(void)proc;
 	return NULL;
 #endif
 }
 
-/* the context, made current on a first surface (OSMesa has no current
- * context without a buffer), then the renderer's functions */
+/* the bridge's context, then the renderer's functions; no bridge, no GL */
 boolean LoadGL(void)
 {
 #ifdef CHIMERA_GUEST
-	if (chimera_video_wants_bridge() && !g_bridged && !g_ctx)
+	if (!g_bridged)
 	{
 		g_w = BASEVIDWIDTH;
 		g_h = BASEVIDHEIGHT;
-		if (g_bridge_fn && glc_start((void *)(uintptr_t)g_bridge_fn, g_w, g_h))
+		if (!g_bridge_fn || !glc_start((void *)(uintptr_t)g_bridge_fn, g_w, g_h))
 		{
-			g_bridged = 1;
-			g_context = glc_context_id();
-			fprintf(stderr, "chimera: OpenGL on the GPU outside the sandbox, through Chimera's bridge\n");
+			fprintf(stderr, "chimera: WARNING: no GPU bridge for the OpenGL renderer (%s)\n",
+				g_bridge_fn ? "Chimera's would not start" : "Chimera offered none");
+			return false;
 		}
-		else
-			fprintf(stderr, "chimera: no GPU bridge (%s); OpenGL on the Mesa softpipe\n",
-				g_bridge_fn ? "the host's would not start" : "none offered");
+		g_bridged = 1;
+		g_context = glc_context_id();
+		fprintf(stderr, "chimera: OpenGL on the GPU outside the sandbox, through Chimera's bridge\n");
 	}
-	if (g_bridged)
-	{
-		pglFinish = (PFNglFinish)GetGLFunc("glFinish");
-		return SetupGLfunc();
-	}
-	if (!g_ctx)
-	{
-		/* 24-bit depth, 8-bit stencil, as a desktop's default framebuffer */
-		g_ctx = OSMesaCreateContextExt(OSMESA_BGRA, 24, 8, 0, NULL);
-		if (!g_ctx)
-			return false;
-		g_w = BASEVIDWIDTH;
-		g_h = BASEVIDHEIGHT;
-		g_surface = calloc((size_t)g_w * g_h, 4);
-		if (!g_surface || !OSMesaMakeCurrent(g_ctx, g_surface, GL_UNSIGNED_BYTE, g_w, g_h))
-			return false;
-		OSMesaPixelStore(OSMESA_Y_UP, 0);
-	}
-	pglFinish = (PFNglFinish)GetGLFunc("glFinish");
-	if (!pglFinish)
-		return false;
 	return SetupGLfunc();
 #else
+	fprintf(stderr, "chimera: WARNING: the native reference has no OpenGL\n");
 	return false;
 #endif
 }
@@ -181,27 +130,13 @@ boolean OglSdlSurface(INT32 w, INT32 h)
 	int majorGL = 0, minorGL = 0;
 
 #ifdef CHIMERA_GUEST
-	if (g_bridged)
-	{
-		glc_surface(w, h);
-		g_w = w;
-		g_h = h;
-		free(g_scratch);
-		g_scratch = calloc((size_t)w * h, 4);
-	}
-	else if (!g_ctx)
+	if (!g_bridged)
 		return false;
-	else if (w != g_w || h != g_h)
-	{
-		UINT32 *surface = calloc((size_t)w * h, 4);
-		if (!surface || !OSMesaMakeCurrent(g_ctx, surface, GL_UNSIGNED_BYTE, w, h))
-			I_Error("OpenGL: no %dx%d surface", w, h);
-		OSMesaPixelStore(OSMESA_Y_UP, 0);
-		free(g_surface);
-		g_surface = surface;
-		g_w = w;
-		g_h = h;
-	}
+	glc_surface(w, h);
+	g_w = w;
+	g_h = h;
+	free(g_scratch);
+	g_scratch = calloc((size_t)w * h, 4);
 	free(g_frame);
 	g_frame = calloc((size_t)w * h, 4);
 #endif
@@ -247,22 +182,9 @@ void OglSdlFinishUpdate(boolean waitvbl)
 	HWR_MakeScreenFinalTexture();
 	HWR_DrawScreenFinalTexture(vid.width, vid.height);
 #ifdef CHIMERA_GUEST
-	if (g_bridged)
-	{
-		if (g_frame && g_scratch)
-			glc_read_frame(g_frame, g_scratch, g_w, g_h);
-	}
-	else
+	if (g_bridged && g_frame && g_scratch)
+		glc_read_frame(g_frame, g_scratch, g_w, g_h);
 #endif
-	{
-	pglFinish();
-	if (g_frame && g_surface)
-	{
-		const size_t n = (size_t)g_w * g_h;
-		for (size_t i = 0; i < n; i++)
-			g_frame[i] = g_surface[i] | 0xFF000000u;
-	}
-	}
 
 	GClipRect(0, 0, vid.width, vid.height, NZCLIP_PLANE);
 

@@ -23,11 +23,10 @@ Placeholders used below:
 
   ```
   sudo apt-get update
-  sudo apt-get install -y --no-install-recommends meson ninja-build build-essential cmake pkg-config python3 mono-complete xvfb libgl1-mesa-dev libegl-dev libx11-dev libxext-dev libasound2-dev python3-pip curl bison flex python3-mako python3-packaging
+  sudo apt-get install -y --no-install-recommends meson ninja-build build-essential cmake pkg-config python3 mono-complete xvfb libgl1-mesa-dev libegl-dev libx11-dev libxext-dev libasound2-dev python3-pip curl
   ```
 
-  `bison`, `flex`, `python3-mako` and `python3-packaging` are Mesa's build
-  needs; `curl` fetches Mesa and the gate's data.
+  `curl` fetches the gate's data.
 - The .NET SDK 8.0 (the workflow uses `actions/setup-dotnet@v4` with
   `dotnet-version: '8.0'`). It is needed to build the Chimera solution and to
   run Chimera's contract tests, not to build the package. Chimera's README
@@ -39,13 +38,6 @@ Placeholders used below:
   miniBox's guest sysroot (`waterbox/guest.mk`). The gate's hashes are the
   same from GCC 13 (`ubuntu-latest`) and GCC 16.
 - What the scripts build or fetch themselves:
-  - Mesa 24.0.9's softpipe behind OSMesa, for the OpenGL renderer inside the
-    sandbox: `waterbox/setup-mesa.sh` downloads
-    `https://archive.mesa3d.org/mesa-24.0.9.tar.xz`, checks its SHA256, and
-    builds it for the guest into `build/mesa/` (about 15 minutes). Both builds
-    take their GL headers from it and the package carries its licence, so it
-    comes first. With no usable meson it makes a Python venv for one.
-    `MESA_TARBALL=<path>` uses a tarball already on the machine.
   - SRB2 2.2.15's data, for the gate: `waterbox/fetch-data.sh [<folder>]`
     downloads STJr's own `SRB2-v2215-Full.zip` from github.com/STJr/SRB2's
     releases, takes out the four pk3s and checks each against the SHA-1
@@ -79,7 +71,7 @@ shallow: only its pinned commit is fetched.
 CI puts the Chimera checkout at `<core>/chimera-checkout`. Any place works:
 the scripts find miniBox in this order.
 
-1. `-m <miniBox dir>` on `setup-mesa.sh`, `run-gate.sh` and
+1. `-m <miniBox dir>` on `run-gate.sh` and
    `build-package.sh`, or `MB=<dir>` on the `make` command line.
 2. The `MINIBOX_DIR` environment variable (what CI sets).
 3. For `build-package.sh -r <chimera>` only:
@@ -131,17 +123,12 @@ guards skip `meson setup` when one is already configured.
 ```
 cd <core>
 export MINIBOX_DIR=<minibox>
-./waterbox/setup-mesa.sh
 make -C waterbox -f native.mk -j"$(nproc)"
 make -C waterbox -f guest.mk -j"$(nproc)"
 ```
 
 The gate does not build them: run these before it.
 
-- **Mesa.** `setup-mesa.sh [-m <miniBox dir>] [-j N]` builds
-  `build/mesa/build-guest2/` (the archives and the osmesa target the guest
-  links) and `build/mesa/include` (the GL headers). It needs miniBox's
-  `meson-cpp` sysroot. A build already there is left as it is (CI caches it).
 - **Patches.** `patches/` holds the numbered patches for `extern/SRB2`, and
   `patches/openmpt/` the one for `extern/openmpt`. Both makefiles apply them
   first, through `waterbox/apply-patches.sh` and
@@ -154,14 +141,14 @@ The gate does not build them: run these before it.
   never touches the tree. `SRB2_TREE` (`PATCH_TREE` for a library) points it
   at another checkout.
 - **The guest core** (`guest.mk`): `build/guest/core.wbx`. It is SRB2, zlib
-  and libpng from SRB2's `libs/`, libogg, libvorbis, GME, libopenmpt, Mesa
-  and the core's own sources, built with the system compilers over miniBox's
+  and libpng from SRB2's `libs/`, libogg, libvorbis, GME, libopenmpt, glad
+  (the GPU bridge's GL loader) and the core's own sources, built with the system compilers over miniBox's
   guest sysroot. miniBox's `check-wbx.sh` checks the result (no thread-local
   storage, no `%fs`, no red zone) before it counts as built.
 - **The native reference** (`native.mk`): `build/native/run-native` and
   `build/native/run-wbx`. `run-native` is the same sources built for the
   host with no sandbox (and no GL: its OpenGL renderer falls back to
-  software, and says so). `run-wbx` drives `core.wbx` through the miniBox
+  software, and warns). `run-wbx` drives `core.wbx` through the miniBox
   host as the frontend does. The gate compares the two step by step. Neither
   is part of the package. Their use is in `README.md` ("Running the native
   reference").
@@ -284,9 +271,10 @@ Usage: `run-gate.sh [-d <SRB2 data folder>] [-m <miniBox dir>] [-c <Chimera bund
   (`meson install --libdir dll`) or a bundle. The gate packages the core into
   `build/gate/package` and opens it through `<dir>/dll/libchimera.so`, as the
   frontend's session does, and runs the menus into a new game. It also runs
-  `opengl-hw`: with no GPU bridge offered it must be the Mesa's run; where the
-  machine gives the engine a GL context, through the bridge, the same game,
-  and the picture right again after a rewind and a reopen. With no context
+  `opengl-hw`: with no GPU bridge offered it must warn and be the software
+  renderer's run; where the machine gives the engine a GL context, through
+  the bridge, the character select drawn as in software, and the picture
+  right again after a rewind and a reopen. With no context
   that part is a `SKIP` line. Without `-c` the leg does not run.
 
 ### Chimera's contract tests
@@ -334,14 +322,9 @@ SHA-1s:
   (`build-package.sh`), `name miniBox: make -f guest.mk MINIBOX_DIR=<miniBox checkout>`
   (the makefiles): no miniBox was named. Export `MINIBOX_DIR`, or pass `-m`
   or `-r <chimera checkout>`.
-- `miniBox's C++ guest toolchain is missing: ...` (`guest.mk`) or
-  `guest sysroot not built at ...` (`setup-mesa.sh`): miniBox was built
-  without `-Dguest_cpp=true`, or its guest targets were not named. Build
+- `miniBox's C++ guest toolchain is missing: ...` (`guest.mk`): miniBox was
+  built without `-Dguest_cpp=true`, or its guest targets were not named. Build
   `build/meson-cpp` as in "Build Chimera and miniBox".
-- `no Mesa at build/mesa: run waterbox/setup-mesa.sh first` or
-  `no guest Mesa at ...` (the makefiles): run `./waterbox/setup-mesa.sh`.
-- `mesa: no usable meson - install python3-venv, or meson plus python3-mako`
-  (`setup-mesa.sh`): install what it names.
 - `extern/SRB2 is not checked out` (`apply-patches.sh`): the clone was made
   without its submodules. Run the `git submodule update` command it prints.
 - `extern/SRB2 is partly patched` (`apply-patches.sh`): the submodule's tree

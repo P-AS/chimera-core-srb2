@@ -37,7 +37,7 @@ endif
 
 all: $(B)/run-native $(B)/run-wbx
 
-$(B)/srb2/%.o: $(SRB2)/%.c $(PATCH_STAMP) $(OPENMPT_STAMP) $(PNGCONF) $(B)/flags | $(MESA_GL_H)
+$(B)/srb2/%.o: $(SRB2)/%.c $(PATCH_STAMP) $(OPENMPT_STAMP) $(PNGCONF) $(B)/flags
 	@mkdir -p $(dir $@)
 	gcc $(SRB2_CFLAGS) -c -o $@ $<
 
@@ -69,7 +69,7 @@ $(B)/vorbis/%.o: $(VORBIS)/lib/%.c compat/ogg/config_types.h $(B)/flags
 	@mkdir -p $(dir $@)
 	gcc $(XIPH_CFLAGS) -c -o $@ $<
 
-$(B)/core/%.o: %.c $(CORE_HDRS) $(PATCH_STAMP) $(OPENMPT_STAMP) $(PNGCONF) $(B)/flags | $(MESA_GL_H)
+$(B)/core/%.o: %.c $(CORE_HDRS) $(PATCH_STAMP) $(OPENMPT_STAMP) $(PNGCONF) $(B)/flags
 	@mkdir -p $(dir $@)
 	gcc $(CORE_CFLAGS) -c -o $@ $<
 

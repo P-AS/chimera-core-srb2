@@ -26,12 +26,11 @@ firmware.
 - `waterbox/native.mk`: builds `build/native/run-native` and `run-wbx` (the
   native reference, and the harness that runs `core.wbx` as the frontend
   does).
-- `waterbox/setup-mesa.sh`: builds Mesa's softpipe for the guest
-  (`build/mesa/`), which the OpenGL renderer draws on and both builds take
-  their GL headers from.
+- `waterbox/compat/GL/`: the GL headers SRB2's OpenGL renderer compiles
+  against (Mesa's `gl.h`, and the few `glext.h` names it uses). The renderer
+  draws only on the GPU, through Chimera's bridge (`platform/gl_compat.c`).
 - `waterbox/check-portable.sh`: run on every aarch64 link. Everything built
-  here must leave register x18 alone (`-ffixed-x18` in `guest.mk` and
-  `setup-mesa.sh`): Windows keeps the TEB there and macOS clears it, so code
+  here must leave register x18 alone (`-ffixed-x18` in `guest.mk`): Windows keeps the TEB there and macOS clears it, so code
   using it ties the package to Linux. It also lists what the guest kit (musl,
   libstdc++, libgcc) still does with x18, without failing on it.
 - `waterbox/fetch-data.sh`: downloads STJr's 2.2.15 release and takes out the
@@ -60,7 +59,7 @@ Linux only (CI: `ubuntu-latest`). `<chimera>` is a Chimera checkout and
 
 ```
 sudo apt-get update
-sudo apt-get install -y --no-install-recommends meson ninja-build build-essential cmake pkg-config python3 mono-complete xvfb libgl1-mesa-dev libegl-dev libx11-dev libxext-dev libasound2-dev python3-pip curl bison flex python3-mako python3-packaging
+sudo apt-get install -y --no-install-recommends meson ninja-build build-essential cmake pkg-config python3 mono-complete xvfb libgl1-mesa-dev libegl-dev libx11-dev libxext-dev libasound2-dev python3-pip curl
 
 git submodule update --init --recursive
 git clone --recursive https://github.com/ToolAssisted-run/chimera.git <chimera>
@@ -93,7 +92,6 @@ the scripts, `MB=<dir>` for `make`). Export it once:
 From the repository root, in this order:
 
 ```
-./waterbox/setup-mesa.sh                    # once, ~15 minutes: build/mesa/
 make -C waterbox -f native.mk -j"$(nproc)"  # build/native/run-native, run-wbx
 make -C waterbox -f guest.mk -j"$(nproc)"   # build/guest/core.wbx
 ./waterbox/build-package.sh -r <chimera>    # <chimera>/build/Cores/srb2.chimeraCore
@@ -167,8 +165,9 @@ CHIMERA_CORES_DIR=<chimera>/build/Cores dotnet test source/gui/Chimera.Tests.Cli
   it. Its offset may move; `check-properties.py` reads by the table.
 - Determinism is the product. The guest must not read host time, host
   randomness or anything else that differs between runs, and a savestate must
-  round-trip. The gate checks it (equivalence, steps, savestates, time,
-  opengl).
+  round-trip. The gate checks it (equivalence, steps, savestates, time).
+  The OpenGL renderer is the GPU's and its picture is not deterministic; the
+  game under it is.
 - Run the gate before committing. A new leg needs teeth: show it fails when
   the thing it checks is broken (every leg in `run-gate.sh` names its teeth;
   Chimera's `docs/gates.md` says why).
