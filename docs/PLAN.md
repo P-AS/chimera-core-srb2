@@ -306,9 +306,12 @@ A movie row is **SRB2's own keyboard plus four axes**:
   Forward (W), Backward (S), Strafe Left/Right (A/D), Turn Left/Right (←/→), Look Up/Down (↑/↓), Jump
   (Space), Spin (Left Shift), Center View (Left Ctrl), Camera Reset (R), Camera Toggle (V), Custom 1-3 (Z/X/C),
   Pause (P), and the menus' Enter and Escape (a prompt's yes and no too: Enter or Space, Escape; the Y and
-  N buttons were dropped 2026-10-05, user-decided, as redundant). **The ring-slinger controls - Fire,
-  Fire Normal, Toss Flag, Weapon Next/Prev, Weapon 1-7 - are commented out for now** (user-decided, 2026-10-04:
-  multiplayer's, and they crowded the UI); their keys keep SRB2's bindings and are never pressed.
+  N buttons were dropped 2026-10-05, user-decided, as redundant). **The ring-slinger controls - Fire (Right
+  Ctrl), Fire Normal (Right Alt), Toss Flag ('), Weapon Next/Prev (the mouse wheel) - are in again** (2026-10-11,
+  a user asked; they were commented out 2026-10-04 as multiplayer's and crowding the UI), letters F N G + -,
+  bound in Chimera to the left and right mouse buttons, Apostrophe, E and Q (Chimera merges Right Ctrl/Alt into
+  Ctrl/Alt and cannot bind the wheel). **Weapon 1-7 stay commented out** (user-decided 2026-10-11: they would
+  crowd the UI; Next/Prev reach every weapon); their keys keep SRB2's bindings and are never pressed.
 - **What the controls are called is the core's** (2026-10-06, after Chimera's 74d25e1 "Chimera knows no
   system": it dropped its `MnemonicLookup` and `SystemNames` tables). `waterbox.config` declares
   `systemNames` (SRB2 is "Sonic Robo Blast 2"), `mnemonics` (a letter for every button: Doom's directions,
