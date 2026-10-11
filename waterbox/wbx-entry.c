@@ -61,6 +61,10 @@ ECL_EXPORT const char *GetLoadError(void) { return g_load_error; }
  *                   default 40. These two are the Manual and Strafe play
  *                   styles' camera: Automatic and Old Analog use SRB2's
  *                   "simple" camera (cam_simpledist, cam_simpleheight)
+ *   fov             fov, the field of view in degrees, 60 to 179 (SRB2's
+ *                   MINFOV, MAXFOV), both renderers; SRB2's default 90.
+ *                   Recommended 90 for normal levels, 120 for NiGHTS
+ *                   levels. The picture's alone
  *   scoreTimeRings  timerres: Classic, Centiseconds, Mania, Tics; default Mania
  *   flipCamera      flipcam: the camera flips with gravity; default Yes
  *   autoBrake       autobrake: the player brakes when no direction is
@@ -176,6 +180,7 @@ static void settings_args(void)
 	/* the engine's fixed point holds +-32767 */
 	setting_float("cameraDistance", "+cam_dist", 192.0, -32767.0, 32767.0);
 	setting_float("cameraHeight", "+cam_height", 40.0, -32767.0, 32767.0);
+	setting_float("fov", "+fov", 90.0, 60.0, 179.0);
 
 	int tr = 2; /* Mania */
 	if (wbx_setting_str("scoreTimeRings", timer, (int)sizeof timer) > 0)

@@ -134,6 +134,7 @@ which differ from SRB2's own:
 | Camera Speed | `cam_speed`, 0..1, clamped, printed at 5 places | **1.0** (0.3) |
 | Camera Distance | `cam_dist`, the Manual and Strafe styles' camera (Automatic and Old Analog use `cam_simpledist`) | **192** (192) |
 | Camera Height | `cam_height`, likewise (`cam_simpleheight`) | **40** (40) |
+| Field of View | `fov`, 60..179 (`MINFOV`, `MAXFOV`), clamped, both renderers; the picture's alone. Recommended: 90 for normal levels, 120 for NiGHTS levels | **90** (90) |
 | Score/Time/Rings | `timerres`: Classic, Centiseconds, **Mania**, Tics | **Mania** (Classic) |
 | Flip Camera with Gravity | `flipcam` | **Yes** (No) |
 | Automatic Braking | `autobrake` (given explicitly, so a configuration cannot turn it off) | **On** (On) |
