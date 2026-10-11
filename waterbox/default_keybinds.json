@@ -1,6 +1,6 @@
 {
   "_comment": [
-    "SRB2's own default keyboard (the FPS scheme), as Chimera names its keys: Chimera merges left and right modifiers by default, so Spin is Shift and Center View is Ctrl."
+    "SRB2's own default keyboard (the FPS scheme), as Chimera names its keys: Chimera merges left and right modifiers by default, so Spin is Shift and Center View is Ctrl; Fire and Fire Normal are the mouse buttons SRB2 also gives them (its Right Ctrl and Right Alt would merge), and Weapon Next/Prev, the mouse wheel in SRB2, which Chimera cannot bind, are E and Q."
   ],
   "AllTrollers": {
     "SRB2 Controller": {
@@ -14,9 +14,14 @@
       "Look Down": "Down",
       "Jump": "Space",
       "Spin": "Shift",
+      "Fire": "WMouse L",
+      "Fire Normal": "WMouse R",
+      "Toss Flag": "Apostrophe",
       "Center View": "Ctrl",
       "Reset Camera": "R",
       "Camera Toggle": "V",
+      "Weapon Next": "E",
+      "Weapon Prev": "Q",
       "Custom 1": "Z",
       "Custom 2": "X",
       "Custom 3": "C",

@@ -13,8 +13,9 @@
  * The names here are waterbox.config's "buttons", in the same order; each
  * button's letter in a movie's text and TAStudio's column is that file's
  * "mnemonics", and each axis's column header its "header". The ring-slinger
- * controls - Fire, Fire Normal, Toss Flag, the weapons - are left out for now
- * (commented below).
+ * controls are in, but for the number row's weapon slots (Weapon 1-7, commented
+ * below): Weapon Next and Prev reach every weapon, and seven more buttons would
+ * crowd the UI.
  * The bindings are forced to that scheme at start (srb2_input_bind), so no
  * configuration can change what a button means.
  *
@@ -57,18 +58,17 @@ static const struct srb2_button g_buttons[] = {
 	{ "Look Down", GC_LOOKDOWN, KEY_DOWNARROW },
 	{ "Jump", GC_JUMP, KEY_SPACE },
 	{ "Spin", GC_SPIN, KEY_LSHIFT },
-	/* the ring-slinger controls (match, CTF): left out for now, to keep the
-	 * controller to what a single-player game reads (user-decided 2026-10-04)
+	/* the ring-slinger controls (match, CTF; user-asked again 2026-10-11) */
 	{ "Fire", GC_FIRE, KEY_RCTRL },
 	{ "Fire Normal", GC_FIRENORMAL, KEY_RALT },
 	{ "Toss Flag", GC_TOSSFLAG, '\'' },
-	*/
 	{ "Center View", GC_CENTERVIEW, KEY_LCTRL },
 	{ "Reset Camera", GC_CAMRESET, 'r' },
 	{ "Camera Toggle", GC_CAMTOGGLE, 'v' },
-	/* the ring-slinger weapons, left out with them
 	{ "Weapon Next", GC_WEAPONNEXT, KEY_MOUSEWHEELUP },
 	{ "Weapon Prev", GC_WEAPONPREV, KEY_MOUSEWHEELDOWN },
+	/* the weapon slots: left out, to keep the UI uncrowded (user-decided
+	 * 2026-10-11); Weapon Next and Prev reach them all
 	{ "Weapon 1", GC_WEPSLOT1, '1' },
 	{ "Weapon 2", GC_WEPSLOT2, '2' },
 	{ "Weapon 3", GC_WEPSLOT3, '3' },

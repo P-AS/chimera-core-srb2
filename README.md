@@ -117,7 +117,7 @@ of the game, so a movie is its renderer's), OpenGL Shaders (On; the picture's al
 ## The controller
 
 SRB2's default keyboard as buttons (Forward, Jump, Spin... the menus' Enter and Escape, which answer a prompt too),
-pressed as keys, so menus and play work as on a keyboard (the ring-slinger controls are left out for now); plus axes for exact values: Forward Move, Side Move, Turn, Aim. The
+pressed as keys, so menus and play work as on a keyboard (the ring-slinger controls too - Fire, Fire Normal, Toss Flag, Weapon Next/Prev - but not the number row's weapon slots); plus axes for exact values: Forward Move, Side Move, Turn, Aim. The
 harnesses take a movie as text, `--input FILE` with `FROM-TO: Button; Axis=value` lines (`waterbox/tests/`).
 
 ## Game State and the TAS info script
