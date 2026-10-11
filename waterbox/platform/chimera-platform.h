@@ -15,11 +15,10 @@ extern int chimera_host_clock;
 void chimera_audio_mix(int16_t *out, int frames);
 /* the machine's one video mode, set before the start (platform/i_video.c) */
 void chimera_video_set_mode(int w, int h);
-/* the machine's renderer, set before the start: 0 software, 1 OpenGL on the
- * core's Mesa, 2 OpenGL through the GPU bridge when the host offers one (else
- * on the Mesa) (platform/i_video.c, platform/ogl_chimera.c) */
+/* the machine's renderer, set before the start: 0 software, 1 OpenGL through
+ * the GPU bridge (software if the host offers none) (platform/i_video.c,
+ * platform/ogl_chimera.c) */
 void chimera_video_set_renderer(int mode);
-int chimera_video_wants_bridge(void);
 /* the GPU bridge: the host's callback, offered before Init (SetGpuBridge);
  * a state loaded (StateLoaded); the top of a step, where a moved context is
  * noticed and the renderer made again (platform/ogl_chimera.c) */

@@ -24,10 +24,10 @@ PNGCONF := $(PNGCONF_DIR)/pnglibconf.h
 #   netcode/i_tcp.c      sockets: the machine has no network (dummy/i_net.c)
 #   sdl/, dedicated/     upstream's platform layers
 # hardware/, the OpenGL renderer, is in (HWRENDER, as upstream's builds have
-# it), in both builds: the guest draws it on the Mesa it carries
-# (platform/ogl_chimera.c); the native reference has no GL and draws in
-# software, its software path the guest's. Its GL headers are Mesa's
-# (build/mesa/include, waterbox/setup-mesa.sh).
+# it), in both builds: the guest draws it on the machine's GPU through
+# Chimera's bridge (platform/ogl_chimera.c); the native reference has no GL and
+# draws in software, its software path the guest's. Its GL headers are
+# compat/GL/: Mesa's gl.h and the few glext.h names it uses.
 # Taken from upstream's dummy/ interface as it is: i_net.c (no network),
 # i_cdmus.c (no CD); the sound is the core's own (platform/i_sound.c); from sdl/,
 # dosstr.c (strupr, strlwr). md5.c and apng.c are upstream's optional files,
@@ -49,8 +49,7 @@ SRB2_SRCS := $(filter-out $(SRB2_EXCLUDE), \
 SRB2_DEFS := -DNDEBUG -DMAXVIDWIDTH=3840 -DMAXVIDHEIGHT=2160 -DUNIXCOMMON -DLINUX -DLINUX64 -D_LARGEFILE64_SOURCE -DHAVE_ZLIB -DHAVE_PNG -DHAVE_OPENMPT \
 	-DHWRENDER -DGL_NO_LOGFILE \
 	-DNOMUMBLE -DNOEXECINFO -DNOUPNP
-MESA := $(ROOT)/build/mesa
-SRB2_INCS := -Iplatform -Icompat -I$(MESA)/include -I$(OGG)/include -I$(VORBIS)/include -I$(GME)/.. -I$(OPENMPT) -I$(SRB2) -I$(SRB2)/blua -I$(LIBS)/zlib -I$(LIBS)/libpng-src -I$(PNGCONF_DIR)
+SRB2_INCS := -Iplatform -Icompat -I$(OGG)/include -I$(VORBIS)/include -I$(GME)/.. -I$(OPENMPT) -I$(SRB2) -I$(SRB2)/blua -I$(LIBS)/zlib -I$(LIBS)/libpng-src -I$(PNGCONF_DIR)
 # SRB2's objects alone: the OpenGL renderer's entry point Init is renamed,
 # as the core's own Init is the export Chimera calls (wbx-entry.c);
 # platform/ogl_chimera.c, which finds it by name, says the same
@@ -158,12 +157,6 @@ WRAP_FLAGS := -Wl,--wrap=clock_gettime -Wl,--wrap=time -Wl,--wrap=gettimeofday -
 
 # the patch series goes onto the submodule before anything of SRB2 builds
 PATCH_STAMP := $(ROOT)/build/patches.stamp
-# Mesa's headers (and, for the guest, its archives): waterbox/setup-mesa.sh
-MESA_GL_H := $(MESA)/include/GL/gl.h
-$(MESA_GL_H):
-	@echo "no Mesa at $(MESA): run waterbox/setup-mesa.sh first (MINIBOX_DIR=<miniBox>)" >&2
-	@false
-
 $(PATCH_STAMP): $(wildcard $(ROOT)/patches/*.patch) apply-patches.sh
 	sh apply-patches.sh
 	@mkdir -p $(dir $@)

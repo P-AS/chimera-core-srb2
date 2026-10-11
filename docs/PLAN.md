@@ -41,9 +41,10 @@ the guest build), following Chimera's `docs/porting-a-core.md` and `docs/game-co
 - [x] **8. SRB2's OpenGL renderer** (user-decided 2026-10-05: both paths, Mesa first, as Chimera's PCSX2 core):
   - [x] **8a.** `renderer` `opengl`: upstream's renderer (`hardware/`, unchanged) on Mesa's softpipe compiled
     into the guest (`waterbox/setup-mesa.sh`, `platform/ogl_chimera.c`). Deterministic and savestate-safe;
-    slow. Gate leg `opengl`. See "OpenGL".
+    slow. **Removed 2026-10-11** (user-decided): too slow to be useful, with software and `opengl-hw`
+    covering every use, and it weighed on the repository, the package (10.2 MB, now 4.8) and CI. See "OpenGL".
   - [x] **8b.** `renderer` `opengl-hw`: the same renderer through Chimera's GPU bridge, onto the machine's
-    GPU, falling back to the Mesa path when there is no bridge: `platform/gl_compat.c` (GL 1.x on the bridge's
+    GPU, falling back to software, with a warning in the log, when there is no bridge: `platform/gl_compat.c` (GL 1.x on the bridge's
     core profile), the rebuild when the context moves (`chimera_gl_step`, patch 0008). Gate: the `engine` leg's
     GPU checks. Setting `glShaders` (`gr_shaders`). See "OpenGL".
 
@@ -144,7 +145,7 @@ which differ from SRB2's own:
 | Unlock All Maps in Record Attack and NiGHTS Mode | the menu's check (`M_LevelAvailableOnPlatter`: visited, `M_MapLocked`) skipped, **patch 0006** - not the game data, so an addon's maps are listed too, no visit is recorded, and no "visit map" condition unlocks anything (28 Record Attack maps in 2.2.15) | **Off** |
 | Unlock All Secrets | every unlockable (24 in 2.2.15) | **Off** |
 | Start Map Character | `+skin`, given only with a Start Map (`-warp`), run before the map starts; a locked character (Amy, Fang, Metal Sonic) needs Unlock All Characters, and a locked or unknown one plays Sonic | **empty**: Sonic |
-| Renderer | `software`, `opengl` (SRB2's OpenGL renderer on the core's Mesa softpipe), or `opengl-hw` (the same through Chimera's GPU bridge, on the Mesa when none is offered; see "OpenGL"), fixed at the start as upstream's `-renderer` | **software** (Software) |
+| Renderer | `software`, or `opengl-hw` (SRB2's OpenGL renderer through Chimera's GPU bridge, which Chimera offers only to a renderer named `-hw`; in software, with a warning in the log, when none is offered; see "OpenGL"), fixed at the start as upstream's `-renderer` | **software** (Software) |
 | OpenGL Shaders | `gr_shaders`; the picture's alone | **On** (On) |
 | Resolution | the engine's one video mode (see "Resolution") | **1280x800** (1280x800) |
 | Start Map | `-warp` (empty: the intro and the title) | empty |
@@ -171,12 +172,24 @@ renderer's. Any two ways of running the OpenGL renderer share one game. The rend
 (`chosenrendermode`, as upstream's `-renderer`); a switch the game asks for later - the video menu, a
 configuration's `renderer` - is refused (`VID_CheckRenderer`).
 
+**The Mesa path is gone (2026-10-11, user-decided).** Softpipe was too slow to be useful (below), software
+and `opengl-hw` cover every use, and Mesa was most of the package, a 15-minute build and a CI cache. The
+renderer now draws only on the GPU, through the bridge. With no bridge (or one that will not start) `LoadGL`
+fails and the machine draws in software, which plays differently, so the log warns twice: "WARNING: no GPU
+bridge for the OpenGL renderer (...)" and "WARNING: OpenGL did not start; drawing in software, which plays
+differently: a movie made in OpenGL will not sync". (Chimera has no way for a core to tell the user anything
+but its log.) The GL headers both builds compile against are `waterbox/compat/GL/`: Mesa's `gl.h` and the
+seven `glext.h` names and `GLchar` the renderer uses. A project saved with `renderer` `opengl` reads as
+software now (Chimera takes an unknown option as the default). The gate's `opengl` leg checks the warning and
+that the run is software's; the `engine` leg compares the GPU's character select with software's (the same
+picture to the pixel at 320x200). What follows of 8a is the record.
+
 **`HWRENDER` is in both builds**, and changes nothing in software: the native reference built with it and the
 guest built without it gave the same Greenflower run (1000 steps: picture, sound, state). The native reference
 has no GL (`LoadGL` fails, `ogl_chimera.c`), says "OpenGL did not start; drawing in software" and draws in
 software - so the `opengl` leg is the sandbox's alone, as Flycast's GL legs are.
 
-**8a, the Mesa path.** Chimera's porting guide's second way to a picture: an OpenGL compiled into the core.
+**8a, the Mesa path (removed 2026-10-11).** Chimera's porting guide's second way to a picture: an OpenGL compiled into the core.
 `waterbox/setup-mesa.sh` is chimera-core-flycast's (MIT): Mesa 24.0.9 by SHA256, softpipe behind gallium
 OSMesa, static, no LLVM - plus `lmsensors`, `libunwind`, `valgrind` pinned off (Mesa turned lm_sensors on from
 this host and failed on a header the guest lacks) and a release build (Mesa's default `debugoptimized` keeps
@@ -229,7 +242,7 @@ built-ins. The core cannot change Chimera (a third-party core), so the translati
   shader sampling one reads black. The renderer binds such a name (`NOTEXTURE_NUM`) for flat fills, so the
   character select's backgrounds drew black on the GPU (found in use, 2026-10-05) until the fixed stages
   learned which textures have an image (`glTexImage2D`, `glCopyTexImage2D`). Gate: the `engine` leg compares
-  the GPU's character select with the Mesa's.
+  the GPU's character select with the Mesa's (with software's since 2026-10-11).
 - **strings**: `GL_EXTENSIONS` answered from `glGetStringi`; and each string kept in a buffer of its own -
   the bridge copies a returned string into one guest buffer, so `GL_VERSION` read back as the renderer's name
   and the mipmap check failed.
@@ -270,7 +283,8 @@ Measured (RTX 2070 SUPER, NVIDIA 615.71, Greenflower, through the engine, readba
 The picture is the driver's: the session says it is not deterministic, and Chimera's movie names the driver.
 The game is not: `opengl` (the Mesa) and `opengl-hw` give the same sound over the same run, and pictures that
 differ in 0.08% of pixels (rasterisation at edges) with shaders and without. With no bridge offered (or one
-that will not start), `opengl-hw` draws on the Mesa and says so.
+that will not start), `opengl-hw` drew on the Mesa and said so (in software, with a warning, since
+2026-10-11).
 
 **`glShaders`** (`gr_shaders`) is a setting: the renderer's shaders, or its fixed stages - about 2.5 times
 faster on the Mesa, and the picture's alone.

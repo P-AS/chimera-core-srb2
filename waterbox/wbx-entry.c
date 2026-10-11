@@ -87,18 +87,17 @@ ECL_EXPORT const char *GetLoadError(void) { return g_load_error; }
  *                   default 1280x800, SRB2's own. The picture's alone: the
  *                   game plays the same at every one
  *   glShaders       gr_shaders, the OpenGL renderer's shaders (its lighting,
- *                   fog and palette look); off, its fixed stages - faster on
- *                   the Mesa, the picture's alone; default On (SRB2's own)
- *   renderer        software, SRB2's software renderer; opengl, its OpenGL
- *                   renderer on the Mesa softpipe the core carries
- *                   (platform/ogl_chimera.c): deterministic, slower;
- *                   opengl-hw, the same renderer on the machine's GPU through
- *                   Chimera's bridge (platform/gl_compat.c): fast, its picture
- *                   not deterministic, the same game - on the Mesa when the
- *                   host offers no bridge. The
- *                   renderer is part of the game (a few things play
- *                   differently in OpenGL), so a movie is the renderer it was
- *                   made with; default software
+ *                   fog and palette look); off, its fixed stages; the
+ *                   picture's alone; default On (SRB2's own)
+ *   renderer        software, SRB2's software renderer; opengl-hw, its OpenGL
+ *                   renderer on the machine's GPU through Chimera's bridge
+ *                   (which Chimera offers only to a renderer named -hw)
+ *                   (platform/ogl_chimera.c, gl_compat.c): its picture not
+ *                   deterministic, the game is - in software, with a warning
+ *                   in the log, when the host offers no bridge. The renderer
+ *                   is part of the game (a few things play differently in
+ *                   OpenGL), so a movie is the renderer it was made with;
+ *                   default software
  */
 static const char *const g_playstyles[][3] = {
 	{ "Strafe", "Camera", "Off" },
@@ -211,7 +210,7 @@ static void settings_args(void)
 	char renderer[32];
 	int mode = 0;
 	if (wbx_setting_str("renderer", renderer, (int)sizeof renderer) > 0)
-		mode = !strcmp(renderer, "opengl") ? 1 : !strcmp(renderer, "opengl-hw") ? 2 : 0;
+		mode = !strcmp(renderer, "opengl-hw");
 	chimera_video_set_renderer(mode);
 
 	/* the OpenGL renderer's shaders (gr_shaders): the picture's alone */

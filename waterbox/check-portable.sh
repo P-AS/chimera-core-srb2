@@ -8,12 +8,12 @@
 # keeps the thread's TEB in it (its ARM64 ABI: "reserved platform register ...
 # in user mode, points to TEB"), and macOS zeroes it when it likes. Arm's own
 # procedure call standard tells code meant for more than one platform to avoid
-# it. So every aarch64 object here is built with -ffixed-x18 (guest.mk, and
-# setup-mesa.sh for Mesa), and this holds them to it.
+# it. So every aarch64 object here is built with -ffixed-x18 (guest.mk), and
+# this holds them to it.
 #
 # Two levels:
 #
-#   what this repository compiles - its objects and Mesa's archives - must not
+#   what this repository compiles - its objects - must not
 #   touch x18, issue a system call of its own (svc/hvc/smc: a guest reaches
 #   the host through miniBox's interop, never the kernel), or reach a system
 #   register other than the thread pointer and the FP control and status

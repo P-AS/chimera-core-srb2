@@ -15,10 +15,9 @@ name: chimera waterbox core
 # native reference and the package build, fresh, from the pinned upstream with
 # the patch series applied; the equivalence, steps, savestates, input, audio
 # (Ogg Vorbis, GME, libopenmpt), files, exports, declaration, settings,
-# resolution, opengl (SRB2's OpenGL renderer on the Mesa softpipe the core
-# carries, built by waterbox/setup-mesa.sh) and time legs; the engine leg also
-# runs opengl-hw through Chimera's GPU bridge when the runner's EGL gives a
-# context (a runner has no GPU: llvmpipe, or a SKIP); the package through Chimera's own engine (the
+# resolution, opengl (with no GPU bridge, opengl-hw draws in software and
+# says so) and time legs; the engine leg also runs opengl-hw through Chimera's
+# GPU bridge when the runner's EGL gives a context (a runner has no GPU: llvmpipe, or a SKIP); the package through Chimera's own engine (the
 # gate's engine leg) and Chimera's contract tests. Every release also carries
 # lua/tasinfo.lua, the TAS info overlay for Chimera's Lua Console (the
 # publish-lua job), checked to parse by the gate job.
@@ -94,7 +93,7 @@ jobs:
       - name: Install build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends meson ninja-build build-essential cmake pkg-config python3 mono-complete xvfb libgl1-mesa-dev libegl-dev libx11-dev libxext-dev libasound2-dev python3-pip curl bison flex python3-mako python3-packaging lua5.4
+          sudo apt-get install -y --no-install-recommends meson ninja-build build-essential cmake pkg-config python3 mono-complete xvfb libgl1-mesa-dev libegl-dev libx11-dev libxext-dev libasound2-dev python3-pip curl lua5.4
 
       - name: Set up .NET
         uses: actions/setup-dotnet@v4
@@ -145,32 +144,6 @@ jobs:
       - name: Fetch SRB2 2.2.15's data
         # STJr's own release, checked against the declared firmware's SHA-1s
         run: ./waterbox/fetch-data.sh build/srb2-2.2.15
-
-      - name: Cache the guest Mesa
-        # what the build uses of it: the archives, the objects they name (Meson's
-        # archives are thin: a member is a path to its .o, not a copy) and the
-        # osmesa target (the guest link), the GL headers (both builds), the
-        # licence files (the package), and the hash of the setup-mesa.sh that
-        # built it, without which the script builds it again
-        uses: actions/cache@v4
-        with:
-          path: |
-            build/mesa/build-guest2/**/*.a
-            build/mesa/build-guest2/**/*.o
-            build/mesa/build-guest2/src/gallium/targets/osmesa
-            build/mesa/build-guest2/setup-mesa.sha256
-            build/mesa/include
-            build/mesa/docs/license.rst
-            build/mesa/subprojects/expat-2.5.0/COPYING
-            build/mesa/subprojects/zlib-1.3.1/LICENSE
-          key: guest-mesa-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('waterbox/setup-mesa.sh') }}-${{ hashFiles('chimera-checkout/extern/chimera-common-minibox/.git') }}
-
-      - name: Build the guest Mesa
-        # Mesa 24.0.9's softpipe behind OSMesa, for the OpenGL renderer (about
-        # 15 minutes uncached); a cached build is left as it is
-        env:
-          MINIBOX_DIR: ${{ github.workspace }}/chimera-checkout/extern/chimera-common-minibox
-        run: ./waterbox/setup-mesa.sh
 
       - name: Build the native reference and the core
         env:

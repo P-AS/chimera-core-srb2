@@ -61,11 +61,6 @@ void chimera_video_set_renderer(int mode)
 	g_want_gl = mode;
 }
 
-int chimera_video_wants_bridge(void)
-{
-	return g_want_gl == 2;
-}
-
 int chimera_video_opengl(void)
 {
 	return rendermode == render_opengl;
@@ -95,7 +90,8 @@ void I_StartupGraphics(void)
 		VID_StartupOpenGL();
 		if (vid.glstate != VID_GL_LIBRARY_LOADED)
 		{
-			fprintf(stderr, "chimera: OpenGL did not start; drawing in software\n");
+			fprintf(stderr, "chimera: WARNING: OpenGL did not start; drawing in software, "
+				"which plays differently: a movie made in OpenGL will not sync\n");
 			chosenrendermode = rendermode = render_soft;
 		}
 	}

@@ -85,7 +85,7 @@ $(LIBSTDCXX) $(EMULIBC) $(CXXGLUE):
 	@echo "  ninja -C $(MBUILD) libstdcxx-installed.stamp source/guest/emulibc.c.o source/guest/cxxglue.c.o" >&2
 	@false
 
-$(B)/srb2/%.o: $(SRB2)/%.c $(PATCH_STAMP) $(OPENMPT_STAMP) $(PNGCONF) $(B)/flags | $(LIBSTDCXX) $(MESA_GL_H)
+$(B)/srb2/%.o: $(SRB2)/%.c $(PATCH_STAMP) $(OPENMPT_STAMP) $(PNGCONF) $(B)/flags | $(LIBSTDCXX)
 	@mkdir -p $(dir $@)
 	$(CC) $(SRB2_CFLAGS) -c -o $@ $<
 
@@ -117,7 +117,7 @@ $(B)/gme/%.o: $(GME)/%.c $(B)/flags | $(LIBSTDCXX)
 	@mkdir -p $(dir $@)
 	$(CC) $(GME_CFLAGS) -c -o $@ $<
 
-$(B)/core/%.o: %.c $(CORE_HDRS) $(PATCH_STAMP) $(OPENMPT_STAMP) $(PNGCONF) $(B)/flags | $(LIBSTDCXX) $(MESA_GL_H)
+$(B)/core/%.o: %.c $(CORE_HDRS) $(PATCH_STAMP) $(OPENMPT_STAMP) $(PNGCONF) $(B)/flags | $(LIBSTDCXX)
 	@mkdir -p $(dir $@)
 	$(CC) $(GL_INCS) $(CORE_CFLAGS) -c -o $@ $<
 
@@ -146,32 +146,16 @@ $(B)/core/libco.o: $(LIBCO_SRC) $(B)/flags | $(LIBSTDCXX)
 	@mkdir -p $(dir $@)
 	$(CC) $(CORE_CFLAGS) -std=gnu11 -c -o $@ $<
 
-# Mesa, for the guest (waterbox/setup-mesa.sh): its static archives, linked
-# in a group because they refer to each other both ways, and the osmesa
-# target's own object, which holds osmesa_create_screen (the shared library it
-# belongs to cannot be built for a guest). Mesa declares pthread_mutexattr_*
-# weak; statically linked they would resolve to address zero, so they are
-# pulled in by name. As chimera-core-flycast links it.
-MESA_BUILD := $(MESA)/build-guest2
-MESA_TARGET := $(MESA_BUILD)/src/gallium/targets/osmesa/libOSMesa.so.8.0.0.p/target.c.o
-MESA_ARCHIVES = $(shell find $(MESA_BUILD) -name '*.a' 2>/dev/null | sort)
-MESA_LINK = $(MESA_TARGET) -Wl,--start-group $(MESA_ARCHIVES) -Wl,--end-group \
-	-Wl,-u,pthread_mutexattr_init -Wl,-u,pthread_mutexattr_settype -Wl,-u,pthread_mutexattr_destroy
-
-$(MESA_TARGET):
-	@echo "no guest Mesa at $(MESA_BUILD): run waterbox/setup-mesa.sh first" >&2
-	@false
-
 # miniBox's C++ guest link recipe (source/guest/meson.build): the large code
 # model's --no-relax, the weak pthread references libgcc_eh pulls, cxxglue
 # (__dso_handle, _dl_find_object), and the libraries in this order, libc last
-$(B)/core.wbx: $(CORE_OBJS) $(SRB2_OBJS) $(PNG_OBJS) $(XIPH_OBJS) $(GME_OBJS) $(OPENMPT_OBJS) $(ZLIB_OBJS) $(B)/glbridge/gl-bridge-guest.o $(B)/glbridge/glad.o $(MESA_TARGET) | $(EMULIBC) $(CXXGLUE)
+$(B)/core.wbx: $(CORE_OBJS) $(SRB2_OBJS) $(PNG_OBJS) $(XIPH_OBJS) $(GME_OBJS) $(OPENMPT_OBJS) $(ZLIB_OBJS) $(B)/glbridge/gl-bridge-guest.o $(B)/glbridge/glad.o | $(EMULIBC) $(CXXGLUE)
 	$(CXX) -static -no-pie -Wl,--eh-frame-hdr,-O2,--no-relax -Wl,-z,stack-size=8388608 \
 		-T $(MB)/source/guest/linkscript.T \
 		-Wl,-u,pthread_once -Wl,-u,pthread_cond_wait -Wl,-u,pthread_cond_broadcast -Wl,-u,pthread_key_create \
-		-o $@.tmp $(filter-out $(MESA_TARGET),$^) $(MESA_LINK) $(CXXGLUE) $(EMULIBC) $(WRAP_FLAGS) -L$(SR)/lib -lstdc++ -lm -lgcc -lgcc_eh -lc
+		-o $@.tmp $^ $(CXXGLUE) $(EMULIBC) $(WRAP_FLAGS) -L$(SR)/lib -lstdc++ -lm -lgcc -lgcc_eh -lc
 	sh $(MB)/source/guest/check-wbx.sh $@.tmp
-	sh check-portable.sh $@.tmp $(filter-out $(MESA_TARGET),$^) $(MESA_TARGET) $(MESA_ARCHIVES)
+	sh check-portable.sh $@.tmp $^
 	mv $@.tmp $@
 
 clean:

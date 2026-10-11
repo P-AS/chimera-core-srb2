@@ -30,7 +30,6 @@ srb2.pk3, zones.pk3, characters.pk3 and music.pk3 as firmware.
 ```
 git submodule update --init
 export MINIBOX_DIR=<a Chimera checkout>/extern/chimera-common-minibox
-waterbox/setup-mesa.sh                      # Mesa's softpipe for the guest, once (~15 min): build/mesa/
 make -C waterbox -f native.mk -j$(nproc)    # the native reference and the harnesses: build/native/
 make -C waterbox -f guest.mk -j$(nproc)     # the core: build/guest/core.wbx
 ```
@@ -41,10 +40,6 @@ miniBox must be built first, with its C++ guest toolchain (GME is C++), in its c
 meson setup build/meson-cpp -Dguest_cpp=true && ninja -C build/meson-cpp
 ninja -C build/meson-cpp libstdcxx-installed.stamp source/guest/emulibc.c.o source/guest/cxxglue.c.o
 ``` 
-
-`setup-mesa.sh` fetches Mesa 24.0.9 (checked by SHA256) and builds its softpipe behind OSMesa for the guest:
-the OpenGL renderer draws on it, inside the sandbox. It needs meson, python3-mako, bison and flex; both builds
-take Mesa's GL headers from it.
 
 The patches go onto
 `extern/SRB2` and `extern/openmpt` on the first build (`waterbox/apply-patches.sh [openmpt]`, each series all or
@@ -90,9 +85,9 @@ lines diff directly.
 with teeth. `equivalence`: native == sandbox, step for step, on the intro and Greenflower Zone Act 1. `steps`:
 a step is a tic, a wipe's frames are lag steps, play is a tic a step. `savestates`: a save and load before
 every step, and a new host mid-wipe, change nothing. `declaration`: the package's controller is the core's. `settings`: each setting reaches the engine.
-`opengl`: the OpenGL renderer draws, deterministically, and savestates change nothing. `engine` (with `-c`) also
-runs `opengl-hw` through the GPU bridge where the machine has a context: the same game as the Mesa, and the
-picture right again after a rewind and a reopen.
+`opengl`: with no GPU bridge the OpenGL renderer warns in the log and the run is the software renderer's. `engine`
+(with `-c`) also runs `opengl-hw` through the GPU bridge where the machine has a context: the character select
+drawn as in software, and the picture right again after a rewind and a reopen.
 `properties`: the Game State domain, read by its property table, holds what Greenflower's movie did, the timers
 `tests/timers.lua` sets, a spindash's charge (`tests/spindash.txt`), and a boss `tests/boss.lua` spawns and hits.
 `input`: movies through the menus and in Greenflower,
@@ -108,11 +103,10 @@ Declared in `waterbox/waterbox.config`, so Chimera shows them as the core's opti
 given to the engine at start: Play Style (default Manual), Camera Speed (1.0), Camera Distance (192), Camera Height (40), Field of View (90; 60 to 179, the picture's alone - leave it at 90 for normal levels, 120 is recommended for NiGHTS levels), Score/Time/Rings (Mania), Flip
 Camera with Gravity (Yes), Automatic Braking (On), Tutorial Prompt (Off), Unlock Record Attack/NiGHTS Mode/Marathon Run, Unlock All
 Characters, Unlock All Maps in Record Attack and NiGHTS Mode, Unlock All Secrets (each Off), Resolution (1280x800: SRB2's video modes, and 2560x1440 and 3840x2160, shown with square
-pixels; the game plays the same at every one), Renderer (software; opengl: SRB2's OpenGL renderer on the
-Mesa softpipe the core carries - deterministic and savestate-safe, but slow: about 15 fps at 320x200, under 1
-at 1280x800 with shaders; opengl-hw: the same renderer on this machine's GPU through Chimera's GPU bridge -
-fast, its picture the driver's, the same game - and on the Mesa where there is no bridge; the renderer is part
-of the game, so a movie is its renderer's), OpenGL Shaders (On; the picture's alone), Start Map (empty: the intro and the title), Start Map Character (a skin name, e.g. knuckles; empty: Sonic).
+pixels; the game plays the same at every one), Renderer (software; opengl-hw: SRB2's OpenGL renderer on this
+machine's GPU through Chimera's GPU bridge - fast, its picture the driver's; where there is no bridge it draws in
+software, which plays differently, and the log warns; the renderer is part of the game, so a movie is its
+renderer's), OpenGL Shaders (On; the picture's alone), Start Map (empty: the intro and the title), Start Map Character (a skin name, e.g. knuckles; empty: Sonic).
 
 ## The controller
 

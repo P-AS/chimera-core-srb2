@@ -89,23 +89,21 @@
 #                sandboxed, plays one game (the state digest, every step) and
 #                one sound, and every resolution draws its own picture; its
 #                teeth - another input is another state
-#   opengl       the OpenGL renderer (renderer opengl: SRB2's own, on the Mesa
-#                softpipe the core carries), sandboxed, on Greenflower's movie
-#                at 320x200: OpenGL started and drew a lit picture, not the
-#                software renderer's; two runs are the same run (every step's
-#                picture, the sound, the state); a state saved and loaded
-#                before every step (rerecord), and a new host mid-wipe, are
-#                the run without - every byte of the GL is the machine's. The
-#                native reference, which has no GL, draws in software and says
-#                so. Its teeth - a stale state (a step run twice) is not the run
+#   opengl       the OpenGL renderer (renderer opengl-hw) where no GPU bridge
+#                is offered - run-wbx and run-native offer none - on
+#                Greenflower's movie at 320x200: the log warns that there is no
+#                bridge and that the machine draws in software, and the run is
+#                the software renderer's, sandboxed and native. Its teeth - the
+#                software renderer asked for warns of nothing
 #   engine       (with -c) Chimera's own engine opens the package, as the
 #                frontend's session does (the required exports, the declaration,
 #                the firmware, Init), and runs the menus-to-new-game movie's
 #                presses for 450 steps: the same lag count as run-native's.
-#                opengl-hw with no bridge asked for is the Mesa's run, and says
-#                so; where the machine gives the engine a GL context, opengl-hw
-#                through the bridge is the Mesa's game (the same sound), and a
-#                rewind and a reopen make the renderer again and draw the
+#                opengl-hw with no bridge asked for warns and is the software
+#                renderer's run; where the machine gives the engine a GL
+#                context, opengl-hw through the bridge draws the character
+#                select as the software renderer does (flat fills, text, art),
+#                and a rewind and a reopen make the renderer again and draw the
 #                straight run (tests/engine-gpu-states.py, whose teeth - the
 #                core built without the rebuild - were watched failing)
 #   time         the machine's clock is its own: a 300 ms host stall mid-run
@@ -469,37 +467,27 @@ other="$(field "$(nat res -n 260 -p 0 --input "$root/build/gate/gfz1-nojump.txt"
 [ "$other" != "$(echo $states | cut -d' ' -f1)" ] && pass "resolution teeth: another input is another game state" \
 	|| bad "resolution teeth: the state digest did not see another input - the leg cannot fail"
 
-# ---- opengl: the OpenGL renderer, sandboxed (the native reference has no GL)
-content gl '{"warp": "1", "renderer": "opengl", "resolution": "320x200"}'
+# ---- opengl: the OpenGL renderer with no GPU bridge (neither harness offers one)
+content gl '{"warp": "1", "renderer": "opengl-hw", "resolution": "320x200"}'
 content glsoft '{"warp": "1", "resolution": "320x200"}'
-gl_started="$("$wbxhost" "$core" "$root/build/gate/gl" -n 1 -p 0 2>&1 | grep -c '^OpenGL .*softpipe' || true)"
-gl1="$(box gl -n 200 -p 10 --input "$tests/gfz1-run.txt" --ppm "$root/build/gate/gl.ppm")"
-gl2="$(box gl -n 200 -p 10 --input "$tests/gfz1-run.txt")"
-soft="$(box glsoft -n 200 -p 10 --input "$tests/gfz1-run.txt")"
-lit="$(python3 -c '
-import sys
-d = open(sys.argv[1], "rb").read()
-hdr = d.split(b"\n", 3); px = hdr[3]
-print(sum(1 for i in range(0, len(px), 3) if px[i] + px[i + 1] + px[i + 2] > 30) * 100 // (len(px) // 3))' "$root/build/gate/gl.ppm" 2>/dev/null || echo 0)"
-if [ "$gl_started" -ge 1 ] && [ -n "$gl1" ] && [ "$lit" -ge 50 ] && [ "$(field "$gl1" run)" != "$(field "$soft" run)" ]; then
-	pass "opengl: SRB2's OpenGL renderer on the core's Mesa softpipe draws Greenflower ($lit% of the picture lit, not the software renderer's)"
+nobridge="WARNING: no GPU bridge for the OpenGL renderer"
+fallback="WARNING: OpenGL did not start; drawing in software"
+boxgl="$("$wbxhost" "$core" "$root/build/gate/gl" -n 200 -p 10 --input "$tests/gfz1-run.txt" 2>&1)"
+boxsoft="$("$wbxhost" "$core" "$root/build/gate/glsoft" -n 200 -p 10 --input "$tests/gfz1-run.txt" 2>&1)"
+if echo "$boxgl" | grep -q "$nobridge" && echo "$boxgl" | grep -q "$fallback" \
+	&& [ -n "$(echo "$boxsoft" | grep '^run ')" ] \
+	&& [ "$(echo "$boxgl" | grep -E '^(step|run) ')" = "$(echo "$boxsoft" | grep -E '^(step|run) ')" ]; then
+	pass "opengl: with no GPU bridge, opengl-hw warns in the log and is the software renderer's run (sandboxed)"
 else
-	bad "opengl: OpenGL did not draw (started: $gl_started, lit: $lit%, run '$(field "$gl1" run)', software's '$(field "$soft" run)')"
+	bad "opengl: opengl-hw with no bridge did not warn, or is not the software renderer's run"
 fi
-[ -n "$gl1" ] && [ "$gl1" = "$gl2" ] && pass "opengl: deterministic - two runs are the same run (every step's picture, the sound, the state)" \
-	|| bad "opengl: two runs differ"
-rr="$(box gl -n 200 -p 10 --input "$tests/gfz1-run.txt" --rerecord)"
-ss="$(box gl -n 200 -p 10 --input "$tests/gfz1-run.txt" --session-at 30)"
-[ "$gl1" = "$rr" ] && [ "$gl1" = "$ss" ] && pass "opengl: savestates - rerecord, and a new host at step 30 (mid-wipe), are the run without" \
-	|| bad "opengl: a savestate changed the run (rerecord same: $([ "$gl1" = "$rr" ] && echo yes || echo no), session same: $([ "$gl1" = "$ss" ] && echo yes || echo no))"
-stale="$(box gl -n 200 -p 10 --input "$tests/gfz1-run.txt" --stale-state 120)"
-[ "$gl1" != "$stale" ] && pass "opengl teeth: a stale state (step 120 run twice) changes the run" \
-	|| bad "opengl teeth: a stale state changed nothing - the leg cannot fail"
+echo "$boxsoft" | grep -q "WARNING" && bad "opengl teeth: the software renderer warns too - the leg cannot fail" \
+	|| pass "opengl teeth: the software renderer asked for warns of nothing"
 natgl="$("$native" "$root/build/gate/gl" -n 200 -p 10 --input "$tests/gfz1-run.txt" 2>&1)"
 natsoft="$(nat glsoft -n 200 -p 10 --input "$tests/gfz1-run.txt")"
-if echo "$natgl" | grep -q "OpenGL did not start; drawing in software" \
+if echo "$natgl" | grep -q "$fallback" \
 	&& [ "$(echo "$natgl" | grep -E '^(step|run) ')" = "$natsoft" ]; then
-	pass "opengl: the native reference has no GL, says so, and draws in software"
+	pass "opengl: the native reference has no GL, warns, and draws in software"
 else
 	bad "opengl: the native reference did not fall back to software as it says"
 fi
@@ -521,22 +509,20 @@ if [ -n "$bundle" ]; then
 
 	# opengl-hw: the renderer through Chimera's GPU bridge, where this machine
 	# gives the engine a context (none: SKIP, it is the machine's, not the
-	# core's); with no bridge asked for, opengl-hw is the Mesa, the same run
+	# core's); with no bridge asked for, opengl-hw warns and draws in software
 	pkg="$root/build/gate/package/srb2.chimeraCore"
 	eo() { LD_LIBRARY_PATH="$bundle/dll" python3 "$here/tests/engine-open.py" "$bundle/dll/libchimera.so" "$pkg" "$data" "$@" 2>&1; }
-	mesa="$(eo 120 '{"renderer": "opengl", "resolution": "320x200", "warp": "1"}' | grep '^120 steps' || true)"
+	softrun="$(eo 120 '{"resolution": "320x200", "warp": "1"}' | grep '^120 steps' || true)"
 	nobridge="$(eo 120 '{"renderer": "opengl-hw", "resolution": "320x200", "warp": "1"}' || true)"
-	if echo "$nobridge" | grep -q "no GPU bridge (none offered); OpenGL on the Mesa softpipe" \
-		&& [ -n "$mesa" ] && [ "$(echo "$nobridge" | grep '^120 steps')" = "$mesa" ]; then
-		pass "engine: opengl-hw with no bridge offered says so and is the Mesa's run"
+	if echo "$nobridge" | grep -q "WARNING: no GPU bridge for the OpenGL renderer (Chimera offered none)" \
+		&& [ -n "$softrun" ] && [ "$(echo "$nobridge" | grep '^120 steps')" = "$softrun" ]; then
+		pass "engine: opengl-hw with no bridge offered warns and is the software renderer's run"
 	else
-		bad "engine: opengl-hw without a bridge is not the Mesa's run"
+		bad "engine: opengl-hw without a bridge did not warn, or is not the software renderer's run"
 	fi
 	gpu="$(eo 120 '{"renderer": "opengl-hw", "resolution": "320x200", "warp": "1"}' --gpu || true)"
 	if echo "$gpu" | grep -q "OpenGL on the GPU outside the sandbox"; then
 		driver="$(echo "$gpu" | grep -m1 '^chimera gl: ' | sed 's/^chimera gl: //')"
-		hwsound="$(field "$(echo "$gpu" | grep '^120 steps' | tr -d ',')" sound)"
-		mesasound="$(field "$(echo "$mesa" | tr -d ',')" sound)"
 		# A failing check exits nonzero, and under set -e a failing command in an
 		# assignment ends the gate there with nothing said (2026-10-09: on an M1,
 		# whose GPU the engine reaches, the gate stopped after this leg and never
@@ -545,25 +531,25 @@ if [ -n "$bundle" ]; then
 		states="$(LD_LIBRARY_PATH="$bundle/dll" python3 "$tests/engine-gpu-states.py" "$bundle/dll/libchimera.so" "$pkg" "$data" 2>/dev/null || true)"
 		# the character select: flat fills drawn with the renderer's imageless
 		# NOTEXTURE bound, which drew black on the GPU until gl_compat.c took an
-		# imageless texture as texturing off (2026-10-05, from use)
-		eo 300 '{"renderer": "opengl", "resolution": "320x200"}' --ppm "$root/build/gate/cs-mesa.ppm" >/dev/null || true
+		# imageless texture as texturing off (2026-10-05, from use). The
+		# software renderer draws the same screen to the pixel at 320x200.
+		eo 300 '{"resolution": "320x200"}' --ppm "$root/build/gate/cs-soft.ppm" >/dev/null || true
 		eo 300 '{"renderer": "opengl-hw", "resolution": "320x200"}' --ppm "$root/build/gate/cs-gpu.ppm" --gpu >/dev/null || true
 		apart="$(python3 -c '
 import sys
 a, b = (open(p, "rb").read().split(b"\n", 3)[3] for p in sys.argv[1:3])
 n = len(a) // 3
 print(sum(1 for i in range(0, len(a), 3) if abs(a[i] - b[i]) + abs(a[i + 1] - b[i + 1]) + abs(a[i + 2] - b[i + 2]) > 48) * 1000 // n)' \
-			"$root/build/gate/cs-mesa.ppm" "$root/build/gate/cs-gpu.ppm" 2>/dev/null || echo 1000)"
+			"$root/build/gate/cs-soft.ppm" "$root/build/gate/cs-gpu.ppm" 2>/dev/null || echo 1000)"
 		if [ "$apart" -le 10 ]; then
-			pass "engine: opengl-hw's character select (flat fills, text, art) is the Mesa's picture ($apart per mille of pixels apart)"
+			pass "engine: opengl-hw's character select (flat fills, text, art) is the software renderer's picture ($apart per mille of pixels apart)"
 		else
-			bad "engine: opengl-hw's character select is not the Mesa's: $apart per mille of pixels apart"
+			bad "engine: opengl-hw's character select is not the software renderer's: $apart per mille of pixels apart"
 		fi
-		if [ -n "$hwsound" ] && [ "$hwsound" = "$mesasound" ] && echo "$states" | grep -q "^PASS rewind" \
-			&& echo "$states" | grep -q "^PASS reopen"; then
-			pass "engine: opengl-hw on the GPU ($driver): the Mesa's game (the same sound); a rewind and a reopen make the renderer again and draw the straight run ($(echo "$states" | grep '^straight' | sed 's/^straight: //'))"
+		if echo "$states" | grep -q "^PASS rewind" && echo "$states" | grep -q "^PASS reopen"; then
+			pass "engine: opengl-hw on the GPU ($driver): a rewind and a reopen make the renderer again and draw the straight run ($(echo "$states" | grep '^straight' | sed 's/^straight: //'))"
 		else
-			bad "engine: opengl-hw on the GPU: sound $hwsound (the Mesa's $mesasound); $(echo "$states" | grep -E '^(PASS|FAIL)' | tr '\n' ' ')"
+			bad "engine: opengl-hw on the GPU: $(echo "$states" | grep -E '^(PASS|FAIL)' | tr '\n' ' ')"
 		fi
 	else
 		echo "SKIP engine: opengl-hw on a GPU - this machine gives the engine no GL context"
