@@ -2,7 +2,7 @@
   "package": "srb2",
   "effectiveTerms": "GPL-2.0",
   "commercialUse": "yes, under the GPL's terms",
-  "note": "The built core combines this repository's integration (GPL-2.0, as SRB2: the driver, the platform layer, the mixer, the patches) with Sonic Robo Blast 2 (GPL-2.0), compiled in from the submodule extern/SRB2 with zlib and libpng from its own libs/, libogg and libvorbis (BSD-3-Clause), Game_Music_Emu (LGPL-2.1-or-later), libopenmpt (BSD-3-Clause), Mesa's GL/gl.h (MIT, waterbox/compat/GL) for the OpenGL renderer's declarations, glad 2.0.5's generated GL declarations (public domain, with the Khronos data under Apache-2.0) for the GPU bridge's guest half, and miniBox's guest kit (musl, MIT; emulibc and libco's backend, MIT/public domain) with GCC's libstdc++ (GPL-3.0 with the GCC Runtime Library Exception). The package carries none of the game's data: srb2.pk3, zones.pk3, characters.pk3 and music.pk3 are the user's firmware. Sonic the Hedgehog and related characters are trademarks of SEGA.",
+  "note": "The built core combines this repository's integration (GPL-2.0, as SRB2: the driver, the platform layer, the mixer, the patches) with Sonic Robo Blast 2 (GPL-2.0), compiled in from the submodule extern/SRB2 with zlib and libpng from its own libs/, libogg and libvorbis (BSD-3-Clause), Game_Music_Emu (LGPL-2.1-or-later), libopenmpt (BSD-3-Clause), the parts of libOPNMIDI the core's own MIDI player (platform/midi_fm.cpp, GPL-2.0) is built on - its MIDI sequencer, WOPN bank loader, XG bank and volume and frequency models (MIT), its chip interface (LGPL-2.1-or-later) and MAME's YM2612 (GPL-2.0-or-later); libOPNMIDI's own player, GPL-3.0-or-later, is not built - Mesa's GL/gl.h (MIT, waterbox/compat/GL) for the OpenGL renderer's declarations, glad 2.0.5's generated GL declarations (public domain, with the Khronos data under Apache-2.0) for the GPU bridge's guest half, and miniBox's guest kit (musl, MIT; emulibc and libco's backend, MIT/public domain) with GCC's libstdc++ (GPL-3.0 with the GCC Runtime Library Exception). The package carries none of the game's data: srb2.pk3, zones.pk3, characters.pk3 and music.pk3 are the user's firmware. Sonic the Hedgehog and related characters are trademarks of SEGA.",
   "components": [
     {
       "name": "chimera-core-srb2 (integration)",
@@ -74,6 +74,54 @@
       "commit": "{submodule:extern/openmpt}",
       "file": "extern/openmpt/LICENSE",
       "sourceUrl": "https://github.com/OpenMPT/openmpt/archive/{commit}.tar.gz"
+    },
+    {
+      "name": "libOPNMIDI MIDI sequencer (src/midiseq)",
+      "license": "MIT",
+      "url": "https://github.com/Wohlstand/libOPNMIDI",
+      "commit": "{submodule:extern/opnmidi}",
+      "file": "extern/opnmidi/src/midiseq/LICENSE.txt",
+      "sourceUrl": "https://github.com/Wohlstand/libOPNMIDI/archive/{commit}.tar.gz"
+    },
+    {
+      "name": "libOPNMIDI volume and frequency models (src/models)",
+      "license": "MIT",
+      "url": "https://github.com/Wohlstand/libOPNMIDI",
+      "commit": "{submodule:extern/opnmidi}",
+      "file": "extern/opnmidi/src/models/LICENSE.txt",
+      "sourceUrl": "https://github.com/Wohlstand/libOPNMIDI/archive/{commit}.tar.gz"
+    },
+    {
+      "name": "libOPNMIDI WOPN bank loader (src/wopn)",
+      "license": "MIT",
+      "url": "https://github.com/Wohlstand/libOPNMIDI",
+      "commit": "{submodule:extern/opnmidi}",
+      "file": "extern/opnmidi/src/wopn/wopn_file.h",
+      "sourceUrl": "https://github.com/Wohlstand/libOPNMIDI/archive/{commit}.tar.gz"
+    },
+    {
+      "name": "libOPNMIDI XG bank (fm_banks/xg.wopn)",
+      "license": "MIT",
+      "url": "https://github.com/Wohlstand/libOPNMIDI",
+      "commit": "{submodule:extern/opnmidi}",
+      "file": "extern/opnmidi/fm_banks/readme.txt",
+      "sourceUrl": "https://github.com/Wohlstand/libOPNMIDI/archive/{commit}.tar.gz"
+    },
+    {
+      "name": "libOPNMIDI chip interface (src/chips/opn_chip_base, mame_opn2)",
+      "license": "LGPL-2.1-or-later",
+      "url": "https://github.com/Wohlstand/libOPNMIDI",
+      "commit": "{submodule:extern/opnmidi}",
+      "file": "extern/opnmidi/LICENSE.LGPL-2.1.txt",
+      "sourceUrl": "https://github.com/Wohlstand/libOPNMIDI/archive/{commit}.tar.gz"
+    },
+    {
+      "name": "MAME YM2612 (libOPNMIDI's src/chips/mame)",
+      "license": "GPL-2.0-or-later",
+      "url": "https://github.com/Wohlstand/libOPNMIDI",
+      "commit": "{submodule:extern/opnmidi}",
+      "file": "extern/SRB2/LICENSE",
+      "sourceUrl": "https://github.com/Wohlstand/libOPNMIDI/archive/{commit}.tar.gz"
     },
     {
       "name": "Mesa's GL/gl.h (the OpenGL renderer's declarations)",

@@ -24,13 +24,15 @@ the guest build), following Chimera's `docs/porting-a-core.md` and `docs/game-co
   tic command (`I_BaseTiccmd`) for exact values; lag = no tic command built. Gate leg `input`: a movie through
   the menus into the Tutorial Zone, and one running in Greenflower.
 - [x] **5. Audio** (user-decided: a C mixer of the core's own; libvorbis, not stb_vorbis; GME and libopenmpt -
-  libxmp if libopenmpt proves impractical; no MIDI for now):
+  libxmp if libopenmpt proves impractical; MIDI on emulated YM2612s, added later):
   - [x] **5a.** The mixer (`platform/i_sound.c`): sound effects (DMX, WAV, Ogg Vorbis), Ogg Vorbis and WAV
     music with loop points and fades. Gate leg `audio`; every leg's run line carries the sound's hash.
   - [x] **5b.** GME (libgme 0.6.5: VGM/VGZ, NSF, SPC, GBS, HES, KSS, AY, SAP, GYM), music and sound effects,
     as upstream's mixer drives it. C++: the guest is built with miniBox's C++ toolchain.
   - [x] **5c.** libopenmpt 0.8.9 (tracker modules: MOD, S3M, XM, IT, MPTM...), as upstream's mixer drives it,
     its random seeding made deterministic (`patches/openmpt/0001`).
+  - [x] **5d.** MIDI (Music Preference MIDI): the core's own player on libOPNMIDI's sequencer, XG bank and
+    six MAME YM2612s, as upstream's Windows builds play MIDI (see "MIDI").
 - [x] **6. Savestates**: rerecord and session pass (gate leg `savestates`, ~32 MB a state), including a state
   taken mid-wipe with the engine suspended on its cothread.
 - [x] **7. The package and CI**: `build-package.sh`, the declaration (`waterbox/waterbox.config`: controller,
@@ -139,6 +141,7 @@ which differ from SRB2's own:
 | Score/Time/Rings | `timerres`: Classic, Centiseconds, **Mania**, Tics | **Mania** (Classic) |
 | Flip Camera with Gravity | `flipcam` | **Yes** (No) |
 | Automatic Braking | `autobrake` (given explicitly, so a configuration cannot turn it off) | **On** (On) |
+| Music Preference | `musicpref`: **Digital** (the `O_` songs), MIDI (the `D_` songs, on the MIDI player, at `midimusicvolume`); the sound's alone | **Digital** (Digital) |
 | Tutorial Prompt | `tutorialprompt` (the title's "play the tutorial?") | **Off** (On) |
 | Unlock Record Attack, NiGHTS Mode and Marathon Run | the game data's `SECRET_RECORDATTACK` and `SECRET_NIGHTSMODE` unlockables (SRB2 offers Marathon Run whenever Record Attack is unlocked, `m_menu.c`) | **Off** |
 | Unlock All Characters | the `SECRET_SKIN` unlockables (Amy, Fang, Metal Sonic) | **Off** |
@@ -458,8 +461,7 @@ It does what upstream's SDL_mixer backend (`sdl/mixer_sound.c`) does:
 - **Length and position** are the decoder's (as SDL_mixer_X, upstream's Windows builds, gives them; plain
   SDL_mixer answers 0 for the length here, as this code never reads `LENGTHMS=`). No tempo for a stream
   (`I_SetSongSpeed` false), as SDL_mixer has none.
-- **MIDI is not played** (user-decided, for now): the game prefers the digital songs (`O_` lumps), which the
-  base data has for every MIDI one (`D_`).
+- **MIDI** (`D_` lumps) is played when Music Preference is MIDI (`musicpref`): see "MIDI" below.
 
 Checked against independent decodes (ffmpeg): the intro's song is in the mix with a correlation of 1.0000
 (residual 0.04%: the volume's integer rounding), at the volume the game sets (16 of 31 → 66/128); the jump
@@ -493,6 +495,35 @@ forever when looping, tempo (limited to 4), subsongs, length and position (seeki
 and the GME volume scale. Checked against the system's libopenmpt (0.5.5) through ctypes: correlation 1.0000 on
 OpenMPT's own `test.mod`, gain 0.80. The gate plays it from a PWAD it makes (`test.xm` and `test.mptm` are
 silent feature tests).
+
+**MIDI** (user-decided: libOPNMIDI, MAME's YM2612, `musicpref` a setting defaulting to Digital). Upstream's
+Windows builds play MIDI with SDL_mixer_X's OPNMIDI (`midiplayer`'s default): libOPNMIDI 1.4.0 with its default
+emulator, the lowest built, MAME's YM2612, on six chips with the XG bank SDL_mixer_X embeds, at twice the music
+volume (its gain 2.0); upstream's Linux builds have no FM MIDI. Compared on Greenflower 1's and Arid Canyon 1's
+MIDI (60 s, six chips, natively): MAME 0.76 ms of a tic's 28.6, YMFM 1.8, Nuked OPN2 (YM2612 or YM3438) 9.6;
+every band within 1 dB of the others, the Nuked YM2612's ladder effect 11 dB under the music. MAME was chosen:
+upstream's own, and cheap. **libOPNMIDI's player is GPL-3.0-or-later** (`src/opnmidi*.cpp`, its README's
+"other parts"; the repository's `LICENSE` is LGPL-3.0) and SRB2 is GPL-2.0 only (101 of `src/`'s 110 `.c` files
+say version 2 alone), so it cannot be in the package. The player is the core's own
+(`waterbox/platform/midi_fm.cpp`, GPL-2.0), written from the YM2612's registers and the MIDI specification, on
+the parts whose terms allow it: the sequencer (`src/midiseq`, MIT, header-only: file formats, tempo, loop
+points, seeking, length and position), the WOPN loader (MIT), the XG bank (`fm_banks/xg.wopn`, MIT; made a C
+array at build time, `build/opnbank/opn_bank.h`), the volume and frequency models (MIT), the chip interface
+(`opn_chip_base`, `mame_opn2.cpp`, LGPL-2.1+: MAME's per-channel panning, resampling from 53267 Hz) and MAME's
+YM2612 (GPL-2.0+). It plays 36 voices (a note struck again takes its voice, then a voice never used, the one
+released longest ago, the one keyed longest ago), the bank's program by bank select (bank 0's when blank), the
+drum kit by program on channel 10 (GS/XG numbering, kit 0's when blank), the generic volume model on the
+algorithm's carriers, MIDI pan through MAME's pan law, pitch bend with RPN 0's range, the modulation wheel as a
+5.5 Hz vibrato of up to half a semitone, sustain, the channel modes and GM/GS/XG resets. The bank's operators
+are in register order (S1, S3, S2, S4: its algorithm-4 instruments are loud at the third and fourth). Against
+libOPNMIDI's own render of the same songs: level within 0.3 dB, every band within 1 dB, the same stereo width,
+the loudness envelope correlated 0.76 and 0.86 - close, not sample for sample. The mixer does what upstream's
+does with a MIDI song: tried after modules, before Vorbis, by SDL_mixer_X's magics (`MThd`, `RMID`, `MUS`,
+XMI); MU_MID_EX; looping by the sequencer at the song's loop points (its whole length without), a song played
+once stopping at its end; length, position and seeking the sequencer's; no tempo (upstream's `I_SetSongSpeed`
+has none for it); the stream volume (the game switches to `midimusicvolume` for MIDI) times two. The game is
+the same with either preference (Greenflower's movie: every step's picture and state). The gate plays the
+intro with Music Preference MIDI, native, sandboxed and rerecorded.
 
 **The C++ guest toolchain** (miniBox `-Dguest_cpp=true`, `build/meson-cpp`): libstdc++ for the guest, linked
 with miniBox's recipe (`--no-relax`, the weak `pthread` pulls, `cxxglue`). GME is built without exceptions or

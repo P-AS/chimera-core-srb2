@@ -9,6 +9,7 @@ OGG := $(ROOT)/extern/ogg
 VORBIS := $(ROOT)/extern/vorbis
 GME := $(ROOT)/extern/gme/gme
 OPENMPT := $(ROOT)/extern/openmpt
+OPNMIDI := $(ROOT)/extern/opnmidi
 MB   ?= $(MINIBOX_DIR)
 # libpng's configuration header: its prebuilt one, copied beside the build
 PNGCONF_DIR := $(ROOT)/build/pngconf
@@ -103,6 +104,31 @@ $(OPENMPT_STAMP): $(wildcard $(ROOT)/patches/openmpt/*.patch) apply-patches.sh
 	sh apply-patches.sh openmpt
 	@mkdir -p $(dir $@)
 	@touch $@
+
+# ---- MIDI: the core's own player (platform/midi_fm.cpp, GPL-2.0 as SRB2) on
+# the parts of libOPNMIDI (the submodule extern/opnmidi, v1.6.2) whose terms
+# allow it in a GPL-2.0 program - its player is GPL-3.0-or-later and is not
+# built: the MIDI sequencer (midiseq/, MIT, header-only, compiled into
+# midi_fm.cpp), the bank loader (wopn/, MIT), the frequency and volume models
+# (models/, MIT), the chip interface (chips/opn_chip_base, mame_opn2.cpp:
+# LGPL-2.1+) and MAME's YM2612 (chips/mame/, GPL-2.0+) - upstream's MIDI as
+# its Windows builds play it (SDL_mixer_X's OPNMIDI on MAME YM2612s). Its bank
+# is libOPNMIDI's XG bank (fm_banks/xg.wopn, MIT, the one SDL_mixer_X embeds),
+# made a C array at build time (build/opnbank/opn_bank.h).
+# ENABLE_END_SILENCE_SKIPPING as libOPNMIDI's CMake builds the sequencer (a
+# song's length is to its last sound, not its trailing silence).
+MIDIFM_C_SRCS := $(OPNMIDI)/src/wopn/wopn_file.c $(OPNMIDI)/src/models/model_generic.c \
+	$(OPNMIDI)/src/models/model_freq_opn2.c $(OPNMIDI)/src/chips/mame/mame_ym2612fm.c
+MIDIFM_CXX_SRCS := $(OPNMIDI)/src/chips/mame_opn2.cpp
+MIDIFM_DEFS := -DNDEBUG -DENABLE_END_SILENCE_SKIPPING
+OPNBANK_DIR := $(ROOT)/build/opnbank
+OPNBANK := $(OPNBANK_DIR)/opn_bank.h
+MIDIFM_CFLAGS_COMMON := -std=gnu11 -O2 $(MIDIFM_DEFS) -I$(OPNMIDI)/src
+MIDIFM_CXXFLAGS_COMMON := -std=gnu++17 -O2 -fexceptions $(MIDIFM_DEFS) -I$(OPNMIDI)/src -I$(OPNBANK_DIR) -Iplatform
+$(OPNBANK): $(OPNMIDI)/fm_banks/xg.wopn
+	@mkdir -p $(dir $@)
+	python3 -c 'import sys; d = open(sys.argv[1], "rb").read(); print("static const unsigned char g_xg_wopn[%d] = {%s};" % (len(d), ",".join(str(b) for b in d)))' $< > $@.tmp
+	mv $@.tmp $@
 
 # ---- zlib (extern/SRB2/libs/zlib): the .pk3 files' deflate, and libpng's
 ZLIB_NAMES := adler32 compress crc32 deflate inffast inflate inftrees trees uncompr zutil

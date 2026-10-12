@@ -69,6 +69,10 @@ ECL_EXPORT const char *GetLoadError(void) { return g_load_error; }
  *   flipCamera      flipcam: the camera flips with gravity; default Yes
  *   autoBrake       autobrake: the player brakes when no direction is
  *                   held; default On (SRB2's own too)
+ *   musicPref       musicpref: which of a song's two versions plays, Digital
+ *                   (O_, Ogg Vorbis) or MIDI (D_, on emulated YM2612s,
+ *                   platform/midi_fm.cpp); default Digital, SRB2's own. The
+ *                   sound's alone
  *   tutorialPrompt  tutorialprompt: the title's "play the tutorial?"
  *                   question on a first start; default Off
  *   unlockModes     Record Attack and NiGHTS Mode unlocked from the start
@@ -106,6 +110,7 @@ static const char *const g_playstyles[][3] = {
 	{ "Old Analog", "Camera", "On" },
 };
 static const char *const g_timerres[] = { "Classic", "Centiseconds", "Mania", "Tics" };
+static const char *const g_musicpref[] = { "Digital", "MIDI" };
 
 /* the argument list: the engine keeps pointers into it for the run */
 static char g_args[80][256];
@@ -194,6 +199,15 @@ static void settings_args(void)
 
 	arg("+autobrake");
 	arg(wbx_setting_bool("autoBrake", 1) ? "On" : "Off");
+
+	char pref[16];
+	int mp = 0; /* Digital */
+	if (wbx_setting_str("musicPref", pref, (int)sizeof pref) > 0)
+		for (int i = 0; i < 2; i++)
+			if (!strcmp(pref, g_musicpref[i]))
+				mp = i;
+	arg("+musicpref");
+	arg(g_musicpref[mp]);
 
 	arg("+tutorialprompt");
 	arg(wbx_setting_bool("tutorialPrompt", 0) ? "On" : "Off");

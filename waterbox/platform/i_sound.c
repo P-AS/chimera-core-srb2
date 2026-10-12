@@ -12,14 +12,15 @@
  *     channel as Mix_Volume and Mix_SetPanning give them; pitch ignored, as
  *     SDL_mixer ignores it;
  *   - music: GME's formats (VGM/VGZ, NSF, SPC, GBS, HES, KSS, AY, SAP, GYM),
- *     tracker modules (libopenmpt: MOD, S3M, XM, IT, MPTM...), Ogg Vorbis and
- *     WAV, tried in upstream's order, with the loop point of the song's
+ *     tracker modules (libopenmpt: MOD, S3M, XM, IT, MPTM...), MIDI (on six
+ *     emulated YM2612s, midi_fm.cpp, as upstream's Windows builds play it with
+ *     SDL_mixer_X's OPNMIDI), Ogg Vorbis and WAV, tried in upstream's order, with the loop point of the song's
  *     LOOPPOINT= (samples, read as upstream reads it) or LOOPMS= tag, or the
  *     one the game sets; fades stepped every 10 ms of output, as upstream's
  *     SDL timer steps them, with the callback run from I_UpdateSound; the
  *     length and position the decoder gives (as SDL_mixer_X, upstream's
- *     Windows builds, gives them). MIDI is not played: the game prefers the
- *     digital songs, which the data has for every one.
+ *     Windows builds, gives them). Which of a song's two the game plays, the
+ *     digital one (O_) or the MIDI one (D_), is its musicpref setting.
  *
  * Every output frame is 44.1 kHz stereo signed 16-bit; a step (a tic) is
  * 1260 of them. */
@@ -43,6 +44,7 @@
 #include "console.h"
 
 #include "chimera-platform.h"
+#include "midi_fm.h"
 
 #define RATE 44100
 #define CHANNELS 256
@@ -475,6 +477,8 @@ struct song
 	/* GME */
 	Music_Emu *gme;
 	int track;
+	/* MIDI */
+	struct midi_fm *midi;
 	/* WAV */
 	INT16 *pcm;
 	UINT64 frames, pos;
@@ -527,6 +531,17 @@ static int wave_seek(struct song *s, UINT64 frame)
 static UINT64 wave_tell(struct song *s) { return s->pos; }
 static UINT64 wave_length(struct song *s) { return s->frames; }
 static void wave_close(struct song *s) { free(s->pcm); }
+
+/* MIDI: its position in seconds, in frames at 44.1 kHz */
+static long midi_read(struct song *s, INT16 *buf, long frames) { return midi_fm_render(s->midi, buf, frames); }
+static int midi_seek(struct song *s, UINT64 frame)
+{
+	midi_fm_seek(s->midi, (double)frame / RATE);
+	return 1;
+}
+static UINT64 midi_tell(struct song *s) { return (UINT64)(midi_fm_tell(s->midi) * RATE); }
+static UINT64 midi_length(struct song *s) { return (UINT64)(midi_fm_length(s->midi) * RATE); }
+static void midi_close(struct song *s) { midi_fm_close(s->midi); }
 
 static struct song *g_song;
 /* a song loaded and started: upstream keeps a loaded one stopped until
@@ -793,6 +808,23 @@ boolean I_LoadSong(char *data, size_t len)
 		s->channels = 2;
 		s->track = -1;
 	}
+	else if (midi_fm_is_midi(copy, len))
+	{
+		/* MIDI: SDL_mixer_X's next, by its magic (OPNMIDI, upstream's
+		 * midiplayer, playing it as MU_MID_EX) */
+		s->midi = midi_fm_open(copy, len);
+		if (s->midi)
+		{
+			s->type = MU_MID_EX;
+			s->rate = RATE;
+			s->channels = 2;
+			s->read = midi_read;
+			s->seek = midi_seek;
+			s->tell = midi_tell;
+			s->length = midi_length;
+			s->close = midi_close;
+		}
+	}
 	else if (len >= 4 && !memcmp(copy, "OggS", 4) && ov_open_callbacks(&s->mem, &s->vf, NULL, 0, mem_callbacks) == 0)
 	{
 		const vorbis_info *vi = ov_info(&s->vf, -1);
@@ -827,7 +859,7 @@ boolean I_LoadSong(char *data, size_t len)
 	free(vgz);
 	if (s->type == MU_NONE || !s->rate)
 	{
-		CONS_Alert(CONS_ERROR, "I_LoadSong: not a song the core plays (GME's formats, Ogg Vorbis or WAV)\n");
+		CONS_Alert(CONS_ERROR, "I_LoadSong: not a song the core plays (GME's formats, modules, MIDI, Ogg Vorbis or WAV)\n");
 		free(s);
 		free(copy);
 		return false;
@@ -883,7 +915,10 @@ boolean I_PlaySong(boolean looping)
 		g_playing = true;
 		return true;
 	}
-	g_song->seek(g_song, 0);
+	if (g_song->type == MU_MID_EX)
+		midi_fm_start(g_song->midi, looping); /* OPNMIDI loops itself, at the song's loop points */
+	else
+		g_song->seek(g_song, 0);
 	g_song->primed = 0;
 	is_looping = looping;
 	g_playing = true;
@@ -1124,6 +1159,18 @@ static int music_raw(int frames)
 		memset(g_raw + got * 2, 0, (size_t)(frames - (int)got) * 4);
 		return frames;
 	}
+	if (g_song->type == MU_MID_EX)
+	{
+		/* a looping song never ends (the sequencer loops it); one played
+		 * once stops at its end, as SDL_mixer's music_loop stops it */
+		const long got = midi_fm_render(g_song->midi, g_raw, frames);
+		if (got < frames)
+		{
+			fading_nocleanup = true;
+			I_StopSong();
+		}
+		return (int)got;
+	}
 	for (int i = 0; i < frames; i++)
 	{
 		INT32 l, r;
@@ -1137,7 +1184,8 @@ static int music_raw(int frames)
 
 /* a raw music sample at the volume of the moment: get_real_volume for a
  * stream (Mix_VolumeMusic), upstream's own scale for GME and modules (which
- * SDL_mixer hooks past the music volume, limiting it to 18) */
+ * SDL_mixer hooks past the music volume, limiting it to 18); MIDI is a stream
+ * that SDL_mixer_X's OPNMIDI plays at twice the volume (its gain, 2.0) */
 static INT32 music_gain(INT32 sample, musictype_t type)
 {
 	if (type == MU_GME || type == MU_MOD_EX)
@@ -1147,7 +1195,7 @@ static INT32 music_gain(INT32 sample, musictype_t type)
 		return (INT32)(INT16)(sample * music_volume * internal_volume / 100 / 20);
 	}
 	const INT32 mv = (INT32)((UINT32)music_volume * 128 / 31) * (INT32)internal_volume / 100;
-	return sample * mv / 128;
+	return sample * (type == MU_MID_EX ? 2 * mv : mv) / 128;
 }
 
 /* a step's output: the music, then every channel, summed and clipped */

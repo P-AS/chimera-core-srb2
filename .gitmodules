@@ -14,3 +14,6 @@
 	path = extern/openmpt
 	url = https://github.com/OpenMPT/openmpt.git
 	shallow = true
+[submodule "extern/opnmidi"]
+	path = extern/opnmidi
+	url = https://github.com/Wohlstand/libOPNMIDI.git
