@@ -18,7 +18,8 @@ firmware.
 
 - `extern/SRB2`: upstream SRB2 (master, net-compatible with 2.2.15), a
   submodule. Never edited in place. `extern/ogg`, `extern/vorbis`,
-  `extern/gme`, `extern/openmpt` (shallow): library submodules.
+  `extern/gme`, `extern/openmpt` (shallow), `extern/opnmidi`: library
+  submodules.
 - `patches/`: the numbered patches for `extern/SRB2`; `patches/openmpt/`: the
   one for `extern/openmpt`. Both applied by `waterbox/apply-patches.sh`.
 - `waterbox/sources.mk`: the sources and defines both builds share.
@@ -36,6 +37,8 @@ firmware.
 - `waterbox/fetch-data.sh`: downloads STJr's 2.2.15 release and takes out the
   four pk3s, checked (the gate's data where none is installed).
 - `waterbox/build-package.sh`: builds the package. `run-gate.sh`: the gate.
+- `waterbox/platform/midi_fm.cpp`: the MIDI player (Music Preference MIDI),
+  the core's own, on libOPNMIDI's sequencer, bank, models and MAME YM2612.
 - `waterbox/srb2-driver.c`: the machine, and the Game State domain and its
   property table (`GetGameProperties`). `srb2-input.c`: the controller.
   `wbx-entry.c`: the exports. `platform/`, `compat/`, `native-shim/`: what
@@ -171,6 +174,11 @@ CHIMERA_CORES_DIR=<chimera>/build/Cores dotnet test source/gui/Chimera.Tests.Cli
 - Run the gate before committing. A new leg needs teeth: show it fails when
   the thing it checks is broken (every leg in `run-gate.sh` names its teeth;
   Chimera's `docs/gates.md` says why).
+- Only the parts of `extern/opnmidi` that `sources.mk` names are built: the
+  sequencer, bank loader, bank and models (MIT), the chip interface
+  (LGPL-2.1+) and MAME's YM2612 (GPL-2.0+). libOPNMIDI's own player
+  (`src/opnmidi*.cpp`, `include/opnmidi.h`) is GPL-3.0-or-later and SRB2 is
+  GPL-2.0 only: never build it, include it, or copy from it into the core.
 - Never commit the game's data or any other game file. `build/` is ignored by
   git. Never add network access to the core (patch 0002 keeps SRB2's curl
   out).

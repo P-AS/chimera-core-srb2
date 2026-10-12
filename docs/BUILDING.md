@@ -63,9 +63,11 @@ git -C <core> submodule update --init --recursive
 git -C <chimera> submodule update --init --recursive
 ```
 
-This repository has five submodules (`.gitmodules`): `extern/SRB2` (the
+This repository has six submodules (`.gitmodules`): `extern/SRB2` (the
 engine: upstream master, net-compatible with 2.2.15), `extern/ogg`,
-`extern/vorbis`, `extern/gme` and `extern/openmpt`. `extern/openmpt` is
+`extern/vorbis`, `extern/gme`, `extern/openmpt` and `extern/opnmidi`
+(libOPNMIDI v1.6.2, of which only the parts the MIDI player is built on are
+compiled). `extern/openmpt` is
 shallow: only its pinned commit is fetched.
 
 CI puts the Chimera checkout at `<core>/chimera-checkout`. Any place works:
@@ -141,7 +143,8 @@ The gate does not build them: run these before it.
   never touches the tree. `SRB2_TREE` (`PATCH_TREE` for a library) points it
   at another checkout.
 - **The guest core** (`guest.mk`): `build/guest/core.wbx`. It is SRB2, zlib
-  and libpng from SRB2's `libs/`, libogg, libvorbis, GME, libopenmpt, glad
+  and libpng from SRB2's `libs/`, libogg, libvorbis, GME, libopenmpt, the
+  MIDI player on libOPNMIDI's sequencer, bank and MAME YM2612, glad
   (the GPU bridge's GL loader) and the core's own sources, built with the system compilers over miniBox's
   guest sysroot. miniBox's `check-wbx.sh` checks the result (no thread-local
   storage, no `%fs`, no red zone) before it counts as built.

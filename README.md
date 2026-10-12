@@ -92,8 +92,9 @@ drawn as in software, and the picture right again after a rewind and a reopen.
 `tests/timers.lua` sets, a spindash's charge (`tests/spindash.txt`), and a boss `tests/boss.lua` spawns and hits.
 `input`: movies through the menus and in Greenflower,
 the same every way. `files`: what the game writes is kept in the machine and exported identically. `time`: a
-host stall mid-run changes nothing. `audio`: the music and sounds are heard, and every leg's run line carries
-the sound's hash too.
+host stall mid-run changes nothing. `audio`: the music and sounds are heard (a GME song, a tracker module, and
+the game's MIDI songs with Music Preference MIDI among them), and every leg's run line carries the sound's hash
+too.
 
 The harnesses' `--wav FILE` writes a run's sound.
 
@@ -101,7 +102,9 @@ The harnesses' `--wav FILE` writes a run's sound.
 
 Declared in `waterbox/waterbox.config`, so Chimera shows them as the core's options; each is SRB2's own option,
 given to the engine at start: Play Style (default Manual), Camera Speed (1.0), Camera Distance (192), Camera Height (40), Field of View (90; 60 to 179, the picture's alone - leave it at 90 for normal levels, 120 is recommended for NiGHTS levels), Score/Time/Rings (Mania), Flip
-Camera with Gravity (Yes), Automatic Braking (On), Tutorial Prompt (Off), Unlock Record Attack/NiGHTS Mode/Marathon Run, Unlock All
+Camera with Gravity (Yes), Automatic Braking (On), Music Preference (Digital: the recorded songs; MIDI: the
+game's MIDI songs on six emulated Sega Genesis/Mega Drive YM2612 sound chips, MAME's, as upstream's Windows
+builds play them - the sound's alone), Tutorial Prompt (Off), Unlock Record Attack/NiGHTS Mode/Marathon Run, Unlock All
 Characters, Unlock All Maps in Record Attack and NiGHTS Mode, Unlock All Secrets (each Off), Resolution (1280x800: SRB2's video modes, and 2560x1440 and 3840x2160, shown with square
 pixels; the game plays the same at every one), Renderer (software; opengl-hw: SRB2's OpenGL renderer on this
 machine's GPU through Chimera's GPU bridge - fast, its picture the driver's; where there is no bridge it draws in
@@ -144,5 +147,8 @@ The harnesses' `--game-state FILE` writes every step's block, and the table besi
 GPL-2.0, as SRB2 is (`LICENSE`). zlib and libpng are compiled from the copies in SRB2's `libs/`, under their
 own licences; libco (miniBox's `extern/libco`) is public domain; libogg and libvorbis (`extern/ogg`,
 `extern/vorbis`) are BSD-3-Clause; Game_Music_Emu (`extern/gme`) is LGPL-2.1-or-later (its Nuked YM2612 too); libopenmpt (`extern/openmpt`) is
-BSD-3-Clause. Sonic the Hedgehog and related characters are trademarks of SEGA; this repository carries
+BSD-3-Clause. The MIDI player (`waterbox/platform/midi_fm.cpp`) is the core's own, GPL-2.0, because libOPNMIDI's
+player is GPL-3.0-or-later and cannot be part of a GPL-2.0 program; it is built on the parts of libOPNMIDI
+(`extern/opnmidi`) whose terms allow it: its MIDI sequencer, WOPN bank loader, XG bank and volume and frequency
+models (MIT), its chip interface (LGPL-2.1-or-later) and MAME's YM2612 (GPL-2.0-or-later). Sonic the Hedgehog and related characters are trademarks of SEGA; this repository carries
 none of the game's data.

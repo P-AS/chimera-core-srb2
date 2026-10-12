@@ -57,10 +57,12 @@
 #                leg compares the sound too: the run line carries its hash); a
 #                GME song (GME's own test.nsf, from SRB2's libs/gme) and a
 #                tracker module (libopenmpt's own test.mod), each in a PWAD the
-#                gate makes and played with the console's tunes, the same
-#                native, sandboxed and rerecorded. Its teeth - the Greenflower
-#                run without its jump, and the start without the songs, do not
-#                sound the same
+#                gate makes and played with the console's tunes, and the start
+#                with Music Preference MIDI (the game's own MIDI songs, on the
+#                core's YM2612 player), the same native, sandboxed and
+#                rerecorded. Its teeth - the Greenflower run without its jump,
+#                and the start without the songs or with the digital ones, do
+#                not sound the same
 #   files        the machine's filesystem: a mounted autoexec.cfg writes a file
 #                at start (before seal) and one 20 tics into play (after it),
 #                and reads the first back; the save data export is those two
@@ -79,8 +81,8 @@
 #   settings     the declared settings reach the engine as its options: with no
 #                setting given, and with every declared default given, the
 #                engine plays Manual (directionchar Movement, configanalog
-#                Off), cam_speed 1.0, cam_dist 192, cam_height 40, fov 90, timerres Mania, flipcam Yes, autobrake On, tutorialprompt
-#                Off, nothing unlocked, Sonic; each other
+#                Off), cam_speed 1.0, cam_dist 192, cam_height 40, fov 90, timerres Mania, flipcam Yes, autobrake On, musicpref
+#                Digital, tutorialprompt Off, nothing unlocked, Sonic; each other
 #                value of each setting is the engine's option (read back with
 #                run-native --print-cvar). Its teeth - another value is not the
 #                default's
@@ -154,6 +156,7 @@ content gme '{}'
 python3 "$here/tests/make-wad.py" "$root/build/gate/gme/gmetest.wad" O_GMETST="$root/extern/SRB2/libs/gme/test.nsf"
 printf 'addfile gmetest.wad\ntunes gmetst\n' > "$root/build/gate/gme/autoexec.cfg"
 content mod '{}'
+content midi '{"musicPref": "MIDI"}'
 content props '{"warp": "1"}'
 cp "$here/tests/timers.lua" "$root/build/gate/props/timers.lua"
 printf 'addfile timers.lua\n' > "$root/build/gate/props/autoexec.cfg"
@@ -328,6 +331,24 @@ for song in "gme GME song (test.nsf)" "mod tracker module (test.mod)"; do
 		|| bad "audio teeth: the $* changed no sound - the leg cannot fail"
 done
 
+# the start with Music Preference MIDI: the intro's MIDI song (D__INTRO, from
+# 8.6 s) on the core's YM2612 player, over the same 700 steps as the digital
+# start - the same game, another sound
+nm="$(nat midi -n 700 -p 10)"
+bm="$(box midi -n 700 -p 10)"
+rm7="$(box midi -n 700 -p 10 --rerecord)"
+if [ "$(field "$nm" peak)" -gt 1000 ] && [ "$nm" = "$bm" ] && [ "$nm" = "$rm7" ]; then
+	pass "audio: the intro's MIDI song (Music Preference MIDI) is heard, native == sandbox == rerecord ($(echo "$nm" | tail -1))"
+else
+	bad "audio: the intro's MIDI song is silent or differs ('$(echo "$nm" | tail -1)' / '$(echo "$bm" | tail -1)' / '$(echo "$rm7" | tail -1)')"
+fi
+if [ "$(field "$nm" audio)" != "$(field "$ni" audio)" ] && [ "$(field "$nm" run)" = "$(field "$ni" run)" ] \
+	&& [ "$(field "$nm" state)" = "$(field "$ni" state)" ]; then
+	pass "audio teeth: the start with MIDI plays the digital start's game (pictures, state) and does not sound like it"
+else
+	bad "audio teeth: Music Preference MIDI changed no sound, or changed the game ('$(echo "$nm" | tail -1)' / '$(echo "$ni" | tail -1)')"
+fi
+
 # ---- files: the save data export of 200 steps, every way
 sd="$root/build/gate/savedata"
 rm -rf "$sd"
@@ -387,15 +408,15 @@ content settings '{"warp": "1"}'
 cvars() {
 	printf '%s\n' "$1" > "$root/build/gate/settings/settings"
 	"$native" "$root/build/gate/settings" -n 5 -p 0 --print-cvar directionchar --print-cvar configanalog \
-		--print-cvar cam_speed --print-cvar cam_dist --print-cvar cam_height --print-cvar fov --print-cvar timerres --print-cvar flipcam --print-cvar autobrake --print-cvar tutorialprompt 2>/dev/null \
+		--print-cvar cam_speed --print-cvar cam_dist --print-cvar cam_height --print-cvar fov --print-cvar timerres --print-cvar flipcam --print-cvar autobrake --print-cvar musicpref --print-cvar tutorialprompt 2>/dev/null \
 		| grep '^cvar' | tr '\n' ' '
 }
-want="cvar directionchar Movement cvar configanalog Off cvar cam_speed 1.00000 cvar cam_dist 192.00000 cvar cam_height 40.00000 cvar fov 90.00000 cvar timerres Mania cvar flipcam Yes cvar autobrake On cvar tutorialprompt Off "
+want="cvar directionchar Movement cvar configanalog Off cvar cam_speed 1.00000 cvar cam_dist 192.00000 cvar cam_height 40.00000 cvar fov 90.00000 cvar timerres Mania cvar flipcam Yes cvar autobrake On cvar musicpref Digital cvar tutorialprompt Off "
 none="$(cvars '{"warp": "1"}')"
 defaults="$(python3 -c 'import json,sys; c=json.load(open(sys.argv[1])); d={s["name"]:s["default"] for s in c["settings"]}; d["warp"]="1"; print(json.dumps(d))' "$decl")"
 explicit="$(cvars "$defaults")"
 if [ "$none" = "$want" ] && [ "$explicit" = "$want" ]; then
-	pass "settings: the defaults, absent or given, are Manual, cam_speed 1.0, cam_dist 192, cam_height 40, fov 90, timerres Mania, flipcam Yes, autobrake On"
+	pass "settings: the defaults, absent or given, are Manual, cam_speed 1.0, cam_dist 192, cam_height 40, fov 90, timerres Mania, flipcam Yes, autobrake On, musicpref Digital"
 else
 	bad "settings: the defaults are not what they should be: absent '$none', given '$explicit', want '$want'"
 fi
@@ -405,7 +426,7 @@ for v in "playStyle Strafe directionchar Camera configanalog Off" "playStyle Aut
 	"cameraDistance 320 cam_dist 320.00000" "cameraHeight 64.5 cam_height 64.50000" \
 	"fov 120 fov 120.00000" "fov 30 fov 60.00000" "fov 200 fov 179.00000" \
 	"scoreTimeRings Classic timerres Classic" "scoreTimeRings Centiseconds timerres Centiseconds" "scoreTimeRings Tics timerres Tics" \
-	"flipCamera false flipcam No" "autoBrake false autobrake Off"; do
+	"flipCamera false flipcam No" "autoBrake false autobrake Off" "musicPref MIDI musicpref MIDI"; do
 	eval "set -- $v"
 	key="$1"; val="$2"; shift 2
 	case "$val" in [0-9]*|true|false) js="$val" ;; *) js="\"$val\"" ;; esac
@@ -439,7 +460,7 @@ for v in '{"warp": "1"}|sonic' '{"warp": "1", "skin": "knuckles"}|knuckles' '{"w
 done
 case "$(cvars '{"warp": "1"}')" in *"cvar tutorialprompt Off "*) ;; *) ok=0; echo "  tutorialprompt is not Off by default" ;; esac
 case "$(cvars '{"warp": "1", "tutorialPrompt": true}')" in *"cvar tutorialprompt On "*) ;; *) ok=0; echo "  tutorialPrompt true is not On" ;; esac
-[ "$ok" = 1 ] && pass "settings: every other value of every setting is the engine's option (15 values, fov clamped to 60..179), tutorialprompt, the unlocks (the game data's; every Record Attack map, the menu's), and the Start Map character (5 cases)" \
+[ "$ok" = 1 ] && pass "settings: every other value of every setting is the engine's option (16 values, fov clamped to 60..179), tutorialprompt, the unlocks (the game data's; every Record Attack map, the menu's), and the Start Map character (5 cases)" \
 	|| bad "settings: a value did not reach the engine"
 [ "$(cvars '{"warp": "1", "scoreTimeRings": "Classic"}')" != "$want" ] && pass "settings teeth: another value is not the default's" \
 	|| bad "settings teeth: a value changed nothing - the leg cannot fail"

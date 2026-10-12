@@ -1,5 +1,5 @@
-# guest.mk - core.wbx: the same SRB2, zlib, libpng, libogg, libvorbis, GME and
-# core sources as native.mk, built with miniBox's musl/libstdc++ guest
+# guest.mk - core.wbx: the same SRB2, zlib, libpng, libogg, libvorbis, GME,
+# libopenmpt, libOPNMIDI's parts and core sources as native.mk, built with miniBox's musl/libstdc++ guest
 # toolchain (GME is C++) and linked at the guest base. Objects land in
 # build/guest; core.wbx is checked by miniBox's check-wbx.sh (no thread-local
 # storage, no %fs, no red zone) before it counts as built.
@@ -65,9 +65,12 @@ XIPH_CFLAGS := $(WBFLAGS) $(XIPH_CFLAGS_COMMON) -w
 GME_CXXFLAGS := $(WBFLAGS) $(GME_CXXFLAGS_COMMON) $(CXXINCS) -w
 GME_CFLAGS := $(WBFLAGS) $(GME_CFLAGS_COMMON) -w
 OPENMPT_CXXFLAGS := $(WBFLAGS) $(OPENMPT_CXXFLAGS_COMMON) $(CXXINCS) -w
+MIDIFM_CFLAGS := $(WBFLAGS) $(MIDIFM_CFLAGS_COMMON) -w
+MIDIFM_CXXFLAGS := $(WBFLAGS) $(MIDIFM_CXXFLAGS_COMMON) $(CXXINCS) -w
+MIDIFM_CORE_CXXFLAGS := $(WBFLAGS) $(MIDIFM_CXXFLAGS_COMMON) $(CXXINCS) -Wall
 CORE_CFLAGS := $(WBFLAGS) $(CORE_CFLAGS_COMMON) $(MBINCS) -I. -Wall -Wno-unused-function
 
-$(call flags_stamp,$(B),$(CC) | $(CXX) | $(SRB2_CFLAGS) | $(ZLIB_CFLAGS) | $(PNG_CFLAGS) | $(XIPH_CFLAGS) | $(GME_CXXFLAGS) | $(GME_CFLAGS) | $(OPENMPT_CXXFLAGS) | $(CORE_CFLAGS))
+$(call flags_stamp,$(B),$(CC) | $(CXX) | $(SRB2_CFLAGS) | $(ZLIB_CFLAGS) | $(PNG_CFLAGS) | $(XIPH_CFLAGS) | $(GME_CXXFLAGS) | $(GME_CFLAGS) | $(OPENMPT_CXXFLAGS) | $(MIDIFM_CFLAGS) | $(MIDIFM_CXXFLAGS) | $(MIDIFM_CORE_CXXFLAGS) | $(CORE_CFLAGS))
 
 SRB2_OBJS := $(patsubst $(SRB2)/%.c,$(B)/srb2/%.o,$(SRB2_SRCS))
 ZLIB_OBJS := $(patsubst $(LIBS)/zlib/%.c,$(B)/zlib/%.o,$(ZLIB_SRCS))
@@ -75,7 +78,8 @@ PNG_OBJS := $(patsubst $(LIBS)/libpng-src/%.c,$(B)/png/%.o,$(PNG_SRCS))
 XIPH_OBJS := $(patsubst $(OGG)/src/%.c,$(B)/ogg/%.o,$(OGG_SRCS)) $(patsubst $(VORBIS)/lib/%.c,$(B)/vorbis/%.o,$(VORBIS_SRCS))
 OPENMPT_OBJS := $(patsubst $(OPENMPT)/%.cpp,$(B)/openmpt/%.o,$(OPENMPT_SRCS))
 GME_OBJS := $(patsubst $(GME)/%.cpp,$(B)/gme/%.o,$(filter %.cpp,$(GME_SRCS))) $(patsubst $(GME)/%.c,$(B)/gme/%.o,$(filter %.c,$(GME_SRCS)))
-CORE_OBJS := $(addprefix $(B)/core/,$(addsuffix .o,$(CORE_C_NAMES))) $(B)/core/libco.o
+MIDIFM_OBJS := $(patsubst $(OPNMIDI)/%.c,$(B)/opnmidi/%.o,$(MIDIFM_C_SRCS)) $(patsubst $(OPNMIDI)/%.cpp,$(B)/opnmidi/%.o,$(MIDIFM_CXX_SRCS))
+CORE_OBJS := $(addprefix $(B)/core/,$(addsuffix .o,$(CORE_C_NAMES))) $(B)/core/platform/midi_fm.o $(B)/core/libco.o
 
 all: $(B)/core.wbx
 
@@ -117,6 +121,18 @@ $(B)/gme/%.o: $(GME)/%.c $(B)/flags | $(LIBSTDCXX)
 	@mkdir -p $(dir $@)
 	$(CC) $(GME_CFLAGS) -c -o $@ $<
 
+$(B)/opnmidi/%.o: $(OPNMIDI)/%.c $(B)/flags | $(LIBSTDCXX)
+	@mkdir -p $(dir $@)
+	$(CC) $(MIDIFM_CFLAGS) -c -o $@ $<
+
+$(B)/opnmidi/%.o: $(OPNMIDI)/%.cpp $(B)/flags | $(LIBSTDCXX)
+	@mkdir -p $(dir $@)
+	$(CXX) $(MIDIFM_CXXFLAGS) -c -o $@ $<
+
+$(B)/core/platform/midi_fm.o: platform/midi_fm.cpp platform/midi_fm.h $(OPNBANK) $(B)/flags | $(LIBSTDCXX)
+	@mkdir -p $(dir $@)
+	$(CXX) $(MIDIFM_CORE_CXXFLAGS) -c -o $@ $<
+
 $(B)/core/%.o: %.c $(CORE_HDRS) $(PATCH_STAMP) $(OPENMPT_STAMP) $(PNGCONF) $(B)/flags | $(LIBSTDCXX)
 	@mkdir -p $(dir $@)
 	$(CC) $(GL_INCS) $(CORE_CFLAGS) -c -o $@ $<
@@ -149,7 +165,7 @@ $(B)/core/libco.o: $(LIBCO_SRC) $(B)/flags | $(LIBSTDCXX)
 # miniBox's C++ guest link recipe (source/guest/meson.build): the large code
 # model's --no-relax, the weak pthread references libgcc_eh pulls, cxxglue
 # (__dso_handle, _dl_find_object), and the libraries in this order, libc last
-$(B)/core.wbx: $(CORE_OBJS) $(SRB2_OBJS) $(PNG_OBJS) $(XIPH_OBJS) $(GME_OBJS) $(OPENMPT_OBJS) $(ZLIB_OBJS) $(B)/glbridge/gl-bridge-guest.o $(B)/glbridge/glad.o | $(EMULIBC) $(CXXGLUE)
+$(B)/core.wbx: $(CORE_OBJS) $(SRB2_OBJS) $(PNG_OBJS) $(XIPH_OBJS) $(GME_OBJS) $(OPENMPT_OBJS) $(MIDIFM_OBJS) $(ZLIB_OBJS) $(B)/glbridge/gl-bridge-guest.o $(B)/glbridge/glad.o | $(EMULIBC) $(CXXGLUE)
 	$(CXX) -static -no-pie -Wl,--eh-frame-hdr,-O2,--no-relax -Wl,-z,stack-size=8388608 \
 		-T $(MB)/source/guest/linkscript.T \
 		-Wl,-u,pthread_once -Wl,-u,pthread_cond_wait -Wl,-u,pthread_cond_broadcast -Wl,-u,pthread_key_create \

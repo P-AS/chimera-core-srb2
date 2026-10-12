@@ -1,5 +1,5 @@
-# native.mk - the native reference: the same SRB2, zlib, libpng and core
-# sources as guest.mk, built for the host, plus the two harnesses (run-native
+# native.mk - the native reference: the same SRB2, zlib, libpng, libogg,
+# libvorbis, GME, libopenmpt, libOPNMIDI's parts and core sources as guest.mk, built for the host, plus the two harnesses (run-native
 # drives the exports directly; run-wbx drives core.wbx through the miniBox host
 # exactly as the frontend does). Objects land in build/native.
 #
@@ -19,9 +19,12 @@ XIPH_CFLAGS := $(ARITH_FLAGS) $(XIPH_CFLAGS_COMMON) -w
 GME_CXXFLAGS := $(ARITH_FLAGS) $(GME_CXXFLAGS_COMMON) -w
 GME_CFLAGS := $(ARITH_FLAGS) $(GME_CFLAGS_COMMON) -w
 OPENMPT_CXXFLAGS := $(ARITH_FLAGS) $(OPENMPT_CXXFLAGS_COMMON) -w
+MIDIFM_CFLAGS := $(ARITH_FLAGS) $(MIDIFM_CFLAGS_COMMON) -w
+MIDIFM_CXXFLAGS := $(ARITH_FLAGS) $(MIDIFM_CXXFLAGS_COMMON) -w
+MIDIFM_CORE_CXXFLAGS := $(ARITH_FLAGS) $(MIDIFM_CXXFLAGS_COMMON) -g -Wall
 CORE_CFLAGS := $(ARITH_FLAGS) $(CORE_CFLAGS_COMMON) -Inative-shim -I$(MB)/source/guest/include -I$(MB)/extern/jsmn -I. -g -Wall -Wno-unused-function
 
-$(call flags_stamp,$(B),$(SRB2_CFLAGS) | $(ZLIB_CFLAGS) | $(PNG_CFLAGS) | $(XIPH_CFLAGS) | $(GME_CXXFLAGS) | $(GME_CFLAGS) | $(OPENMPT_CXXFLAGS) | $(CORE_CFLAGS))
+$(call flags_stamp,$(B),$(SRB2_CFLAGS) | $(ZLIB_CFLAGS) | $(PNG_CFLAGS) | $(XIPH_CFLAGS) | $(GME_CXXFLAGS) | $(GME_CFLAGS) | $(OPENMPT_CXXFLAGS) | $(MIDIFM_CFLAGS) | $(MIDIFM_CXXFLAGS) | $(MIDIFM_CORE_CXXFLAGS) | $(CORE_CFLAGS))
 
 SRB2_OBJS := $(patsubst $(SRB2)/%.c,$(B)/srb2/%.o,$(SRB2_SRCS))
 ZLIB_OBJS := $(patsubst $(LIBS)/zlib/%.c,$(B)/zlib/%.o,$(ZLIB_SRCS))
@@ -29,7 +32,8 @@ PNG_OBJS := $(patsubst $(LIBS)/libpng-src/%.c,$(B)/png/%.o,$(PNG_SRCS))
 XIPH_OBJS := $(patsubst $(OGG)/src/%.c,$(B)/ogg/%.o,$(OGG_SRCS)) $(patsubst $(VORBIS)/lib/%.c,$(B)/vorbis/%.o,$(VORBIS_SRCS))
 OPENMPT_OBJS := $(patsubst $(OPENMPT)/%.cpp,$(B)/openmpt/%.o,$(OPENMPT_SRCS))
 GME_OBJS := $(patsubst $(GME)/%.cpp,$(B)/gme/%.o,$(filter %.cpp,$(GME_SRCS))) $(patsubst $(GME)/%.c,$(B)/gme/%.o,$(filter %.c,$(GME_SRCS)))
-CORE_OBJS := $(addprefix $(B)/core/,$(addsuffix .o,$(CORE_C_NAMES))) $(B)/core/libco.o
+MIDIFM_OBJS := $(patsubst $(OPNMIDI)/%.c,$(B)/opnmidi/%.o,$(MIDIFM_C_SRCS)) $(patsubst $(OPNMIDI)/%.cpp,$(B)/opnmidi/%.o,$(MIDIFM_CXX_SRCS))
+CORE_OBJS := $(addprefix $(B)/core/,$(addsuffix .o,$(CORE_C_NAMES))) $(B)/core/platform/midi_fm.o $(B)/core/libco.o
 
 ifeq ($(MB),)
 $(error name miniBox: make -f native.mk MINIBOX_DIR=<miniBox checkout>)
@@ -69,6 +73,18 @@ $(B)/vorbis/%.o: $(VORBIS)/lib/%.c compat/ogg/config_types.h $(B)/flags
 	@mkdir -p $(dir $@)
 	gcc $(XIPH_CFLAGS) -c -o $@ $<
 
+$(B)/opnmidi/%.o: $(OPNMIDI)/%.c $(B)/flags
+	@mkdir -p $(dir $@)
+	gcc $(MIDIFM_CFLAGS) -c -o $@ $<
+
+$(B)/opnmidi/%.o: $(OPNMIDI)/%.cpp $(B)/flags
+	@mkdir -p $(dir $@)
+	g++ $(MIDIFM_CXXFLAGS) -c -o $@ $<
+
+$(B)/core/platform/midi_fm.o: platform/midi_fm.cpp platform/midi_fm.h $(OPNBANK) $(B)/flags
+	@mkdir -p $(dir $@)
+	g++ $(MIDIFM_CORE_CXXFLAGS) -c -o $@ $<
+
 $(B)/core/%.o: %.c $(CORE_HDRS) $(PATCH_STAMP) $(OPENMPT_STAMP) $(PNGCONF) $(B)/flags
 	@mkdir -p $(dir $@)
 	gcc $(CORE_CFLAGS) -c -o $@ $<
@@ -77,7 +93,7 @@ $(B)/core/run-native.o: run-native.c harness.h platform/chimera-platform.h $(B)/
 	@mkdir -p $(dir $@)
 	gcc -O2 -g -Wall -I. -c -o $@ $<
 
-$(B)/run-native: $(CORE_OBJS) $(SRB2_OBJS) $(PNG_OBJS) $(XIPH_OBJS) $(GME_OBJS) $(OPENMPT_OBJS) $(ZLIB_OBJS) $(B)/core/run-native.o
+$(B)/run-native: $(CORE_OBJS) $(SRB2_OBJS) $(PNG_OBJS) $(XIPH_OBJS) $(GME_OBJS) $(OPENMPT_OBJS) $(MIDIFM_OBJS) $(ZLIB_OBJS) $(B)/core/run-native.o
 	g++ -rdynamic -o $@ $^ $(WRAP_FLAGS) -lm
 
 # run-wbx links the miniBox host library
