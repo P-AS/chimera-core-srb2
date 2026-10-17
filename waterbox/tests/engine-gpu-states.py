@@ -15,15 +15,23 @@ chimera_gl_step). This checks that it does, three ways, on Greenflower:
              (the bridge's context outlives a session, as a project closed and
              opened again): steps 151-300 again
 
-The pictures are the GPU's, so they are compared run to run on one machine
-(the driver draws the same picture for the same calls), never to a
-reference. Each load must also have made the renderer again (the core says
-so on standard error, which this reads back through a pipe): a rewind inside
-one level can draw right by luck, its stale names still naming textures of
-the same level. Prints one line per check and exits non-zero on a
+The pictures are the GPU's, so they are compared run to run on one machine,
+never to a reference, and not exactly. SRB2's OpenGL renderer sorts its
+polygons by a hash of their texture's GL name (hw_batching.c). The driver
+gives out those names, and after a rebuild they can come in another order,
+so polygons that meet at the same depth can be drawn in another order and a
+pixel or two on a seam can differ. A picture counts as the straight run's
+when at most SEAMS of its pixels differ. A stale name draws a wrong or
+missing texture, which is thousands of pixels.
+
+Each load must also have made the renderer again (the core says so on
+standard error, which this reads back through a pipe): a rewind inside one
+level can draw right by luck, its stale names still naming textures of the
+same level. Prints one line per check and exits non-zero on a
 difference."""
 import ctypes
 import hashlib
+import zlib
 import tempfile
 import json
 import os
@@ -89,7 +97,32 @@ def step(s, i):
     w, h = ce.ce_session_video_width(s), ce.ce_session_video_height(s)
     px = ctypes.string_at(ce.ce_session_video(s), w * h * 4)
     lit = sum(1 for i in range(0, len(px), 4 * 97) if px[i] | px[i + 1] | px[i + 2])
-    return hashlib.sha1(px).hexdigest()[:16], lit * 97 * 100 // (w * h)
+    return hashlib.sha1(px).hexdigest()[:16], lit * 97 * 100 // (w * h), zlib.compress(px, 1)
+
+
+# the most pixels a picture may differ from the straight run's by and still
+# be it: seams drawn in another order (see above)
+SEAMS = 16
+
+
+def apart(a, b):
+    """how many pixels two step results differ in"""
+    if a[0] == b[0]:
+        return 0
+    x, y = zlib.decompress(a[2]), zlib.decompress(b[2])
+    return sum(1 for k in range(0, len(x), 4) if x[k:k + 3] != y[k:k + 3])
+
+
+def compare(s):
+    """steps 151-300 against the straight run: the steps beyond SEAMS, and
+    the most pixels any step differed in"""
+    bad, most = [], 0
+    for i in range(151, 301):
+        n = apart(step(s, i), straight[i])
+        most = max(most, n)
+        if n > SEAMS:
+            bad.append(i)
+    return bad, most
 
 
 def save(s):
@@ -139,11 +172,11 @@ for i in range(151, 251):
     step(s, i)
 before = rebuilds()
 load(s, state)
-diff = [i for i in range(151, 301) if step(s, i) != straight[i]]
+diff, most = compare(s)
 made = rebuilds() - before
 if made < 1:
     diff = diff or ["no rebuild"]
-print(("FAIL" if diff else "PASS") + f" rewind ({made} rebuild): steps 151-300 after a load {'differ at ' + str(diff[:5]) if diff else 'are the straight run'}")
+print(("FAIL" if diff else "PASS") + f" rewind ({made} rebuild): steps 151-300 after a load {'differ at ' + str(diff[:5]) if diff else 'are the straight run'} (at most {most} seam pixels apart)")
 ok &= not diff
 ce.ce_session_free(s)
 
@@ -151,11 +184,11 @@ s = open_session()
 step(s, 1)
 before = rebuilds()
 load(s, state)
-diff = [i for i in range(151, 301) if step(s, i) != straight[i]]
+diff, most = compare(s)
 made = rebuilds() - before
 if made < 1:
     diff = diff or ["no rebuild"]
-print(("FAIL" if diff else "PASS") + f" reopen ({made} rebuild): the state in a second session, steps 151-300 {'differ at ' + str(diff[:5]) if diff else 'are the straight run'}")
+print(("FAIL" if diff else "PASS") + f" reopen ({made} rebuild): the state in a second session, steps 151-300 {'differ at ' + str(diff[:5]) if diff else 'are the straight run'} (at most {most} seam pixels apart)")
 ok &= not diff
 ce.ce_session_free(s)
 os.dup2(saved_err, 2)
