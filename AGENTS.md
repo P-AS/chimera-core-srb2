@@ -184,9 +184,19 @@ CHIMERA_CORES_DIR=<chimera>/build/Cores dotnet test source/gui/Chimera.Tests.Cli
   out).
 - Shell scripts stay executable (git mode 100755): `waterbox/*.sh`.
 - Documentation prose is plain ASCII.
-- Commit messages: the subject states what is now true, often after a topic
-  and a colon ("controller: the core says what its system and its controls
-  are called"). The body says what changed and why.
+- Write in plain language (following Chimera's rule, chimera#239, and its
+  rewrite of every core's texts, chimera#241). Commit messages, documents,
+  code comments, the settings' and properties' descriptions and issue
+  replies are read by users who have never seen this repository. Say what
+  changed in ordinary words. Do not use a project term without saying what
+  it means the first time: write "test" rather than "leg", "test script"
+  rather than "gate", "passes" rather than "is green". Name a console
+  variable as "SRB2's console variable cam_speed", not as a bare
+  `cam_speed`. When you edit an older section that is not written this way,
+  rewrite the part you touch.
+- Commit messages: subject `topic: what changed`, for example
+  `settings: Field of View is a setting, 90 by default`. Body: short - what
+  changed, why, and how it was tested, with the numbers. A list is fine.
 - Do not edit `.github/workflows` unless the task is the workflow.
 
 ## Where to read more

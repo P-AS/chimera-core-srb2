@@ -295,7 +295,7 @@ long long srb2_domain_size(int i) { return i == 0 ? (long long)sizeof g_state : 
 /* the property table: what the Game State block holds, by name */
 const char *srb2_game_properties(void)
 {
-	static char json[8192];
+	static char json[16384];
 	if (json[0])
 		return json;
 	int n = 0, first = 1;
@@ -305,40 +305,40 @@ const char *srb2_game_properties(void)
 	  "\"writable\": false, \"description\": \"%s\" }", first ? "" : ",\n", \
 	  name, (int)offsetof(struct game_state, field), type, group, desc), first = 0
 	P("{\n  \"properties\": [\n");
-	GS("Game.Tic", tic, "s32", "Game", "The game's tic (gametic)");
-	GS("Game.Level Time", level_time, "s32", "Game", "Tics on this level (leveltime)");
-	GS("Game.State", game_state, "s32", "Game", "gamestate (1: in a level)");
-	GS("Game.Map", map, "s32", "Game", "gamemap");
-	GS("Player.In Level", in_level, "bool", "Player", "The player has an object in a level; the rest of Player and Timers is 0 when not");
-	GS("Player.X", x, "s32", "Player", "Position, 16.16 fixed point: 65536 is one unit");
-	GS("Player.Y", y, "s32", "Player", "Position, 16.16 fixed point");
-	GS("Player.Z", z, "s32", "Player", "Height, 16.16 fixed point");
-	GS("Player.Momentum X", momx, "s32", "Player", "Units a tic, 16.16 fixed point");
-	GS("Player.Momentum Y", momy, "s32", "Player", "Units a tic, 16.16 fixed point");
-	GS("Player.Momentum Z", momz, "s32", "Player", "Units a tic, 16.16 fixed point");
-	GS("Player.Angle", angle, "u32", "Player", "The player object's angle: 2^32 is a full turn, 0 is east, counterclockwise");
-	GS("Player.Speed", speed, "s32", "Player", "Horizontal speed as the game reckons it (player->speed, against the floor it stands on), 16.16 fixed point");
-	GS("Timers.Speed Shoes", shoes, "u16", "Timers", "Tics of speed shoes left (pw_sneakers)");
-	GS("Timers.Invincibility", invincibility, "u16", "Timers", "Tics of invincibility left (pw_invulnerability)");
-	GS("Timers.Space", space, "u16", "Timers", "Tics of air left in space (pw_spacetime)");
-	GS("Timers.Air", air, "u16", "Timers", "Tics of air left underwater (pw_underwater)");
-	GS("Player.Conveyor Momentum X", cmomx, "s32", "Player", "What a conveyor or a moving platform carrying the player adds to Momentum X (player->cmomx), 16.16 fixed point");
-	GS("Player.Conveyor Momentum Y", cmomy, "s32", "Player", "What a conveyor or a moving platform carrying the player adds to Momentum Y (player->cmomy), 16.16 fixed point");
-	GS("Player.Platform Momentum Z", pmomz, "s32", "Player", "The vertical momentum of the moving floor the player stands on (mo->pmomz), kept on leaving it; 16.16 fixed point");
-	GS("Player.Dash Speed", dashspeed, "s32", "Player", "The spindash's charge (player->dashspeed): Min Dash when it starts, 1.0 more each tic Spin is held, up to Max Dash; the speed it launches at. 16.16 fixed point");
-	GS("Player.Min Dash", mindash, "s32", "Player", "The character's least spindash charge (player->mindash), 16.16 fixed point");
-	GS("Player.Max Dash", maxdash, "s32", "Player", "The character's most spindash charge (player->maxdash), 16.16 fixed point");
-	GS("Player.Flags", pflags, "u32", "Player", "player->pflags (PF_*)");
+	GS("Game.Tic", tic, "s32", "Game", "The game's tic counter (gametic). A tic is 1/35 of a second.");
+	GS("Game.Level Time", level_time, "s32", "Game", "Tics spent on this level (leveltime).");
+	GS("Game.State", game_state, "s32", "Game", "The game's state (gamestate). 1 means a level is being played.");
+	GS("Game.Map", map, "s32", "Game", "The number of the current map (gamemap).");
+	GS("Player.In Level", in_level, "bool", "Player", "Whether the player has an object in a level. When not, the other Player and Timers values are 0.");
+	GS("Player.X", x, "s32", "Player", "The player's position, in 16.16 fixed point: 65536 is one map unit.");
+	GS("Player.Y", y, "s32", "Player", "The player's position, in 16.16 fixed point.");
+	GS("Player.Z", z, "s32", "Player", "The player's height, in 16.16 fixed point.");
+	GS("Player.Momentum X", momx, "s32", "Player", "The player's movement in map units per tic, in 16.16 fixed point.");
+	GS("Player.Momentum Y", momy, "s32", "Player", "The player's movement in map units per tic, in 16.16 fixed point.");
+	GS("Player.Momentum Z", momz, "s32", "Player", "The player's movement in map units per tic, in 16.16 fixed point.");
+	GS("Player.Angle", angle, "u32", "Player", "The direction the player's object faces. 2^32 is a full turn, 0 is east, and it grows counterclockwise.");
+	GS("Player.Speed", speed, "s32", "Player", "The player's horizontal speed as the game calculates it (player->speed), measured against the floor the player stands on, in 16.16 fixed point.");
+	GS("Timers.Speed Shoes", shoes, "u16", "Timers", "Tics of speed shoes left (pw_sneakers).");
+	GS("Timers.Invincibility", invincibility, "u16", "Timers", "Tics of invincibility left (pw_invulnerability).");
+	GS("Timers.Space", space, "u16", "Timers", "Tics of air left in space (pw_spacetime).");
+	GS("Timers.Air", air, "u16", "Timers", "Tics of air left underwater (pw_underwater).");
+	GS("Player.Conveyor Momentum X", cmomx, "s32", "Player", "What a conveyor or a moving platform carrying the player adds to Momentum X (player->cmomx), in 16.16 fixed point.");
+	GS("Player.Conveyor Momentum Y", cmomy, "s32", "Player", "What a conveyor or a moving platform carrying the player adds to Momentum Y (player->cmomy), in 16.16 fixed point.");
+	GS("Player.Platform Momentum Z", pmomz, "s32", "Player", "The vertical movement of the moving floor the player stands on (mo->pmomz). It is kept after the player leaves the floor. In 16.16 fixed point.");
+	GS("Player.Dash Speed", dashspeed, "s32", "Player", "The charge of the spindash (player->dashspeed), which is the speed it launches at. It starts at Min Dash and grows by 1.0 for each tic Spin is held, up to Max Dash. In 16.16 fixed point.");
+	GS("Player.Min Dash", mindash, "s32", "Player", "The smallest spindash charge of the character (player->mindash), in 16.16 fixed point.");
+	GS("Player.Max Dash", maxdash, "s32", "Player", "The largest spindash charge of the character (player->maxdash), in 16.16 fixed point.");
+	GS("Player.Flags", pflags, "u32", "Player", "The player's flags (player->pflags, the PF_* values in SRB2's source code).");
 	P(",\n    { \"name\": \"Player.Charging Spindash\", \"domain\": \"Game State\", \"offset\": %d, \"type\": \"u32\", "
 	  "\"bit\": %d, \"bits\": 1, \"group\": \"Player\", \"writable\": false, "
-	  "\"description\": \"Revving a spindash (PF_STARTDASH, a bit of Player.Flags)\" }",
+	  "\"description\": \"Whether a spindash is being charged (PF_STARTDASH, one bit of Player.Flags).\" }",
 	  (int)offsetof(struct game_state, pflags), __builtin_ctz((unsigned)PF_STARTDASH));
-	GS("Player.Dashmode", dashmode, "u32", "Player", "Metal Sonic's dash mode (player->dashmode): tics at running speed; at 105 (DASHMODE_THRESHOLD) dash mode starts, and it stops counting at 108 (DASHMODE_MAX)");
-	GS("Player.Normal Speed", normalspeed, "s32", "Player", "The player's top running speed (player->normalspeed), raised in dash mode; 16.16 fixed point");
-	GS("Boss.Active", boss_active, "bool", "Boss", "A boss is in the level: the first object with MF_BOSS among the thinkers, as the SRB2 TAS build finds it; the rest of Boss is 0 when not");
-	GS("Boss.Health", boss_health, "s32", "Boss", "The boss's health (hits left)");
-	GS("Boss.Max Health", boss_max_health, "s32", "Boss", "The boss's health at the start (its type's spawnhealth)");
-	GS("Boss.Flashing", boss_flashing, "bool", "Boss", "The boss is flashing from a hit (MF2_FRET): it cannot be hit again until it stops");
+	GS("Player.Dashmode", dashmode, "u32", "Player", "Metal Sonic's dash mode counter (player->dashmode): the tics spent at running speed. Dash mode starts at 105 (DASHMODE_THRESHOLD), and the count stops at 108 (DASHMODE_MAX).");
+	GS("Player.Normal Speed", normalspeed, "s32", "Player", "The player's top running speed (player->normalspeed). Dash mode raises it. In 16.16 fixed point.");
+	GS("Boss.Active", boss_active, "bool", "Boss", "Whether a boss is in the level. The boss is the first object with the MF_BOSS flag in the game's list of objects, found the same way the SRB2 TAS build finds it. When there is none, the other Boss values are 0.");
+	GS("Boss.Health", boss_health, "s32", "Boss", "The boss's health: the hits it has left.");
+	GS("Boss.Max Health", boss_max_health, "s32", "Boss", "The boss's health at the start (the spawnhealth of its object type).");
+	GS("Boss.Flashing", boss_flashing, "bool", "Boss", "Whether the boss is flashing after a hit (MF2_FRET). It cannot be hit again until it stops.");
 	P("\n  ]\n}\n");
 #undef GS
 #undef P
