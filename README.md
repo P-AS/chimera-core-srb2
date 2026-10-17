@@ -87,7 +87,8 @@ a step is a tic, a wipe's frames are lag steps, play is a tic a step. `savestate
 every step, and a new host mid-wipe, change nothing. `declaration`: the package's controller is the core's. `settings`: each setting reaches the engine.
 `opengl`: with no GPU bridge the OpenGL renderer warns in the log and the run is the software renderer's. `engine`
 (with `-c`) also runs `opengl-hw` through the GPU bridge where the machine has a context: the character select
-drawn as in software, and the picture right again after a rewind and a reopen.
+drawn as in software, and the picture right again after a rewind and a reopen (up to 16 pixels may differ, on
+seams: SRB2's OpenGL renderer orders polygons by the graphics driver's texture numbers).
 `properties`: the Game State domain, read by its property table, holds what Greenflower's movie did, the timers
 `tests/timers.lua` sets, a spindash's charge (`tests/spindash.txt`), and a boss `tests/boss.lua` spawns and hits.
 `input`: movies through the menus and in Greenflower,

@@ -106,8 +106,10 @@
 #                context, opengl-hw through the bridge draws the character
 #                select as the software renderer does (flat fills, text, art),
 #                and a rewind and a reopen make the renderer again and draw the
-#                straight run (tests/engine-gpu-states.py, whose teeth - the
-#                core built without the rebuild - were watched failing)
+#                straight run, with at most 16 pixels different (SRB2's
+#                renderer orders polygons by the driver's texture numbers: see
+#                tests/engine-gpu-states.py, whose teeth - the core built
+#                without the rebuild - were watched failing)
 #   time         the machine's clock is its own: a 300 ms host stall mid-run
 #                changes nothing, native and sandbox; its teeth - on the host's
 #                clock the same stall changes the run

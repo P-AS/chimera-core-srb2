@@ -274,6 +274,17 @@ run's pictures, each with one rebuild. Its teeth were watched: the core built wi
 steps 214 and 221 after the rewind (a stale name in the same level still names a texture by luck most of the
 time) and from the first step after the reopen.
 
+2026-10-17: the test allows up to 16 different pixels a picture. From Chimera 14409f9 on (its GL bridge
+changes between 804e6b4 and 14409f9), CI failed this test on x64 and arm64 (Mesa llvmpipe): after a rewind
+and after a reopen, step 191 differed in one pixel. On this machine's NVIDIA card, steps 214, 221, 249, 254 and
+259 differed, each in one pixel, on a polygon seam. The same package passes with Chimera 804e6b4. The cause is
+the one the SRB2 Legacy fork found: `hw_batching.c` sorts polygons by a hash of their texture's GL name, the
+driver gives out the names, and after a rebuild they can come in another order, so polygons at the same depth
+are drawn in another order. The comparison is now the Legacy fork's. Its teeth were watched again with
+Chimera 1e723d6: the core built without the rebuild (but still printing that it rebuilt) passes the rewind,
+with 0 pixels apart, and crashes in the reopen, on NVIDIA and on llvmpipe, so the test fails. The rewind's real
+check is that a rebuild happened: the 214 and 221 above were most likely the same one-pixel seams.
+
 Measured (RTX 2070 SUPER, NVIDIA 615.71, Greenflower, through the engine, readback every frame):
 
 | resolution | steps/s |
