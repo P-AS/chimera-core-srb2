@@ -8,7 +8,14 @@
 # keeps the thread's TEB in it (its ARM64 ABI: "reserved platform register ...
 # in user mode, points to TEB"), and macOS zeroes it when it likes. Arm's own
 # procedure call standard tells code meant for more than one platform to avoid
-# it. So every aarch64 object here is built with -ffixed-x18 (guest.mk), and
+# it. The other is TPIDR_EL0, where macOS writes the CPU number at every
+# context switch: miniBox's aarch64 machine keeps the guest's thread pointer in
+# a word of memory instead (its MACHINE-SPEC, "aarch64"), and its
+# wbx-tp-rewrite.py turns every read of TPIDR_EL0 the compiler emitted into a
+# read of that word when core.wbx is linked. So an object here may read
+# TPIDR_EL0 (that is how compiled thread locals start) but never write it, and
+# the linked image may do neither. And every aarch64 object here is built
+# with -ffixed-x18 (guest.mk), and
 # this holds them to it.
 #
 # Two levels:
@@ -16,14 +23,16 @@
 #   what this repository compiles - its objects - must not
 #   touch x18, issue a system call of its own (svc/hvc/smc: a guest reaches
 #   the host through miniBox's interop, never the kernel), or reach a system
-#   register other than the thread pointer and the FP control and status
-#   registers. Any of those fails the build.
+#   register other than the FP control and status registers and a READ of
+#   the thread pointer, which the link rewrites. Any of those fails the build.
 #
 #   the linked image also holds what this repository does not build: miniBox's
 #   musl and libstdc++, and the system compiler's libgcc. What of theirs still
 #   uses x18 is listed, so the gap is in plain view, but does not fail the
-#   build: it is the guest kit's to close (built with -ffixed-x18, libgcc
-#   included), not this core's. When it is closed the list is empty.
+#   build: it is the guest kit's to close, not this core's. miniBox builds
+#   musl and libstdc++ with -ffixed-x18 now, so what is left is the system
+#   compiler's libgcc. When it is closed the list is empty. TPIDR_EL0 anywhere
+#   in the image, whoever built it, fails: the image was not rewritten.
 #
 # Usage: check-portable.sh <core.wbx> <object or archive>...
 set -eu
@@ -59,8 +68,10 @@ scan() {
 				sub(/^.*[ \t](mrs|msr)[ \t]+/, "", reg)
 				gsub(/[ \t]/, "", reg)
 				split(reg, part, ",")
-				r = (line ~ /[ \t]mrs[ \t]/) ? part[2] : part[1]
-				if (r != "tpidr_el0" && r != "fpcr" && r != "fpsr") n["sysreg:" r " " file " " fn]++
+				rd = line ~ /[ \t]mrs[ \t]/
+				r = rd ? part[2] : part[1]
+				if (r == "tpidr_el0") n[(rd ? "tp-read " : "tp-write ") file " " fn]++
+				else if (r != "fpcr" && r != "fpsr") n["sysreg:" r " " file " " fn]++
 			}
 		}
 		END { for (k in n) print k, n[k] }' | sort
@@ -68,7 +79,9 @@ scan() {
 
 bad=0
 if [ "$#" -gt 0 ]; then
-	ours="$(scan "$@")"
+	# reading the thread pointer is what compiled thread locals do, and the link
+	# rewrites it; writing it is not
+	ours="$(scan "$@" | awk '$1 != "tp-read"')"
 	if [ -n "$ours" ]; then
 		echo "check-portable: code built here is not OS-independent:" >&2
 		echo "$ours" | awk '{ printf "  %-14s %s  %s (%d)\n", $1, $3, $2, $4 }' >&2
@@ -86,12 +99,18 @@ if [ -n "$hard" ]; then
 	echo "$hard" | awk '{ printf "  %s (%d)\n", $3, $4 }' >&2
 	bad=1
 fi
+tp="$(echo "$image" | awk '$1 == "tp-read" || $1 == "tp-write"')"
+if [ -n "$tp" ]; then
+	echo "check-portable: $wbx still reaches TPIDR_EL0 - not rewritten by miniBox's wbx-tp-rewrite.py:" >&2
+	echo "$tp" | awk '{ printf "  %-9s %s (%d)\n", $1, $3, $4 }' | head -20 >&2
+	bad=1
+fi
 
 # What the image reaches that this repository did not build: the guest kit's
 # x18 users, and the system registers its libgcc reads for CPU features it may
 # have (SME's TPIDR2_EL0 and the Guarded Control Stack's GCSPR_EL0, both behind
 # a feature check). Said, not failed: see above.
-rest="$(echo "$image" | awk '$1 != "syscall"')"
+rest="$(echo "$image" | awk '$1 != "syscall" && $1 != "tp-read" && $1 != "tp-write"')"
 if [ -n "$rest" ]; then
 	nfn="$(echo "$rest" | awk '$1 == "x18"' | wc -l)"
 	echo "check-portable: $wbx: $nfn function(s) from the guest kit still use x18, so this package runs on Linux only:"
@@ -100,4 +119,4 @@ if [ -n "$rest" ]; then
 fi
 
 [ "$bad" -eq 0 ] || exit 1
-echo "check-portable: $wbx: everything built here leaves x18 alone"
+echo "check-portable: $wbx: everything built here leaves x18 alone, and nothing reaches TPIDR_EL0"

@@ -32,8 +32,11 @@ firmware.
   draws only on the GPU, through Chimera's bridge (`platform/gl_compat.c`).
 - `waterbox/check-portable.sh`: run on every aarch64 link. Everything built
   here must leave register x18 alone (`-ffixed-x18` in `guest.mk`): Windows keeps the TEB there and macOS clears it, so code
-  using it ties the package to Linux. It also lists what the guest kit (musl,
-  libstdc++, libgcc) still does with x18, without failing on it.
+  using it ties the package to Linux. It also lists what the guest kit (now
+  libgcc only) still does with x18, without failing on it. The linked image
+  must not reach TPIDR_EL0 at all: miniBox keeps an aarch64 guest's thread
+  pointer in memory, and `guest.mk` runs its `wbx-tp-rewrite.py` on every
+  link to point the compiler's reads at it.
 - `waterbox/fetch-data.sh`: downloads STJr's 2.2.15 release and takes out the
   four pk3s, checked (the gate's data where none is installed).
 - `waterbox/build-package.sh`: builds the package. `run-gate.sh`: the gate.
