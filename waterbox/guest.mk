@@ -2,7 +2,10 @@
 # libopenmpt, libOPNMIDI's parts and core sources as native.mk, built with miniBox's musl/libstdc++ guest
 # toolchain (GME is C++) and linked at the guest base. Objects land in
 # build/guest; core.wbx is checked by miniBox's check-wbx.sh (no thread-local
-# storage, no %fs, no red zone) before it counts as built.
+# storage, no %fs, no red zone) before it counts as built. On aarch64 it is
+# first finished by miniBox's wbx-tp-rewrite.py: the machine keeps the guest's
+# thread pointer in a word of memory, not TPIDR_EL0 (miniBox's MACHINE-SPEC,
+# "aarch64"), and the host refuses an image that still reads the register.
 #
 # Needs miniBox built WITH the C++ guest toolchain:
 #   meson setup <miniBox>/build/meson-cpp <miniBox> -Dguest_cpp=true
@@ -27,6 +30,8 @@ CC     := gcc -specs $(SR)/lib/musl-gcc.specs
 CXX    := g++ -specs $(SR)/lib/musl-gcc.specs
 EMULIBC := $(MBUILD)/source/guest/emulibc.c.o
 CXXGLUE := $(MBUILD)/source/guest/cxxglue.c.o
+# finishes every link: aarch64 thread-pointer reads go to the machine's slot
+TP_REWRITE := $(MB)/source/guest/wbx-tp-rewrite.py
 LIBSTDCXX := $(SR)/lib/libstdc++.a
 
 # BizHawk waterbox's frozen guest flags, as miniBox's source/guest/meson.build
@@ -170,6 +175,8 @@ $(B)/core.wbx: $(CORE_OBJS) $(SRB2_OBJS) $(PNG_OBJS) $(XIPH_OBJS) $(GME_OBJS) $(
 		-T $(MB)/source/guest/linkscript.T \
 		-Wl,-u,pthread_once -Wl,-u,pthread_cond_wait -Wl,-u,pthread_cond_broadcast -Wl,-u,pthread_key_create \
 		-o $@.tmp $^ $(CXXGLUE) $(EMULIBC) $(WRAP_FLAGS) -L$(SR)/lib -lstdc++ -lm -lgcc -lgcc_eh -lc
+	@test -f $(TP_REWRITE) || { echo "miniBox at $(MB) predates the aarch64 thread-pointer slot (no $(TP_REWRITE)): update it" >&2; false; }
+	python3 $(TP_REWRITE) $@.tmp
 	sh $(MB)/source/guest/check-wbx.sh $@.tmp
 	sh check-portable.sh $@.tmp $^
 	mv $@.tmp $@
