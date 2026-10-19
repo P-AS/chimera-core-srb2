@@ -30,7 +30,8 @@ CC     := gcc -specs $(SR)/lib/musl-gcc.specs
 CXX    := g++ -specs $(SR)/lib/musl-gcc.specs
 EMULIBC := $(MBUILD)/source/guest/emulibc.c.o
 CXXGLUE := $(MBUILD)/source/guest/cxxglue.c.o
-# finishes every link: aarch64 thread-pointer reads go to the machine's slot
+# finishes every aarch64 link: thread-pointer reads go to the machine's slot
+# (x86-64 has nothing to rewrite, and a miniBox without the script is fine there)
 TP_REWRITE := $(MB)/source/guest/wbx-tp-rewrite.py
 LIBSTDCXX := $(SR)/lib/libstdc++.a
 
@@ -175,8 +176,10 @@ $(B)/core.wbx: $(CORE_OBJS) $(SRB2_OBJS) $(PNG_OBJS) $(XIPH_OBJS) $(GME_OBJS) $(
 		-T $(MB)/source/guest/linkscript.T \
 		-Wl,-u,pthread_once -Wl,-u,pthread_cond_wait -Wl,-u,pthread_cond_broadcast -Wl,-u,pthread_key_create \
 		-o $@.tmp $^ $(CXXGLUE) $(EMULIBC) $(WRAP_FLAGS) -L$(SR)/lib -lstdc++ -lm -lgcc -lgcc_eh -lc
+ifeq ($(GUEST_CPU),aarch64)
 	@test -f $(TP_REWRITE) || { echo "miniBox at $(MB) predates the aarch64 thread-pointer slot (no $(TP_REWRITE)): update it" >&2; false; }
 	python3 $(TP_REWRITE) $@.tmp
+endif
 	sh $(MB)/source/guest/check-wbx.sh $@.tmp
 	sh check-portable.sh $@.tmp $^
 	mv $@.tmp $@
