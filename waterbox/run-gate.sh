@@ -519,7 +519,7 @@ fi
 if [ -n "$bundle" ]; then
 	sh "$here/build-package.sh" -m "${mb:-$MINIBOX_DIR}" -o "$root/build/gate/package" >/dev/null
 	e="$(LD_LIBRARY_PATH="$bundle/dll" python3 "$here/tests/engine-open.py" "$bundle/dll/libchimera.so" \
-		"$root/build/gate/package/srb2.chimeraCore" "$data" 450 2>/dev/null | grep "^450 steps")"
+		"$root/build/gate/package/srb2.chimeraCore" "$data" 450 | grep "^450 steps" || true)"
 	nl="$(field "$(nat intro -n 450 -p 0 --input "$tests/menu-to-new-game.txt")" lag)"
 	# which Chimera: a bundle's BUILD.txt, or a checkout's commit (its build/ is
 	# the -c folder)

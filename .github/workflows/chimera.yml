@@ -114,6 +114,16 @@ jobs:
           echo "meson=$(meson --version)" >> "$GITHUB_OUTPUT"
           echo "minibox=$(git -C chimera-checkout/extern/chimera-common-minibox rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
+      - name: Build miniBox's libstdc++ as C17
+        # GCC 15 compiles C as C23, where musl's string.h declares basename() with
+        # no arguments and clashes with libiberty's prototype in libstdc++'s
+        # stacktrace code. The P-AS fork of miniBox already sets -std=gnu17 here;
+        # upstream does not yet, so the checkout's recipe gets it until it does.
+        run: |
+          f=chimera-checkout/extern/chimera-common-minibox/meson.build
+          grep -q 'std=gnu17' "$f" || sed -i 's|CFLAGS="@3@ -I\$D/gthr-inc"|CFLAGS="@3@ -std=gnu17 -I$D/gthr-inc"|' "$f"
+          grep -q 'std=gnu17' "$f"
+
       - name: Cache the guest toolchain
         uses: actions/cache@v4
         with:
