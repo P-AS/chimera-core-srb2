@@ -377,7 +377,11 @@ fi
 exported="$(nm --defined-only "$core" | awk '$2 ~ /^[TtDdBb]$/ {print $3}' | sort -u)"
 missing_from() {
 	for name in "$@"; do
-		echo "$exported" | grep -qx "$name" || printf '%s ' "$name"
+		# a heredoc, not a pipe: grep -q leaves at the first match, and an echo
+		# still writing to it is an I/O error on every name
+		grep -qx "$name" <<EOF || printf '%s ' "$name"
+$exported
+EOF
 	done
 }
 required="$(python3 -c 'import json,sys; c=json.load(open(sys.argv[1]))
