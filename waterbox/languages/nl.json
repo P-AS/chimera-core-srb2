@@ -30,6 +30,8 @@
 		"property.player_max_dash": "De grootste lading van de spindash van het personage (player->maxdash), in vaste komma 16.16.",
 		"property.player_min_dash": "De kleinste lading van de spindash van het personage (player->mindash), in vaste komma 16.16.",
 		"property.player_momentum_x": "De beweging van de speler in mapeenheden per tic, in vaste komma 16.16.",
+		"property.player_momentum_y": "De beweging van de speler in mapeenheden per tic, in vaste komma 16.16.",
+		"property.player_momentum_z": "De beweging van de speler in mapeenheden per tic, in vaste komma 16.16.",
 		"property.player_normal_speed": "De hoogste rensnelheid van de speler (player->normalspeed). De dashmodus verhoogt die. In vaste komma 16.16.",
 		"property.player_platform_momentum_z": "De verticale beweging van de bewegende vloer waarop de speler staat (mo->pmomz). Die blijft bewaard nadat de speler de vloer verlaat. In vaste komma 16.16.",
 		"property.player_speed": "De horizontale snelheid van de speler zoals het spel die berekent (player->speed), gemeten ten opzichte van de vloer waarop de speler staat, in vaste komma 16.16.",

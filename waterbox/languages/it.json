@@ -30,6 +30,8 @@
 		"property.player_max_dash": "La carica più grande dello spindash del personaggio (player->maxdash), in virgola fissa 16.16.",
 		"property.player_min_dash": "La carica più piccola dello spindash del personaggio (player->mindash), in virgola fissa 16.16.",
 		"property.player_momentum_x": "Il movimento del giocatore in unità di mappa per tick, in virgola fissa 16.16.",
+		"property.player_momentum_y": "Il movimento del giocatore in unità di mappa per tick, in virgola fissa 16.16.",
+		"property.player_momentum_z": "Il movimento del giocatore in unità di mappa per tick, in virgola fissa 16.16.",
 		"property.player_normal_speed": "La velocità massima di corsa del giocatore (player->normalspeed). La modalità scatto la alza. In virgola fissa 16.16.",
 		"property.player_platform_momentum_z": "Il movimento verticale del pavimento mobile su cui sta il giocatore (mo->pmomz). Resta dopo che il giocatore lascia il pavimento. In virgola fissa 16.16.",
 		"property.player_speed": "La velocità orizzontale del giocatore come la calcola il gioco (player->speed), misurata rispetto al pavimento su cui sta, in virgola fissa 16.16.",

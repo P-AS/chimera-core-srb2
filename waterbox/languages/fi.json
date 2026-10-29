@@ -30,6 +30,8 @@
 		"property.player_max_dash": "Hahmon suurin spindash-lataus (player->maxdash), 16.16 kiinteässä pisteessä.",
 		"property.player_min_dash": "Hahmon pienin spindash-lataus (player->mindash), 16.16 kiinteässä pisteessä.",
 		"property.player_momentum_x": "Pelaajan liike kartan yksikköinä tikkiä kohti, 16.16 kiinteässä pisteessä.",
+		"property.player_momentum_y": "Pelaajan liike kartan yksikköinä tikkiä kohti, 16.16 kiinteässä pisteessä.",
+		"property.player_momentum_z": "Pelaajan liike kartan yksikköinä tikkiä kohti, 16.16 kiinteässä pisteessä.",
 		"property.player_normal_speed": "Pelaajan suurin juoksunopeus (player->normalspeed). Kiihdytystila nostaa sitä. 16.16 kiinteässä pisteessä.",
 		"property.player_platform_momentum_z": "Liikkuvan lattian pystysuuntainen liike, jolla pelaaja seisoo (mo->pmomz). Se säilyy, kun pelaaja lähtee lattialta. 16.16 kiinteässä pisteessä.",
 		"property.player_speed": "Pelaajan vaakasuuntainen nopeus, kuten peli sen laskee (player->speed), mitattuna lattiaan, jolla pelaaja seisoo, 16.16 kiinteässä pisteessä.",

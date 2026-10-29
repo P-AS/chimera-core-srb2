@@ -30,6 +30,8 @@
 		"property.player_max_dash": "Největší nabití spindashe postavy (player->maxdash), v pevné řádové čárce 16.16.",
 		"property.player_min_dash": "Nejmenší nabití spindashe postavy (player->mindash), v pevné řádové čárce 16.16.",
 		"property.player_momentum_x": "Pohyb hráče v jednotkách mapy za tik, v pevné řádové čárce 16.16.",
+		"property.player_momentum_y": "Pohyb hráče v jednotkách mapy za tik, v pevné řádové čárce 16.16.",
+		"property.player_momentum_z": "Pohyb hráče v jednotkách mapy za tik, v pevné řádové čárce 16.16.",
 		"property.player_normal_speed": "Nejvyšší rychlost běhu hráče (player->normalspeed). Režim rychlého běhu ji zvyšuje. V pevné řádové čárce 16.16.",
 		"property.player_platform_momentum_z": "Svislý pohyb pohyblivé podlahy, na které hráč stojí (mo->pmomz). Zachovává se, i když hráč podlahu opustí. V pevné řádové čárce 16.16.",
 		"property.player_speed": "Vodorovná rychlost hráče, tak jak ji hra počítá (player->speed), měřená vůči podlaze, na které hráč stojí, v pevné řádové čárce 16.16.",

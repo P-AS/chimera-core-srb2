@@ -30,6 +30,8 @@
 		"property.player_max_dash": "Mức nạp spindash lớn nhất của nhân vật (player->maxdash), theo số thực cố định 16.16.",
 		"property.player_min_dash": "Mức nạp spindash nhỏ nhất của nhân vật (player->mindash), theo số thực cố định 16.16.",
 		"property.player_momentum_x": "Chuyển động của người chơi theo đơn vị bản đồ mỗi nhịp, theo số thực cố định 16.16.",
+		"property.player_momentum_y": "Chuyển động của người chơi theo đơn vị bản đồ mỗi nhịp, theo số thực cố định 16.16.",
+		"property.player_momentum_z": "Chuyển động của người chơi theo đơn vị bản đồ mỗi nhịp, theo số thực cố định 16.16.",
 		"property.player_normal_speed": "Tốc độ chạy tối đa của người chơi (player->normalspeed). Chế độ lướt làm nó tăng lên. Theo số thực cố định 16.16.",
 		"property.player_platform_momentum_z": "Chuyển động thẳng đứng của mặt sàn di chuyển mà người chơi đang đứng (mo->pmomz). Nó được giữ lại sau khi người chơi rời sàn. Theo số thực cố định 16.16.",
 		"property.player_speed": "Tốc độ ngang của người chơi như game tính (player->speed), đo so với sàn người chơi đang đứng, theo số thực cố định 16.16.",

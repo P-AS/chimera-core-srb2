@@ -30,6 +30,8 @@
 		"property.player_max_dash": "La càrrega més gran del spindash del personatge (player->maxdash), en coma fixa 16.16.",
 		"property.player_min_dash": "La càrrega més petita del spindash del personatge (player->mindash), en coma fixa 16.16.",
 		"property.player_momentum_x": "El moviment del jugador en unitats de mapa per tic, en coma fixa 16.16.",
+		"property.player_momentum_y": "El moviment del jugador en unitats de mapa per tic, en coma fixa 16.16.",
+		"property.player_momentum_z": "El moviment del jugador en unitats de mapa per tic, en coma fixa 16.16.",
 		"property.player_normal_speed": "La velocitat de carrera màxima del jugador (player->normalspeed). El mode de carrera la puja. En coma fixa 16.16.",
 		"property.player_platform_momentum_z": "El moviment vertical del terra mòbil sobre el qual és el jugador (mo->pmomz). Es guarda després que el jugador deixi el terra. En coma fixa 16.16.",
 		"property.player_speed": "La velocitat horitzontal del jugador tal com la calcula el joc (player->speed), mesurada respecte al terra sobre el qual és, en coma fixa 16.16.",

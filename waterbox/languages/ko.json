@@ -30,6 +30,8 @@
 		"property.player_max_dash": "그 캐릭터의 가장 큰 스핀대시 충전량(player->maxdash)으로, 16.16 고정소수점입니다.",
 		"property.player_min_dash": "그 캐릭터의 가장 작은 스핀대시 충전량(player->mindash)으로, 16.16 고정소수점입니다.",
 		"property.player_momentum_x": "플레이어의 이동으로, 틱당 맵 단위이며 16.16 고정소수점입니다.",
+		"property.player_momentum_y": "플레이어의 이동으로, 틱당 맵 단위이며 16.16 고정소수점입니다.",
+		"property.player_momentum_z": "플레이어의 이동으로, 틱당 맵 단위이며 16.16 고정소수점입니다.",
 		"property.player_normal_speed": "플레이어의 최고 달리기 속도(player->normalspeed)입니다. 대시 모드는 이 값을 올립니다. 16.16 고정소수점입니다.",
 		"property.player_platform_momentum_z": "플레이어가 서 있는 움직이는 바닥의 세로 이동(mo->pmomz)입니다. 플레이어가 바닥을 떠난 뒤에도 유지됩니다. 16.16 고정소수점입니다.",
 		"property.player_speed": "게임이 계산하는 플레이어의 가로 속도(player->speed)입니다. 플레이어가 서 있는 바닥을 기준으로 잰 값이며, 16.16 고정소수점입니다.",

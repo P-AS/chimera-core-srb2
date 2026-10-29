@@ -30,6 +30,8 @@
 		"property.player_max_dash": "A karakter legnagyobb spindash-töltése (player->maxdash), 16.16 rögzített pontosan.",
 		"property.player_min_dash": "A karakter legkisebb spindash-töltése (player->mindash), 16.16 rögzített pontosan.",
 		"property.player_momentum_x": "A játékos mozgása pályaegységben tikkenként, 16.16 rögzített pontosan.",
+		"property.player_momentum_y": "A játékos mozgása pályaegységben tikkenként, 16.16 rögzített pontosan.",
+		"property.player_momentum_z": "A játékos mozgása pályaegységben tikkenként, 16.16 rögzített pontosan.",
 		"property.player_normal_speed": "A játékos legnagyobb futási sebessége (player->normalspeed). A dash-mód megemeli. 16.16 rögzített pontosan.",
 		"property.player_platform_momentum_z": "Az a függőleges mozgás, amelyet a játékos alatt lévő mozgó padló végez (mo->pmomz). A játékos elhagyja a padlót után is megmarad. 16.16 rögzített pontosan.",
 		"property.player_speed": "A játékos vízszintes sebessége, ahogy a játék számolja (player->speed), azon a padlón mérve, amelyen a játékos áll, 16.16 rögzített pontosan.",

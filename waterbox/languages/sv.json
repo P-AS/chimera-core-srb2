@@ -30,6 +30,8 @@
 		"property.player_max_dash": "Den största spindash-laddningen för karaktären (player->maxdash), i 16.16 fast punkt.",
 		"property.player_min_dash": "Den minsta spindash-laddningen för karaktären (player->mindash), i 16.16 fast punkt.",
 		"property.player_momentum_x": "Spelarens rörelse i banenheter per tick, i 16.16 fast punkt.",
+		"property.player_momentum_y": "Spelarens rörelse i banenheter per tick, i 16.16 fast punkt.",
+		"property.player_momentum_z": "Spelarens rörelse i banenheter per tick, i 16.16 fast punkt.",
 		"property.player_normal_speed": "Spelarens högsta löpfart (player->normalspeed). Dashläget höjer den. I 16.16 fast punkt.",
 		"property.player_platform_momentum_z": "Den vertikala rörelsen hos den rörliga golvytan som spelaren står på (mo->pmomz). Den behålls efter att spelaren har lämnat golvet. I 16.16 fast punkt.",
 		"property.player_speed": "Spelarens horisontella hastighet så som spelet räknar den (player->speed), mätt mot golvet spelaren står på, i 16.16 fast punkt.",

@@ -30,6 +30,8 @@
 		"property.player_max_dash": "Największy ładunek spindasha postaci (player->maxdash), w stałoprzecinkowym 16.16.",
 		"property.player_min_dash": "Najmniejszy ładunek spindasha postaci (player->mindash), w stałoprzecinkowym 16.16.",
 		"property.player_momentum_x": "Ruch gracza w jednostkach mapy na takt, w stałoprzecinkowym 16.16.",
+		"property.player_momentum_y": "Ruch gracza w jednostkach mapy na takt, w stałoprzecinkowym 16.16.",
+		"property.player_momentum_z": "Ruch gracza w jednostkach mapy na takt, w stałoprzecinkowym 16.16.",
 		"property.player_normal_speed": "Najwyższa prędkość biegu gracza (player->normalspeed). Tryb rozpędu ją podnosi. W stałoprzecinkowym 16.16.",
 		"property.player_platform_momentum_z": "Pionowy ruch ruchomej podłogi, na której stoi gracz (mo->pmomz). Zostaje zapisany, gdy gracz opuści podłogę. W stałoprzecinkowym 16.16.",
 		"property.player_speed": "Pozioma prędkość gracza, tak jak liczy ją gra (player->speed), mierzona względem podłogi, na której stoi gracz, w stałoprzecinkowym 16.16.",

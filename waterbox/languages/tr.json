@@ -30,6 +30,8 @@
 		"property.player_max_dash": "Karakterin en büyük spindash şarjı (player->maxdash), 16.16 sabit noktalı.",
 		"property.player_min_dash": "Karakterin en küçük spindash şarjı (player->mindash), 16.16 sabit noktalı.",
 		"property.player_momentum_x": "Oyuncunun tik başına harita birimi cinsinden hareketi, 16.16 sabit noktalı.",
+		"property.player_momentum_y": "Oyuncunun tik başına harita birimi cinsinden hareketi, 16.16 sabit noktalı.",
+		"property.player_momentum_z": "Oyuncunun tik başına harita birimi cinsinden hareketi, 16.16 sabit noktalı.",
 		"property.player_normal_speed": "Oyuncunun en yüksek koşu hızı (player->normalspeed). Dash modu bunu yükseltir. 16.16 sabit noktalı.",
 		"property.player_platform_momentum_z": "Oyuncunun üzerinde durduğu hareketli zeminin dikey hareketi (mo->pmomz). Oyuncu zeminden ayrıldıktan sonra da tutulur. 16.16 sabit noktalı.",
 		"property.player_speed": "Oyuncunun oyunun hesapladığı yatay hızı (player->speed), üzerinde durduğu zemine göre ölçülür; 16.16 sabit noktalı.",
