@@ -45,12 +45,13 @@ overrides = sys.argv[4] if len(sys.argv) > 4 else '{"renderer": "opengl-hw", "wa
 ce = ctypes.CDLL(lib_path)
 ce.ce_gl_request.argtypes = [ctypes.c_int32]
 ce.ce_gl_request(1)
-ce.ce_session_open.restype = ctypes.c_void_p
-ce.ce_session_open.argtypes = [
-    ctypes.c_char_p, ctypes.c_void_p, ctypes.c_uint64, ctypes.c_char_p, ctypes.c_char_p,
+ce.ce_project_new.restype = ctypes.c_void_p
+ce.ce_project_free.argtypes = [ctypes.c_void_p]
+ce.ce_session_open_project.restype = ctypes.c_void_p
+ce.ce_session_open_project.argtypes = [
+    ctypes.c_char_p, ctypes.c_void_p, ctypes.c_char_p,
     ctypes.POINTER(ctypes.c_char_p), ctypes.POINTER(ctypes.c_void_p), ctypes.POINTER(ctypes.c_uint64), ctypes.c_int32,
-    ctypes.POINTER(ctypes.c_char_p), ctypes.POINTER(ctypes.c_void_p), ctypes.POINTER(ctypes.c_uint64),
-    ctypes.POINTER(ctypes.c_char_p), ctypes.c_int32, ctypes.POINTER(ctypes.c_char_p)]
+    ctypes.c_uint32, ctypes.POINTER(ctypes.c_char_p)]
 ce.ce_session_frame_advance.argtypes = [ctypes.c_void_p, ctypes.c_uint64, ctypes.c_int32]
 ce.ce_session_frame_advance.restype = ctypes.c_int32
 ce.ce_session_video.argtypes = [ctypes.c_void_p]
@@ -83,8 +84,10 @@ forward = 1 << cfg["input"]["buttons"].index("Forward")
 
 def open_session():
     err = ctypes.c_char_p()
-    s = ce.ce_session_open(package.encode(), None, 0, None, overrides.encode(),
-                           ids, datas, lens, n, None, None, None, None, 0, ctypes.byref(err))
+    project = ce.ce_project_new()
+    s = ce.ce_session_open_project(package.encode(), project, overrides.encode(),
+                                   ids, datas, lens, n, 0, ctypes.byref(err))
+    ce.ce_project_free(project)
     if not s:
         sys.exit("open failed: " + (err.value.decode() if err.value else "(no message)"))
     return s

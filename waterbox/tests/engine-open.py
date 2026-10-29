@@ -39,12 +39,13 @@ ce = ctypes.CDLL(lib_path)
 if gpu:
     ce.ce_gl_request.argtypes = [ctypes.c_int32]
     ce.ce_gl_request(1)
-ce.ce_session_open.restype = ctypes.c_void_p
-ce.ce_session_open.argtypes = [
-    ctypes.c_char_p, ctypes.c_void_p, ctypes.c_uint64, ctypes.c_char_p, ctypes.c_char_p,
+ce.ce_project_new.restype = ctypes.c_void_p
+ce.ce_project_free.argtypes = [ctypes.c_void_p]
+ce.ce_session_open_project.restype = ctypes.c_void_p
+ce.ce_session_open_project.argtypes = [
+    ctypes.c_char_p, ctypes.c_void_p, ctypes.c_char_p,
     ctypes.POINTER(ctypes.c_char_p), ctypes.POINTER(ctypes.c_void_p), ctypes.POINTER(ctypes.c_uint64), ctypes.c_int32,
-    ctypes.POINTER(ctypes.c_char_p), ctypes.POINTER(ctypes.c_void_p), ctypes.POINTER(ctypes.c_uint64),
-    ctypes.POINTER(ctypes.c_char_p), ctypes.c_int32, ctypes.POINTER(ctypes.c_char_p)]
+    ctypes.c_uint32, ctypes.POINTER(ctypes.c_char_p)]
 ce.ce_session_frame_advance.argtypes = [ctypes.c_void_p, ctypes.c_uint64, ctypes.c_int32]
 ce.ce_session_frame_advance.restype = ctypes.c_int32
 ce.ce_session_last_error.argtypes = [ctypes.c_void_p]
@@ -73,8 +74,12 @@ bufs = [ctypes.create_string_buffer(b, len(b)) for b in fw_blobs]
 datas = (ctypes.c_void_p * n)(*[ctypes.cast(b, ctypes.c_void_p) for b in bufs])
 lens = (ctypes.c_uint64 * n)(*[len(b) for b in fw_blobs])
 err = ctypes.c_char_p()
-s = ce.ce_session_open(package.encode(), None, 0, None, overrides.encode() if overrides else None,
-                       ids, datas, lens, n, None, None, None, None, 0, ctypes.byref(err))
+# a session is opened from a project (the one a frontend has; a fresh one
+# names no core and no file, so the package and the firmware are all it gets)
+project = ce.ce_project_new()
+s = ce.ce_session_open_project(package.encode(), project, overrides.encode() if overrides else None,
+                               ids, datas, lens, n, 0, ctypes.byref(err))
+ce.ce_project_free(project)
 if not s:
     sys.exit("open failed: " + (err.value.decode() if err.value else "(no message)"))
 print("opened:", cfg["coreName"], cfg.get("version", "?"))
