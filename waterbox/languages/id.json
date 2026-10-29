@@ -30,6 +30,8 @@
 		"property.player_max_dash": "Isian spindash terbesar milik karakter (player->maxdash), dalam titik tetap 16.16.",
 		"property.player_min_dash": "Isian spindash terkecil milik karakter (player->mindash), dalam titik tetap 16.16.",
 		"property.player_momentum_x": "Gerakan pemain dalam satuan peta per tik, dalam titik tetap 16.16.",
+		"property.player_momentum_y": "Gerakan pemain dalam satuan peta per tik, dalam titik tetap 16.16.",
+		"property.player_momentum_z": "Gerakan pemain dalam satuan peta per tik, dalam titik tetap 16.16.",
 		"property.player_normal_speed": "Kecepatan lari tertinggi pemain (player->normalspeed). Mode dash menaikkannya. Dalam titik tetap 16.16.",
 		"property.player_platform_momentum_z": "Gerakan vertikal lantai bergerak yang dipijak pemain (mo->pmomz). Nilainya tetap disimpan setelah pemain meninggalkan lantai. Dalam titik tetap 16.16.",
 		"property.player_speed": "Kecepatan mendatar pemain seperti yang dihitung game (player->speed), diukur terhadap lantai tempat pemain berpijak, dalam titik tetap 16.16.",

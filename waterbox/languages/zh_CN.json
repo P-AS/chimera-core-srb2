@@ -30,6 +30,8 @@
 		"property.player_max_dash": "角色最大的旋转冲刺蓄力（player->maxdash），以 16.16 定点数表示。",
 		"property.player_min_dash": "角色最小的旋转冲刺蓄力（player->mindash），以 16.16 定点数表示。",
 		"property.player_momentum_x": "玩家每游戏刻在地图单位上的移动量，以 16.16 定点数表示。",
+		"property.player_momentum_y": "玩家每游戏刻在地图单位上的移动量，以 16.16 定点数表示。",
+		"property.player_momentum_z": "玩家每游戏刻在地图单位上的移动量，以 16.16 定点数表示。",
 		"property.player_normal_speed": "玩家的最高跑步速度（player->normalspeed）。冲刺模式会提高它。以 16.16 定点数表示。",
 		"property.player_platform_momentum_z": "玩家所站的移动地面的竖直移动量（mo->pmomz）。玩家离开地面后仍会保留。以 16.16 定点数表示。",
 		"property.player_speed": "游戏计算出的玩家水平速度（player->speed），以玩家所站地面为基准，以 16.16 定点数表示。",

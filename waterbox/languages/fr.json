@@ -30,6 +30,8 @@
 		"property.player_max_dash": "La plus grande charge de spindash du personnage (player->maxdash), en virgule fixe 16.16.",
 		"property.player_min_dash": "La plus petite charge de spindash du personnage (player->mindash), en virgule fixe 16.16.",
 		"property.player_momentum_x": "Le déplacement du joueur en unités de carte par tic, en virgule fixe 16.16.",
+		"property.player_momentum_y": "Le déplacement du joueur en unités de carte par tic, en virgule fixe 16.16.",
+		"property.player_momentum_z": "Le déplacement du joueur en unités de carte par tic, en virgule fixe 16.16.",
 		"property.player_normal_speed": "La vitesse de course maximale du joueur (player->normalspeed). Le mode course la relève. En virgule fixe 16.16.",
 		"property.player_platform_momentum_z": "Le mouvement vertical du sol mobile sur lequel se tient le joueur (mo->pmomz). Il est gardé après que le joueur a quitté le sol. En virgule fixe 16.16.",
 		"property.player_speed": "La vitesse horizontale du joueur telle que le jeu la calcule (player->speed), mesurée par rapport au sol sur lequel il se tient, en virgule fixe 16.16.",

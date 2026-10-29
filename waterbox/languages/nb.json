@@ -30,6 +30,8 @@
 		"property.player_max_dash": "Den største spindash-ladningen til figuren (player->maxdash), i 16.16 fastpunkt.",
 		"property.player_min_dash": "Den minste spindash-ladningen til figuren (player->mindash), i 16.16 fastpunkt.",
 		"property.player_momentum_x": "Spillerens bevegelse i kartenheter per tikk, i 16.16 fastpunkt.",
+		"property.player_momentum_y": "Spillerens bevegelse i kartenheter per tikk, i 16.16 fastpunkt.",
+		"property.player_momentum_z": "Spillerens bevegelse i kartenheter per tikk, i 16.16 fastpunkt.",
 		"property.player_normal_speed": "Spillerens høyeste løpefart (player->normalspeed). Dash-modus øker den. I 16.16 fastpunkt.",
 		"property.player_platform_momentum_z": "Den vertikale bevegelsen til gulvet som beveges og som spilleren står på (mo->pmomz). Den beholdes etter at spilleren forlater gulvet. I 16.16 fastpunkt.",
 		"property.player_speed": "Spillerens horisontale fart slik spillet regner den ut (player->speed), målt mot gulvet spilleren står på, i 16.16 fastpunkt.",

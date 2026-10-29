@@ -30,6 +30,8 @@
 		"property.player_max_dash": "Die größte Aufladung des Spindash des Charakters (player->maxdash), in Festkommazahl 16.16.",
 		"property.player_min_dash": "Die kleinste Aufladung des Spindash des Charakters (player->mindash), in Festkommazahl 16.16.",
 		"property.player_momentum_x": "Die Bewegung des Spielers in Karteneinheiten je Tic, in Festkommazahl 16.16.",
+		"property.player_momentum_y": "Die Bewegung des Spielers in Karteneinheiten je Tic, in Festkommazahl 16.16.",
+		"property.player_momentum_z": "Die Bewegung des Spielers in Karteneinheiten je Tic, in Festkommazahl 16.16.",
 		"property.player_normal_speed": "Die höchste Laufgeschwindigkeit des Spielers (player->normalspeed). Der Dash-Modus erhöht sie. In Festkommazahl 16.16.",
 		"property.player_platform_momentum_z": "Die senkrechte Bewegung des beweglichen Bodens, auf dem der Spieler steht (mo->pmomz). Sie bleibt erhalten, nachdem der Spieler den Boden verlassen hat. In Festkommazahl 16.16.",
 		"property.player_speed": "Die waagerechte Geschwindigkeit des Spielers, so wie das Spiel sie berechnet (player->speed), gemessen am Boden, auf dem der Spieler steht, in Festkommazahl 16.16.",

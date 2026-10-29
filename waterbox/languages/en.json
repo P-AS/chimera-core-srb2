@@ -30,6 +30,8 @@
 		"property.player_max_dash": "The largest spindash charge of the character (player->maxdash), in 16.16 fixed point.",
 		"property.player_min_dash": "The smallest spindash charge of the character (player->mindash), in 16.16 fixed point.",
 		"property.player_momentum_x": "The player's movement in map units per tic, in 16.16 fixed point.",
+		"property.player_momentum_y": "The player's movement in map units per tic, in 16.16 fixed point.",
+		"property.player_momentum_z": "The player's movement in map units per tic, in 16.16 fixed point.",
 		"property.player_normal_speed": "The player's top running speed (player->normalspeed). Dash mode raises it. In 16.16 fixed point.",
 		"property.player_platform_momentum_z": "The vertical movement of the moving floor the player stands on (mo->pmomz). It is kept after the player leaves the floor. In 16.16 fixed point.",
 		"property.player_speed": "The player's horizontal speed as the game calculates it (player->speed), measured against the floor the player stands on, in 16.16 fixed point.",

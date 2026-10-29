@@ -30,6 +30,8 @@
 		"property.player_max_dash": "キャラクターの最大のスピンダッシュの溜まり(player->maxdash)。16.16固定小数点。",
 		"property.player_min_dash": "キャラクターの最小のスピンダッシュの溜まり(player->mindash)。16.16固定小数点。",
 		"property.player_momentum_x": "プレイヤーの移動量(1ティックあたりのマップ単位)。16.16固定小数点。",
+		"property.player_momentum_y": "プレイヤーの移動量(1ティックあたりのマップ単位)。16.16固定小数点。",
+		"property.player_momentum_z": "プレイヤーの移動量(1ティックあたりのマップ単位)。16.16固定小数点。",
 		"property.player_normal_speed": "プレイヤーの最高の走る速さ(player->normalspeed)。ダッシュモードで上がります。16.16固定小数点。",
 		"property.player_platform_momentum_z": "プレイヤーが立っている動く床の上下の移動量(mo->pmomz)。プレイヤーが床を離れた後も保持されます。16.16固定小数点。",
 		"property.player_speed": "ゲームが計算するプレイヤーの横の速さ(player->speed)。プレイヤーが立っている床に対して測ります。16.16固定小数点。",

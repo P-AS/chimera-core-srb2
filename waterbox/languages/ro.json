@@ -30,6 +30,8 @@
 		"property.player_max_dash": "Cea mai mare încărcare a spindash-ului personajului (player->maxdash), în virgulă fixă 16.16.",
 		"property.player_min_dash": "Cea mai mică încărcare a spindash-ului personajului (player->mindash), în virgulă fixă 16.16.",
 		"property.player_momentum_x": "Mișcarea jucătorului în unități de hartă pe tact, în virgulă fixă 16.16.",
+		"property.player_momentum_y": "Mișcarea jucătorului în unități de hartă pe tact, în virgulă fixă 16.16.",
+		"property.player_momentum_z": "Mișcarea jucătorului în unități de hartă pe tact, în virgulă fixă 16.16.",
 		"property.player_normal_speed": "Viteza maximă de alergare a jucătorului (player->normalspeed). Modul dash o ridică. În virgulă fixă 16.16.",
 		"property.player_platform_momentum_z": "Mișcarea verticală a podelei mobile pe care stă jucătorul (mo->pmomz). Se păstrează după ce jucătorul părăsește podeaua. În virgulă fixă 16.16.",
 		"property.player_speed": "Viteza orizontală a jucătorului, așa cum o calculează jocul (player->speed), măsurată față de podeaua pe care stă, în virgulă fixă 16.16.",

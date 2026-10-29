@@ -314,8 +314,8 @@ const char *srb2_game_properties(void)
 	GS("Player.Y", y, "s32", "Player", "property.player_y");
 	GS("Player.Z", z, "s32", "Player", "property.player_z");
 	GS("Player.Momentum X", momx, "s32", "Player", "property.player_momentum_x");
-	GS("Player.Momentum Y", momy, "s32", "Player", "property.player_momentum_x");
-	GS("Player.Momentum Z", momz, "s32", "Player", "property.player_momentum_x");
+	GS("Player.Momentum Y", momy, "s32", "Player", "property.player_momentum_y");
+	GS("Player.Momentum Z", momz, "s32", "Player", "property.player_momentum_z");
 	GS("Player.Angle", angle, "u32", "Player", "property.player_angle");
 	GS("Player.Speed", speed, "s32", "Player", "property.player_speed");
 	GS("Timers.Speed Shoes", shoes, "u16", "Timers", "property.timers_speed_shoes");
