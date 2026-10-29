@@ -3,7 +3,7 @@
   "slots": [
     {
       "id": "addons",
-      "title": "Add-ons",
+      "title": "slot.addons",
       "min": 0,
       "max": -1,
       "formats": [
@@ -12,18 +12,18 @@
         "soc",
         "lua"
       ],
-      "help": "Mods, levels and characters (.pk3, .wad, .soc, .lua), in the order they are loaded, as SRB2's -file option loads them. Leave this empty to play the game itself."
+      "help": "slot.addons.help"
     },
     {
       "id": "savedata",
-      "title": "Save data",
+      "title": "slot.savedata",
       "min": 0,
       "max": -1,
       "formats": [
         "dat",
         "ssg"
       ],
-      "help": "The game progress to start from: gamedata.dat (unlocks, emblems and records) and save slots (srb2sav*.ssg), with those file names, as Export Save Data writes them. Leave this empty for a new game."
+      "help": "slot.savedata.help"
     }
   ]
 }
