@@ -23,15 +23,14 @@ Placeholders used below:
 
   ```
   sudo apt-get update
-  sudo apt-get install -y --no-install-recommends meson ninja-build build-essential cmake pkg-config python3 mono-complete xvfb libgl1-mesa-dev libegl-dev libx11-dev libxext-dev libasound2-dev python3-pip curl
+  sudo apt-get install -y --no-install-recommends meson ninja-build build-essential cmake pkg-config python3 libgl1-mesa-dev libegl-dev libx11-dev libxext-dev libasound2-dev python3-pip curl
   ```
 
   `curl` fetches the gate's data.
-- The .NET SDK 8.0 (the workflow uses `actions/setup-dotnet@v4` with
-  `dotnet-version: '8.0'`). It is needed to build the Chimera solution and to
-  run Chimera's contract tests, not to build the package. Chimera's README
-  installs it with
-  `curl -sSL https://dot.net/v1/dotnet-install.sh | bash -s -- --channel 8.0`.
+- Qt 6.12, to build Chimera's window. Chimera's `tools/ci-chimera.sh`
+  installs it (from Qt's own archives, with aqt) and builds Chimera; the
+  workflow keeps it in `~/qt` between runs. It is needed to run Chimera's
+  contract tests, not to build the package.
 - The compilers are the system's `gcc` and `g++` (from `build-essential`),
   GCC 13 or later: the engine is built `-std=gnu2x`. The workflow pins no
   compiler version. The guest is compiled by the same `gcc` and `g++` over
@@ -90,11 +89,7 @@ the managed solution (used by the contract tests). The package does not need
 it: `build-package.sh` uses only miniBox.
 
 ```
-cd <chimera>
-meson setup build/meson-linux --prefix "$PWD/build" --libdir dll
-meson compile -C build/meson-linux
-meson install -C build/meson-linux
-dotnet build source/gui/Chimera.sln -c Release /nodeReuse:false -p:UseSharedCompilation=false
+<chimera>/tools/ci-chimera.sh
 ```
 
 Then miniBox: the host, and the guest toolchain with C++ (GME and libopenmpt
@@ -229,16 +224,16 @@ This core is in the list of cores Chimera's README links to (since Chimera's
 - **A release bundle of Chimera**: download the package from this
   repository's Releases page
   (https://github.com/P-AS/chimera-core-srb2/releases), or build it, and put
-  it in the `Cores` folder beside `Chimera.exe`. A release has
+  it in the `cores` folder beside Chimera's program. A release has
   `srb2-<version>-x64.chimeraCore` and `srb2-<version>-arm64.chimeraCore`:
   you most likely want the x64 one; take the arm64 one only if you know you
   are using an arm64 device. Put only one of them in the folder. Another folder can be chosen
-  in File > Core Manager > Change folder...
+  in Tools > Core Manager... > Change folder...
   `./waterbox/build-package.sh -r <bundle>` writes it there.
 - **A Chimera source checkout**: the cores folder is `<chimera>/build/Cores/`.
   `./waterbox/build-package.sh -r <chimera>` writes the package straight there.
 
-File > Core Manager lists what is in the folder. Refresh List rescans it. The
+Tools > Core Manager... lists what is in the folder. Refresh List rescans it. The
 same package file works on Linux and on Windows: the guest inside it is run by
 Chimera's sandbox (miniBox) on either.
 
@@ -285,10 +280,7 @@ Usage: `run-gate.sh [-d <SRB2 data folder>] [-m <miniBox dir>] [-c <Chimera bund
 Run after the package is in `<chimera>/build/Cores`:
 
 ```
-cd <chimera>
-CHIMERA_CORES_DIR=<chimera>/build/Cores dotnet test source/gui/Chimera.Tests.Client.Common/Chimera.Tests.Client.Common.csproj \
-  -c Release --nologo \
-  --filter "FullyQualifiedName~InstalledCorePackagesTests|FullyQualifiedName~MnemonicUniquenessTests"
+CHIMERA_CORES_DIR=<chimera>/build/Cores <chimera>/build/meson-linux/source/ui/test-packages
 ```
 
 They run Chimera's own checks against this package: it is readable, it is

@@ -16,8 +16,8 @@ characters.pk3, music.pk3 - is firmware: the core carries none of it.
 
 Chimera ships no cores and downloads nothing. Download the core's package from this repository's
 [Releases](https://github.com/P-AS/chimera-core-srb2/releases) page (a rolling `dev` build, dated
-`nightly-YYYY-MM-DD` builds), or build it, and put it in the `Cores` folder beside `Chimera.exe` (or the folder
-chosen in File > Core Manager > Change folder...).
+`nightly-YYYY-MM-DD` builds), or build it, and put it in the `cores` folder beside Chimera's program (or the folder
+chosen in Tools > Core Manager... > Change folder...).
 
 Each release has two packages, one per CPU: `srb2-<version>-x64.chimeraCore` and
 `srb2-<version>-arm64.chimeraCore`. **You most likely want the x64 one.** Take the arm64 one only if you know you
