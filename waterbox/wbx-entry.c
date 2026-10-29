@@ -272,7 +272,7 @@ ECL_EXPORT int Init(void)
 	g_audio = alloc_invisible(sizeof(int16_t) * 2 * SAMPLES_PER_STEP);
 	if (!g_video || !g_audio)
 	{
-		snprintf(g_load_error, sizeof g_load_error, "out of memory for the picture");
+		snprintf(g_load_error, sizeof g_load_error, "error.out_of_memory_for_the_picture");
 		return 0;
 	}
 	if (srb2_start(g_argc, g_argv) != 0)
