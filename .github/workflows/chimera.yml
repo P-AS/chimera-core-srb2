@@ -99,10 +99,20 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/qt
-          key: qt-6.12.0-linux-aqt-3.3.0
+          key: qt-6.12.0-linux-${{ runner.arch }}-aqt-3.3.0
 
       - name: Build Chimera (the engine, chimera-run and the window)
         run: chimera-checkout/tools/ci-chimera.sh "$HOME/qt"
+
+      - name: What the guest toolchain is built from
+        id: toolchain
+        # The cache below is a pair of configured build folders: they are of
+        # one meson (another refuses them, and the runner image's meson moves
+        # on) and of one miniBox commit (a submodule's .git is a pointer file,
+        # the same for every commit, so hashing it told none apart).
+        run: |
+          echo "meson=$(meson --version)" >> "$GITHUB_OUTPUT"
+          echo "minibox=$(git -C chimera-checkout/extern/chimera-common-minibox rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Cache the guest toolchain
         uses: actions/cache@v4
@@ -110,7 +120,7 @@ jobs:
           path: |
             chimera-checkout/extern/chimera-common-minibox/build/meson-linux
             chimera-checkout/extern/chimera-common-minibox/build/meson-cpp
-          key: guest-cpp-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('chimera-checkout/extern/chimera-common-minibox/.git') }}-${{ hashFiles('chimera-checkout/extern/chimera-common-minibox/meson.build') }}
+          key: guest-cpp-${{ runner.os }}-${{ runner.arch }}-meson${{ steps.toolchain.outputs.meson }}-${{ steps.toolchain.outputs.minibox }}-${{ hashFiles('chimera-checkout/extern/chimera-common-minibox/meson.build') }}
 
       - name: Build miniBox (host + C++ guest toolchain)
         # GME and libopenmpt are C++: the guest links miniBox's libstdc++. Its
