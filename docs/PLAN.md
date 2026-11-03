@@ -580,8 +580,7 @@ The gate job checks the scripts parse (`luac5.4 -p`). The job's shell was run ag
 stand-in `gh` (dev, nightly, two nightlies at one commit, none); the workflow itself first runs on GitHub.
 
 **It depends on no Chimera change.** It began as an unofficial core (github.com/P-AS/chimera-core-srb2,
-user-decided 2026-10-04); it has been on Chimera's roster since 2026-10-10 (see "On Chimera's roster"), which the
-Chimera project granted without a change here. Since Chimera's ecc06b8 (2026-10-07) the roster makes no difference
+user-decided 2026-10-04); it was on Chimera's official roster from 2026-10-10 to 2026-10-31 (see "On Chimera's lists"), and is listed among its third-party cores since then, without a change here. Since Chimera's ecc06b8 (2026-10-07) the roster makes no difference
 to how a user gets a core: Chimera ships no cores and downloads nothing, the Core Manager lists the packages in the cores folder, and
 every core, official or not, gets there because somebody put its package there (from its releases page, or built).
 The core was adapted for that at Chimera f39db76: the README's "Using it in Chimera", `docs/BUILDING.md` and
@@ -603,20 +602,12 @@ compilers, one machine. Two things that run surfaced, both fixed in the gate: a 
 folders' links to the data dangle (it is made absolute), and a run that printed nothing ended the gate silently
 under `set -e` (an empty run is now a leg's FAIL).
 
-## On Chimera's roster (2026-10-10)
+## On Chimera's lists (2026-10-10, moved 2026-10-31)
 
-Chimera's 9aff711 (2026-10-10, at its owner's request) made SRB2 an **official core**: a row in
-`official-cores.json` (`"repo": "P-AS/chimera-core-srb2"`, `"kind": "game"`), and a line in Chimera's README with
-the game cores saying its author, P-AS, publishes it. It is the first official core published outside the
-ToolAssisted-run organisation: this repository stays the user's, as a third party, and nothing about the build or
-the publish changed. Chimera's issue to us is #1 here.
+Chimera's 9aff711 (2026-10-10, at its owner's request) made SRB2 an **official core**: a row in `official-cores.json` (`"repo": "P-AS/chimera-core-srb2"`, `"kind": "game"`), and a line in Chimera's README with the game cores saying its author, P-AS, publishes it. Chimera's b8a30557 (2026-10-31) moved it to `third-party-cores.json`: it is a **third-party core**, listed for information only, and no Chimera workflow downloads or checks it. This repository stays the user's, and nothing about the build or the publish changed. Chimera's issue to us is #1 here.
 
 What it means for this repository:
-- **Chimera's CI depends on our nightlies.** Every Chimera CI run downloads the newest `nightly-*` release here
-  (`tools/fetch-cores.sh`) and runs its package tests on it (`Nightly 2026-10-10` passed, 15 of 15). A nightly
-  those tests refuse fails Chimera's CI until a fixed nightly is out, so a nightly must never carry a package that
-  Chimera's stock main refuses - which the gate's contract tests already check before publishing. Chimera's
-  fetch script drops the `-arm64` package: Chimera runs x64 guests only.
+- **Chimera's CI does not depend on our nightlies.** Since 2026-10-31 `tools/fetch-cores.sh` reads only `official-cores.json`, so no Chimera CI run downloads a nightly here. A nightly should still carry no package that Chimera's stock main refuses, which the gate's contract tests check before publishing, so users' copies of Chimera keep loading it.
 - **Release notifications** (#1, open): each roster core announces its releases in Chimera's Discord through a
   webhook of its repository (Settings > Webhooks, payload URL the channel's webhook + `/github`,
   `application/json`, the Releases event only). Only the owner can add it, and the URL is a credential, asked of

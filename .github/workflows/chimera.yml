@@ -1,12 +1,9 @@
 name: chimera waterbox core
 
-# The core as Chimera ships it: a sandboxed core.wbx package. An official core,
-# on Chimera's roster since Chimera's 9aff711 (2026-10-10), published by its
-# author outside the ToolAssisted-run organisation
+# The core as Chimera ships it: a sandboxed core.wbx package. A third-party core, # published by its author outside the ToolAssisted-run organisation
 # (github.com/P-AS/chimera-core-srb2): it builds against Chimera's public main
 # and publishes into this repository's own releases through Chimera's reusable
-# publish workflow (the aarch64 fork's). Chimera's CI fetches the newest
-# nightly's x64 package on every run and runs its package tests on it.
+# publish workflow (the aarch64 fork's). Chimera's CI does not fetch it: Chimera # lists it among its third-party cores, which no workflow of Chimera's downloads.
 #
 # SRB2's data is Sonic Team Junior's, freely distributed by them and never
 # carried here: the gate downloads STJr's own 2.2.15 release

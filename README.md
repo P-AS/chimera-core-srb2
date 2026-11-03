@@ -2,10 +2,7 @@
 
 [Sonic Robo Blast 2](https://srb2.org/) (Sonic Team Junior's 3D Sonic fangame, from Doom Legacy) as a
 [Chimera](https://github.com/ToolAssisted-run/chimera) **game core** (`"kind": "game"`, see Chimera's
-`docs/game-cores.md`). It is an **official core**: on Chimera's roster (`official-cores.json`) since Chimera's
-9aff711 (2026-10-10), and listed in Chimera's README with the game cores. It is the first official core published
-outside the ToolAssisted-run organisation: its author, P-AS, writes and publishes it from this repository, as a
-third party. It needs no change to Chimera. See `docs/PLAN.md` for the milestones and decisions.
+`docs/game-cores.md`). It is a **third-party core**: its author, P-AS, writes and publishes it from this repository, outside the ToolAssisted-run organisation. Chimera lists it among its third-party cores (`third-party-cores.json`), not on its official roster (`official-cores.json`), so Chimera does not maintain or support it. It needs no change to Chimera. See `docs/PLAN.md` for the milestones and decisions.
 
 The engine is upstream SRB2 (`extern/SRB2`, master, net-compatible with 2.2.15), compiled from source with a
 platform layer of the core's own (`waterbox/platform/`) in place of SDL: no window, no audio device (the core
