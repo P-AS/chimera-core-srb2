@@ -2,8 +2,7 @@
 
 This repository builds Sonic Robo Blast 2 as a Chimera game core: one game
 engine built as a core, not an emulator (Chimera's `docs/game-cores.md`). It
-is an official core, on Chimera's roster, but written and published here by
-its author (P-AS), outside the ToolAssisted-run organisation. The result is
+is a third-party core: written and published here by its author (P-AS), outside the ToolAssisted-run organisation, and listed by Chimera among its third-party cores. The result is
 one file, `srb2.chimeraCore`, which Chimera loads (a release names it
 `srb2-<version>-<x64|arm64>.chimeraCore`); the game's data is the user's. The steps below follow `.github/workflows/chimera.yml`, which builds
 and gates the core from a fresh clone on a public Ubuntu runner.
