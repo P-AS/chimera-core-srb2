@@ -21,9 +21,8 @@ name: chimera waterbox core
 #
 # The gate runs twice, once per host CPU, on a runner of that CPU: x86-64
 # against Chimera's public main, and aarch64 (miniBox's aarch64 machine)
-# against the aarch64 forks of Chimera and miniBox (github.com/P-AS/chimera,
-# branch aarch64, whose extern/chimera-common-minibox is
-# github.com/P-AS/chimera-common-minibox). Both must pass for a release, and
+# against Chimera's aarch64 build (ToolAssisted-run/chimera#309; until it
+# merges, github.com/P-AS/chimera, branch aarch64), whose miniBox is upstream's. Both must pass for a release, and
 # both packages are in it, each named by the leg's CPU:
 # srb2-<version>-x64.chimeraCore and srb2-<version>-arm64.chimeraCore.
 
@@ -114,8 +113,8 @@ jobs:
       - name: Build miniBox's libstdc++ as C17
         # GCC 15 compiles C as C23, where musl's string.h declares basename() with
         # no arguments and clashes with libiberty's prototype in libstdc++'s
-        # stacktrace code. The P-AS fork of miniBox already sets -std=gnu17 here;
-        # upstream does not yet, so the checkout's recipe gets it until it does.
+        # stacktrace code. miniBox's main sets -std=gnu17 here (ToolAssisted-run/chimera-common-minibox#11);
+        # Chimera's main pins an older miniBox, so that checkout's recipe gets it until it repins.
         run: |
           f=chimera-checkout/extern/chimera-common-minibox/meson.build
           grep -q 'std=gnu17' "$f" || sed -i 's|CFLAGS="@3@ -I\$D/gthr-inc"|CFLAGS="@3@ -std=gnu17 -I$D/gthr-inc"|' "$f"
