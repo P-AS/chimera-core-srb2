@@ -557,9 +557,8 @@ gives - and a fractional one goes through `exp`/`log`.
 ## CI (2026-10-04)
 
 `.github/workflows/chimera.yml`, modeled on the DSDA core's: one `gate` job and the `publish` job every core
-publishes with (Chimera's reusable `publish-core.yml`: a rolling `dev` on every green push to main, a dated
-`nightly-YYYY-MM-DD` from the 04:23 UTC schedule when main moved; off the hour, where GitHub drops fewer scheduled
-runs - 04:00 never fired - and by hand: Actions > Run workflow, kind `nightly`).
+publishes with (Chimera's reusable `publish-core.yml`: a dated `nightly-YYYY-MM-DD` from the 04:23 UTC schedule when main moved, and by hand: Actions > Run workflow;
+a push to main publishes nothing; off the hour, where GitHub drops fewer scheduled runs - 04:00 never fired).
 
 The gate job checks out this repository (submodules; `extern/openmpt` shallow) and Chimera (`CHIMERA_REF`,
 main), builds Chimera's native libraries and solution, builds miniBox's host and C++ guest toolchain (cached;
@@ -570,14 +569,18 @@ runs `run-gate.sh` with the engine leg on the checkout's installed `libchimera`,
 the commit, runs Chimera's contract tests on it (`InstalledCorePackagesTests`, `MnemonicUniquenessTests`), and
 uploads `srb2-<sha>`.
 
+**`runsOn`** (user-decided, 2026-11-05): `waterbox.config` lists all six systems - windows-x86_64, windows-aarch64,
+linux-x86_64, linux-aarch64, macos-x86_64, macos-aarch64 - since both CPUs' packages are built for them. Chimera refuses
+a package that lists none, and `publish-core.sh` refuses an arm64 package whose `runsOn` names no aarch64 system.
+
 **Every release carries `tasinfo.lua`** (user-asked, 2026-10-08): the `publish-lua` job, after `publish`, uploads
 `lua/tasinfo.lua` into the release just made and adds a line to its notes. Chimera's `publish-core.sh` uploads
-only the package and deletes and recreates `dev` each time, so the script cannot ride along in it and must go up
+only the package, so the script must go up
 after; and the shared workflow is the Chimera project's, so the job is this repository's own. The release is the
-one `publish-core.yml` picks (a nightly for the schedule or kind `nightly`, else `dev`); a nightly is found as the
+one `publish-core.yml` picks (a nightly, from the schedule or by hand); it is found as the
 newest `nightly-*` tag at the commit by name - the API's tags are lightweight, their creator date the commit's.
 The gate job checks the scripts parse (`luac5.4 -p`). The job's shell was run against a scratch repository with a
-stand-in `gh` (dev, nightly, two nightlies at one commit, none); the workflow itself first runs on GitHub.
+stand-in `gh` (nightly, two nightlies at one commit, none); the workflow itself first runs on GitHub.
 
 **It depends on no Chimera change.** It began as an unofficial core (github.com/P-AS/chimera-core-srb2,
 user-decided 2026-10-04); it was on Chimera's official roster from 2026-10-10 to 2026-10-31 (see "On Chimera's lists"), and is listed among its third-party cores since then, without a change here. Since Chimera's ecc06b8 (2026-10-07) the roster makes no difference
