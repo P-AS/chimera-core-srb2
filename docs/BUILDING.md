@@ -201,15 +201,14 @@ commit's (UTC), never the build's.
 A hand-built package is for testing. Chimera's publish script refuses a
 version that carries `+local` or `-dirty`.
 
-CI publishes what its gate passed as this repository's own releases: a rolling
-`dev` release on every green push to `main`, and a dated `nightly-YYYY-MM-DD`
-release from the scheduled run (04:23 UTC, only when `main` moved since the
-last one; Actions > Run workflow with kind `nightly` publishes one by hand).
+CI publishes what its gate passed as this repository's own releases: a dated
+`nightly-YYYY-MM-DD` release from the scheduled run (04:23 UTC, only when `main` moved since the
+last one). Actions > Run workflow publishes one by hand. A push to `main` publishes nothing.
 The gate job uploads the package as the artifact `srb2-<commit>`
 (`actions/upload-artifact@v7`), and the publish job hands it to Chimera's
 public reusable workflow `publish-core.yml`. Then this repository's own
 `publish-lua` job uploads `lua/tasinfo.lua`, from the same commit, into that
-release (`dev`, or the newest `nightly-*` at the commit) and adds a line about
+release (the newest `nightly-*` at the commit) and adds a line about
 it to the release notes; the gate job has checked it parses (`luac5.4 -p`).
 There is no manual equivalent.
 
