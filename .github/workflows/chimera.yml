@@ -24,7 +24,7 @@ name: chimera waterbox core
 # against Chimera's public main, which builds aarch64 too (ToolAssisted-run/chimera#309, merged
 # 2026-11-06), and miniBox is upstream's. Both must pass for a release, and
 # both packages are in it, each named by the leg's CPU:
-# srb2-<version>-x64.chimeraCore and srb2-<version>-arm64.chimeraCore.
+# srb2-<version>-x86_64.chimeraCore and srb2-<version>-aarch64.chimeraCore.
 
 on:
   pull_request:
@@ -32,12 +32,19 @@ on:
   push:
     branches: [ "main" ]
   workflow_dispatch:
+    inputs:
+      kind:
+        description: 'nightly (dated, kept) or dev (rolling, replaced)'
+        required: false
+        default: nightly
+        type: choice
+        options: [ nightly, dev ]
   schedule:
     # 04:23 UTC. A nightly is published only when main moved since the last one;
     # the reusable workflow checks, so an unchanged core costs one idle run. Off
     # the hour: GitHub delays and drops scheduled runs under the top-of-hour
     # load, and 04:00 never fired here (2026-10-05). Actions > Run workflow
-    # publishes one by hand.
+    # publishes one by hand (kind nightly), or a dev build (kind dev).
     - cron: '23 4 * * *'
 
 # Keyed by the EVENT as well as the ref: the nightly schedule and a push to
@@ -58,11 +65,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - arch: x64
+          - arch: x86_64
             runner: ubuntu-latest
             chimera-repo: ToolAssisted-run/chimera
             chimera-ref: main
-          - arch: arm64
+          - arch: aarch64
             runner: ubuntu-26.04-arm
             chimera-repo: ToolAssisted-run/chimera
             chimera-ref: main
@@ -203,13 +210,14 @@ jobs:
   publish:
     # What the gate passed, published as this core's own release: an immutable
     # `nightly-YYYY-MM-DD` from the scheduled run, or from one started by hand,
-    # each carrying both packages, srb2-<version>-x64.chimeraCore and
-    # srb2-<version>-arm64.chimeraCore. A push to main or a pull request
-    # publishes nothing. The logic is Chimera's tools/publish-core.sh, through the
-    # one reusable workflow every core publishes with, which publishes a package per CPU.
+    # each carrying both packages, srb2-<version>-x86_64.chimeraCore and
+    # srb2-<version>-aarch64.chimeraCore. A push to main publishes the dev
+    # build instead (publish-dev); a pull request publishes nothing. The logic
+    # is Chimera's tools/publish-core.sh, through the one reusable workflow
+    # every core publishes with, which publishes a package per CPU.
     name: publish
     needs: [ gate ]
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.kind != 'dev')
     permissions:
       contents: write
     uses: ToolAssisted-run/chimera/.github/workflows/publish-core.yml@main
@@ -217,7 +225,7 @@ jobs:
       core-id: srb2
       artifact: srb2-${{ github.sha }}
       package: srb2.chimeraCore
-      arches: x64 arm64
+      arches: x86_64 aarch64
 
   publish-lua:
     # lua/tasinfo.lua as an asset of the nightly release publish just made. Chimera's
@@ -226,12 +234,12 @@ jobs:
     # commit, by its name (the releases API makes lightweight tags, whose creator
     # date is the commit's, so the date in the name is the only order); an unmoved
     # main publishes none, and that nightly, from an earlier run, gets the script
-    # if it lacks it. The notes get two paragraphs: which package most users want
-    # (x64), above the table that names both, and what tasinfo.lua is, at the end.
-    # A push to main or a pull request publishes nothing, so this job does not run.
+    # if it lacks it. The notes get a paragraph on what tasinfo.lua is, at the end
+    # (publish-core.sh's notes already say which package to take). A push to main
+    # or a pull request does not run this job; publish-dev uploads the script itself.
     name: publish tasinfo.lua
     needs: [ publish ]
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.kind != 'dev')
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -258,13 +266,6 @@ jobs:
           done
           notes=$(gh release view "$tag" --json body --jq .body)
           changed=0
-          # which package to take, before the table that names both
-          hint='**You most likely want the x64 package.** Take the arm64 one only if you know you are using an arm64 device.'
-          case "$notes" in
-            *"most likely want the x64"*) ;;
-            *) notes=$(printf '%s\n' "$notes" | awk -v h="$hint" '!done && /^\|/ { print h; print ""; done = 1 } { print } END { if (!done) { print ""; print h } }')
-               changed=1 ;;
-          esac
           case "$notes" in
             *tasinfo.lua*) ;;
             *) notes=$(printf '%s\n\n%s' "$notes" "\`tasinfo.lua\` is the TAS info overlay (speed, angle, position, momentum, spindash revs, timers, boss): open it in Chimera's **Tools > Lua Console** with an SRB2 project loaded (the README's \"Game State and the TAS info script\").")
@@ -275,3 +276,50 @@ jobs:
             gh release edit "$tag" --notes-file notes.md
           fi
           echo "tasinfo.lua -> $tag"
+
+  publish-dev:
+    # What the gate passed on a push to main, as this core's own rolling `dev`
+    # pre-release: deleted and made again at every green push, never Latest,
+    # carrying both packages and tasinfo.lua. Chimera's publish-core.sh publishes
+    # nightlies only (since 2026-11-05), so .github/publish-dev.sh does this
+    # here, with Chimera's tools for the notes. Actions > Run workflow with
+    # kind dev publishes one by hand. A movie needs a nightly: a dev build is
+    # replaced, and cannot be cited.
+    name: publish dev
+    needs: [ gate ]
+    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && inputs.kind == 'dev')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          submodules: false
+
+      - name: Check out Chimera's release tools
+        uses: actions/checkout@v6
+        with:
+          repository: ToolAssisted-run/chimera
+          ref: main
+          path: chimera-checkout
+          sparse-checkout: tools
+          submodules: false
+
+      - name: Download the packages
+        uses: actions/download-artifact@v5
+        with:
+          pattern: srb2-${{ github.sha }}-*
+          path: package
+
+      - name: Publish dev
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ./.github/publish-dev.sh \
+            --core-id srb2 --sha "$GITHUB_SHA" --tools chimera-checkout/tools \
+            --package "package/srb2-$GITHUB_SHA-x86_64/srb2.chimeraCore" --arch x86_64 \
+            --package "package/srb2-$GITHUB_SHA-aarch64/srb2.chimeraCore" --arch aarch64 \
+            --asset lua/tasinfo.lua \
+            --note "\`tasinfo.lua\` is the TAS info overlay (speed, angle, position, momentum, spindash revs, timers, boss): open it in Chimera's **Tools > Lua Console** with an SRB2 project loaded (the README's \"Game State and the TAS info script\")."

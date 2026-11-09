@@ -12,13 +12,13 @@ characters.pk3, music.pk3 - is firmware: the core carries none of it.
 ## Using it in Chimera
 
 Chimera ships no cores and downloads nothing. Download the core's package from this repository's
-[Releases](https://github.com/P-AS/chimera-core-srb2/releases) page (dated
+[Releases](https://github.com/P-AS/chimera-core-srb2/releases) page (a rolling `dev` build, dated
 `nightly-YYYY-MM-DD` builds), or build it, and put it in the `cores` folder beside Chimera's program (or the folder
 chosen in Tools > Core Manager... > Change folder...).
 
-Each release has two packages, one per CPU: `srb2-<version>-x64.chimeraCore` and
-`srb2-<version>-arm64.chimeraCore`. **You most likely want the x64 one.** Take the arm64 one only if you know you
-are using an arm64 device. Put only one of them in the `Cores` folder: two packages of one core list it twice. The
+Each release has two packages, one per CPU: `srb2-<version>-x86_64.chimeraCore` and
+`srb2-<version>-aarch64.chimeraCore`. **On Windows or Linux you most likely want the x86_64 one.** Take the aarch64
+one only if you know you are using an ARM device; on a Mac, aarch64 for Apple silicon and x86_64 for an Intel Mac. Put only one of them in the `Cores` folder: two packages of one core list it twice. The
 same file works on Linux and on Windows. None of the game's data is in the package: a project brings SRB2 2.2.15's
 srb2.pk3, zones.pk3, characters.pk3 and music.pk3 as firmware.
 
@@ -46,11 +46,11 @@ nothing). `extern/openmpt` is shallow: `git submodule update --init` fetches onl
 
 `waterbox/fetch-data.sh [<folder>]` downloads STJr's own SRB2 2.2.15 release and takes out the four pk3s, checked
 against the declared firmware (default `build/srb2-2.2.15`); `run-gate.sh -d <folder>` runs on them. CI
-(`.github/workflows/chimera.yml`) does this, then the gate, the package and Chimera's contract tests, on x64 and
-on arm64, and publishes nightly releases with both packages.
+(`.github/workflows/chimera.yml`) does this, then the gate, the package and Chimera's contract tests, on x86_64 and
+on aarch64, and publishes `dev` and nightly releases with both packages.
 
 Being on Chimera's roster, the newest nightly is also checked by Chimera's own CI: every run there downloads it
-(the x64 package) and runs Chimera's package tests on it. A nightly those tests refuse fails Chimera's CI until a
+(the x86_64 package) and runs Chimera's package tests on it. A nightly those tests refuse fails Chimera's CI until a
 fixed nightly is out.
 
 ## The package
@@ -129,7 +129,7 @@ mode counter and the top speed it raises); `Boss.Active`, `Boss.Health`, `Boss.M
 `MF_BOSS` object, as the SRB2 TAS build finds the boss: its health, its type's starting health, and `MF2_FRET`); `Player.Angle` (2^32 a turn); `Timers.Speed Shoes`, `Timers.Invincibility`,
 `Timers.Space`, `Timers.Air` (tics left). Out of a level the player's fields are 0.
 
-`lua/tasinfo.lua` (also an asset of every nightly release, beside the package) draws them in the bottom right corner of the game, clear of Chimera's own HUD: open it in Tools > Lua Console with an SRB2 project loaded. It shows
+`lua/tasinfo.lua` (also an asset of every `dev` and nightly release, beside the package) draws them in the bottom right corner of the game, clear of Chimera's own HUD: open it in Tools > Lua Console with an SRB2 project loaded. It shows
 speed, the angle in hex and in degrees (each to 4 decimal places, on lines of their own), the position and the
 momentum, the conveyor and platform momentum, the spindash's revs, Metal Sonic's dash mode (and its speed at 108, as the
 SRB2 TAS build shows it), the four timers in tics and seconds, and while a boss is in the level its health (left /

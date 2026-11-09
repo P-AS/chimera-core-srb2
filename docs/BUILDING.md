@@ -4,7 +4,7 @@ This repository builds Sonic Robo Blast 2 as a Chimera game core: one game
 engine built as a core, not an emulator (Chimera's `docs/game-cores.md`). It
 is a third-party core: written and published here by its author (P-AS), outside the ToolAssisted-run organisation, and listed by Chimera among its third-party cores. The result is
 one file, `srb2.chimeraCore`, which Chimera loads (a release names it
-`srb2-<version>-<x64|arm64>.chimeraCore`); the game's data is the user's. The steps below follow `.github/workflows/chimera.yml`, which builds
+`srb2-<version>-<x86_64|aarch64>.chimeraCore`); the game's data is the user's. The steps below follow `.github/workflows/chimera.yml`, which builds
 and gates the core from a fresh clone on a public Ubuntu runner.
 
 Placeholders used below:
@@ -201,15 +201,21 @@ commit's (UTC), never the build's.
 A hand-built package is for testing. Chimera's publish script refuses a
 version that carries `+local` or `-dirty`.
 
-CI publishes what its gate passed as this repository's own releases: a dated
-`nightly-YYYY-MM-DD` release from the scheduled run (04:23 UTC, only when `main` moved since the
-last one). Actions > Run workflow publishes one by hand. A push to `main` publishes nothing.
+CI publishes what its gate passed as this repository's own releases: a rolling
+`dev` pre-release on every green push to `main`, and a dated `nightly-YYYY-MM-DD`
+release from the scheduled run (04:23 UTC, only when `main` moved since the
+last one). Actions > Run workflow publishes a nightly by hand, or with kind
+`dev` a dev build.
 The gate job uploads the package as the artifact `srb2-<commit>`
 (`actions/upload-artifact@v7`), and the publish job hands it to Chimera's
 public reusable workflow `publish-core.yml`. Then this repository's own
 `publish-lua` job uploads `lua/tasinfo.lua`, from the same commit, into that
 release (the newest `nightly-*` at the commit) and adds a line about
 it to the release notes; the gate job has checked it parses (`luac5.4 -p`).
+Chimera's `publish-core.sh` publishes nightlies only, so the `dev` build is
+this repository's own: the `publish-dev` job runs `.github/publish-dev.sh`,
+which deletes the old `dev` and makes it again with both packages and
+`lua/tasinfo.lua`.
 There is no manual equivalent.
 
 ## Install it into Chimera
@@ -223,9 +229,10 @@ This core is in the list of cores Chimera's README links to (since Chimera's
   repository's Releases page
   (https://github.com/P-AS/chimera-core-srb2/releases), or build it, and put
   it in the `cores` folder beside Chimera's program. A release has
-  `srb2-<version>-x64.chimeraCore` and `srb2-<version>-arm64.chimeraCore`:
-  you most likely want the x64 one; take the arm64 one only if you know you
-  are using an arm64 device. Put only one of them in the folder. Another folder can be chosen
+  `srb2-<version>-x86_64.chimeraCore` and `srb2-<version>-aarch64.chimeraCore`:
+  on Windows or Linux you most likely want the x86_64 one; take the aarch64 one
+  only if you know you are using an ARM device (on a Mac, aarch64 for Apple
+  silicon, x86_64 for an Intel Mac). Put only one of them in the folder. Another folder can be chosen
   in Tools > Core Manager... > Change folder...
   `./waterbox/build-package.sh -r <bundle>` writes it there.
 - **A Chimera source checkout**: the cores folder is `<chimera>/build/Cores/`.
