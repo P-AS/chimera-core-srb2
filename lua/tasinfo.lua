@@ -1,5 +1,5 @@
 -- tasinfo.lua - SRB2 TAS info for Chimera: the player's speed, angle,
--- position, momentum, the momentum a conveyor or moving platform adds, the
+-- position, the floor and ceiling heights above and below it, momentum, the momentum a conveyor or moving platform adds, the
 -- spindash's revs, Metal Sonic's dash mode, the power timers and the boss's
 -- health and flashing, drawn over the game every frame.
 --
@@ -84,6 +84,8 @@ local function draw()
 		add("X: " .. fixed("Player.X"))
 		add("Y: " .. fixed("Player.Y"))
 		add("Z: " .. fixed("Player.Z"))
+		if has("Player.Floor Z") then add("Floor Z: " .. fixed("Player.Floor Z")) end
+		if has("Player.Ceiling Z") then add("Ceiling Z: " .. fixed("Player.Ceiling Z")) end
 		add("Mom X: " .. fixed("Player.Momentum X"))
 		add("Mom Y: " .. fixed("Player.Momentum Y"))
 		add("Mom Z: " .. fixed("Player.Momentum Z"))
@@ -126,7 +128,7 @@ if not has(table.unpack(BASE)) then
 end
 local OPTIONAL = { "Player.Conveyor Momentum X", "Player.Conveyor Momentum Y", "Player.Platform Momentum Z",
 	"Player.Dash Speed", "Player.Min Dash", "Player.Max Dash", "Player.Charging Spindash",
-	"Player.Dashmode", "Player.Normal Speed",
+	"Player.Dashmode", "Player.Normal Speed", "Player.Floor Z", "Player.Ceiling Z",
 	"Timers.Speed Shoes", "Timers.Invincibility", "Timers.Space", "Timers.Air",
 	"Boss.Active", "Boss.Health", "Boss.Max Health", "Boss.Flashing" }
 local missing = {}

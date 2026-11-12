@@ -41,7 +41,7 @@ import sys
 
 FORMATS = {"bool": "<?", "u8": "<B", "s8": "<b", "u16": "<H", "s16": "<h", "u32": "<I", "s32": "<i"}
 WANT = ["Game.Tic", "Game.Level Time", "Game.State", "Game.Map", "Player.In Level",
-        "Player.X", "Player.Y", "Player.Z", "Player.Momentum X", "Player.Momentum Y", "Player.Momentum Z",
+        "Player.X", "Player.Y", "Player.Z", "Player.Floor Z", "Player.Ceiling Z", "Player.Momentum X", "Player.Momentum Y", "Player.Momentum Z",
         "Player.Angle", "Player.Speed",
         "Timers.Speed Shoes", "Timers.Invincibility", "Timers.Space", "Timers.Air",
         "Player.Conveyor Momentum X", "Player.Conveyor Momentum Y", "Player.Platform Momentum Z",
@@ -90,8 +90,8 @@ def main():
 
     data = open(dump, "rb").read()
     # the block's size: the dump is whole steps of it, at least as large as
-    # the table reaches (108 bytes now; the table may not run past it)
-    block = 108
+    # the table reaches (116 bytes now; the table may not run past it)
+    block = 116
     if len(data) % block or size > block:
         fail(f"the dump ({len(data)} bytes) is not whole {block}-byte blocks, or the table reaches {size}")
     steps = []

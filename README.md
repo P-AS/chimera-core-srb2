@@ -120,7 +120,7 @@ harnesses take a movie as text, `--input FILE` with `FROM-TO: Button; Axis=value
 The core exposes one memory domain, `Game State`, and a property table naming its fields, so RAM Watch (Watches >
 Add Game Properties), RAM Search and Lua's `game.get` see them by name. The core copies them from the game after
 every step; they are read-only. `Game.Tic`, `Game.Level Time`, `Game.State`, `Game.Map`; `Player.In Level`,
-`Player.X`/`Y`/`Z`, `Player.Momentum X`/`Y`/`Z`, `Player.Conveyor Momentum X`/`Y` (`player->cmomx`/`cmomy`: what a
+`Player.X`/`Y`/`Z`, `Player.Floor Z`/`Ceiling Z` (`mo->floorz`/`ceilingz`: the floor and ceiling the player is between), `Player.Momentum X`/`Y`/`Z`, `Player.Conveyor Momentum X`/`Y` (`player->cmomx`/`cmomy`: what a
 conveyor or a moving platform adds), `Player.Platform Momentum Z` (`mo->pmomz`: the moving floor's) and
 `Player.Speed` (16.16 fixed point: 65536 is one unit; speed is the game's own `player->speed`), `Player.Dash Speed`,
 `Player.Min Dash`, `Player.Max Dash` (the spindash's charge and its bounds, 16.16), `Player.Flags` (`pflags`) and

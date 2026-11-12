@@ -232,6 +232,7 @@ struct game_state
 	INT32 boss_max_health; /* 96: its type's spawnhealth */
 	UINT32 dashmode;      /* 100: player->dashmode, tics */
 	INT32 normalspeed;    /* 104: player->normalspeed, 16.16 */
+	INT32 floorz, ceilingz; /* 108: mo->floorz/ceilingz, the sector's floor and ceiling under the player, 16.16 */
 };
 
 static struct game_state g_state;
@@ -269,6 +270,8 @@ static void update_game_state(void)
 	g_state.pflags = (UINT32)p->pflags;
 	g_state.dashmode = (UINT32)p->dashmode;
 	g_state.normalspeed = p->normalspeed;
+	g_state.floorz = mo->floorz;
+	g_state.ceilingz = mo->ceilingz;
 
 	/* the boss as the SRB2 TAS build finds it (P_GetBossInfo): the first
 	 * object with MF_BOSS among the thinkers */
@@ -313,6 +316,8 @@ const char *srb2_game_properties(void)
 	GS("Player.X", x, "s32", "Player", "property.player_x");
 	GS("Player.Y", y, "s32", "Player", "property.player_y");
 	GS("Player.Z", z, "s32", "Player", "property.player_z");
+	GS("Player.Floor Z", floorz, "s32", "Player", "property.player_floor_z");
+	GS("Player.Ceiling Z", ceilingz, "s32", "Player", "property.player_ceiling_z");
 	GS("Player.Momentum X", momx, "s32", "Player", "property.player_momentum_x");
 	GS("Player.Momentum Y", momy, "s32", "Player", "property.player_momentum_y");
 	GS("Player.Momentum Z", momz, "s32", "Player", "property.player_momentum_z");
