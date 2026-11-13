@@ -1,144 +1,181 @@
 # chimera-core-srb2
 
-[Sonic Robo Blast 2](https://srb2.org/) (Sonic Team Junior's 3D Sonic fangame, from Doom Legacy) as a
-[Chimera](https://github.com/ToolAssisted-run/chimera) **game core** (`"kind": "game"`, see Chimera's
-`docs/game-cores.md`). It is a **third-party core**: its author, P-AS, writes and publishes it from this repository, outside the ToolAssisted-run organisation. Chimera lists it among its third-party cores (`third-party-cores.json`), not on its official roster (`official-cores.json`), so Chimera does not maintain or support it. It needs no change to Chimera. See `docs/PLAN.md` for the milestones and decisions.
+A third-party [Chimera](https://github.com/ToolAssisted-run/chimera) game core for [Sonic Robo Blast 2](https://srb2.org/) v2.2.15. This core facilitates tool-assisted speedrunning of Sonic Robo Blast 2 (including mods) with the benefits of the Chimera TAS frontend, such as a simplified setup process, cross-platform support, an easily accessible game state with a lua-based TAS info overlay, the TAStudio input editor, and persistent savestates.
 
-The engine is upstream SRB2 (`extern/SRB2`, master, net-compatible with 2.2.15), compiled from source with a
-platform layer of the core's own (`waterbox/platform/`) in place of SDL: no window, no audio device (the core
-mixes the sound itself, in the machine), no network, no threads. The game's data - srb2.pk3, zones.pk3,
-characters.pk3, music.pk3 - is firmware: the core carries none of it.
+> [!IMPORTANT]
+> chimera-core-srb2 was primarily written using AI assistance from Anthropic's Claude LLMs. [libTAS](https://github.com/clementgallet/libTAS) is a viable alternative to this core.
 
-## Using it in Chimera
+## Usage
 
-Chimera ships no cores and downloads nothing. Download the core's package from this repository's
-[Releases](https://github.com/P-AS/chimera-core-srb2/releases) page (a rolling `dev` build, dated
-`nightly-YYYY-MM-DD` builds), or build it, and put it in the `cores` folder beside Chimera's program (or the folder
-chosen in Tools > Core Manager... > Change folder...).
+chimera-core-srb2 supports Windows, macOS, and Linux, on both the x86_64 and aarch64 architectures. To use it, download the latest Chimera core package from the [Releases](https://github.com/P-AS/chimera-core-srb2/releases) page for your CPU's architecture. Place the file in Chimera's `Cores` directory. You can access this folder from Chimera by clicking Tools --> Core Manager... --> Open cores folder.
 
-Each release has two packages, one per CPU: `srb2-<version>-x86_64.chimeraCore` and
-`srb2-<version>-aarch64.chimeraCore`. **On Windows or Linux you most likely want the x86_64 one.** Take the aarch64
-one only if you know you are using an ARM device; on a Mac, aarch64 for Apple silicon and x86_64 for an Intel Mac. Put only one of them in the `Cores` folder: two packages of one core list it twice. The
-same file works on Linux and on Windows. None of the game's data is in the package: a project brings SRB2 2.2.15's
-srb2.pk3, zones.pk3, characters.pk3 and music.pk3 as firmware.
+If you are running Windows or Linux, you most likely want to download the x86_64 Chimera core package, while on macOS you most likely want to download the aarch64 Chimera core package.
+
+A copy of Sonic Robo Blast 2 v2.2.15's srb2.pk3, zones.pk3, characters.pk3 and music.pk3 asset files are required to be loaded as firmware for the core to function.
+
+The bundled TAS info overlay lua script can be loaded in Chimera from Tools --> Lua Console --> Script --> Open Script.
 
 ## Building
 
+Building is for Linux (CI uses Ubuntu). The core is built with miniBox, the sandbox Chimera runs cores in, from a
+Chimera checkout (`git clone --recursive https://github.com/ToolAssisted-run/chimera.git`). Build miniBox first,
+with its C++ guest toolchain (GME and libopenmpt are C++):
+
 ```
-git submodule update --init
+mb=<a Chimera checkout>/extern/chimera-common-minibox
+meson setup "$mb/build/meson-linux" "$mb" && meson compile -C "$mb/build/meson-linux"
+ninja -C "$mb/build/meson-linux" source/guest/emulibc.c.o
+meson setup "$mb/build/meson-cpp" "$mb" -Dguest_cpp=true && meson compile -C "$mb/build/meson-cpp"
+ninja -C "$mb/build/meson-cpp" libstdcxx-installed.stamp source/guest/emulibc.c.o source/guest/cxxglue.c.o
+```
+
+Then the core:
+
+```
+git submodule update --init --recursive
 export MINIBOX_DIR=<a Chimera checkout>/extern/chimera-common-minibox
-make -C waterbox -f native.mk -j$(nproc)    # the native reference and the harnesses: build/native/
+make -C waterbox -f native.mk -j$(nproc)    # the native test programs: build/native/
 make -C waterbox -f guest.mk -j$(nproc)     # the core: build/guest/core.wbx
 ```
 
-miniBox must be built first, with its C++ guest toolchain (GME is C++), in its checkout:
+The makefiles apply the patches in `patches/` to `extern/SRB2` and `extern/openmpt` on the first build.
+
+### Packaging
 
 ```
-meson setup build/meson-cpp -Dguest_cpp=true && ninja -C build/meson-cpp
-ninja -C build/meson-cpp libstdcxx-installed.stamp source/guest/emulibc.c.o source/guest/cxxglue.c.o
-``` 
-
-The patches go onto
-`extern/SRB2` and `extern/openmpt` on the first build (`waterbox/apply-patches.sh [openmpt]`, each series all or
-nothing). `extern/openmpt` is shallow: `git submodule update --init` fetches only its pinned commit.
-
-## Data for the gate
-
-`waterbox/fetch-data.sh [<folder>]` downloads STJr's own SRB2 2.2.15 release and takes out the four pk3s, checked
-against the declared firmware (default `build/srb2-2.2.15`); `run-gate.sh -d <folder>` runs on them. CI
-(`.github/workflows/chimera.yml`) does this, then the gate, the package and Chimera's contract tests, on x86_64 and
-on aarch64, and publishes `dev` and nightly releases with both packages.
-
-Being on Chimera's roster, the newest nightly is also checked by Chimera's own CI: every run there downloads it
-(the x86_64 package) and runs Chimera's package tests on it. A nightly those tests refuse fails Chimera's CI until a
-fixed nightly is out.
-
-## The package
-
-```
-waterbox/build-package.sh [-r <Chimera bundle or checkout>]   # build/package/srb2.chimeraCore, or into its Cores
+waterbox/build-package.sh [-o <folder>]
 ```
 
-`-r <chimera>` writes the package into a Chimera source checkout's `build/Cores` (a bundle's `Cores`). The whole
-build, as CI does it, is in [docs/BUILDING.md](docs/BUILDING.md); [AGENTS.md](AGENTS.md) is the guide for an AI
-coding agent.
-
-## Running the native reference
-
-```
-mkdir -p build/work && ln -s /usr/share/games/SRB2/*.pk3 build/work/
-echo '{"warp": "1"}' > build/work/settings          # optional: start in Greenflower Zone Act 1
-build/native/run-native build/work -n 400 --ppm frame.ppm
-build/native/run-wbx build/guest/core.wbx build/work -n 400   # the same, in the sandbox
-```
-
-Both run `-n` steps (a step is a tic, on the machine's own clock), print the picture's hash, the tic and the
-clock every `-p` steps and a hash of the whole run at the end, and `--ppm` writes the last picture. Their
-lines diff directly.
-
-## The gate
-
-`./waterbox/run-gate.sh [-d <SRB2 data folder>] [-m <miniBox>]`: the legs, each saying what it compared, each
-with teeth. `equivalence`: native == sandbox, step for step, on the intro and Greenflower Zone Act 1. `steps`:
-a step is a tic, a wipe's frames are lag steps, play is a tic a step. `savestates`: a save and load before
-every step, and a new host mid-wipe, change nothing. `declaration`: the package's controller is the core's. `settings`: each setting reaches the engine.
-`opengl`: with no GPU bridge the OpenGL renderer warns in the log and the run is the software renderer's. `engine`
-(with `-c`) also runs `opengl-hw` through the GPU bridge where the machine has a context: the character select
-drawn as in software, and the picture right again after a rewind and a reopen (up to 16 pixels may differ, on
-seams: SRB2's OpenGL renderer orders polygons by the graphics driver's texture numbers).
-`properties`: the Game State domain, read by its property table, holds what Greenflower's movie did, the timers
-`tests/timers.lua` sets, a spindash's charge (`tests/spindash.txt`), and a boss `tests/boss.lua` spawns and hits.
-`input`: movies through the menus and in Greenflower,
-the same every way. `files`: what the game writes is kept in the machine and exported identically. `time`: a
-host stall mid-run changes nothing. `audio`: the music and sounds are heard (a GME song, a tracker module, and
-the game's MIDI songs with Music Preference MIDI among them), and every leg's run line carries the sound's hash
-too.
-
-The harnesses' `--wav FILE` writes a run's sound.
+This builds the core if needed and writes the package, `srb2.chimeraCore`, into `<folder>`, or into
+`build/package/` without `-o`. Put that file in Chimera's `Cores` folder to use it.
 
 ## Settings
 
-Declared in `waterbox/waterbox.config`, so Chimera shows them as the core's options; each is SRB2's own option,
-given to the engine at start: Play Style (default Manual), Camera Speed (1.0), Camera Distance (192), Camera Height (40), Field of View (90; 60 to 179, the picture's alone - leave it at 90 for normal levels, 120 is recommended for NiGHTS levels), Score/Time/Rings (Mania), Flip
-Camera with Gravity (Yes), Automatic Braking (On), Music Preference (Digital: the recorded songs; MIDI: the
-game's MIDI songs on six emulated Sega Genesis/Mega Drive YM2612 sound chips, MAME's, as upstream's Windows
-builds play them - the sound's alone), Tutorial Prompt (Off), Unlock Record Attack/NiGHTS Mode/Marathon Run, Unlock All
-Characters, Unlock All Maps in Record Attack and NiGHTS Mode, Unlock All Secrets (each Off), Resolution (1280x800: SRB2's video modes, and 2560x1440 and 3840x2160, shown with square
-pixels; the game plays the same at every one), Renderer (software; opengl-hw: SRB2's OpenGL renderer on this
-machine's GPU through Chimera's GPU bridge - fast, its picture the driver's; where there is no bridge it draws in
-software, which plays differently, and the log warns; the renderer is part of the game, so a movie is its
-renderer's), OpenGL Shaders (On; the picture's alone), Start Map (empty: the intro and the title), Start Map Character (a skin name, e.g. knuckles; empty: Sonic).
+Chimera shows these as the core's options (they are declared in `waterbox/waterbox.config`). Each is one of SRB2's
+own options, given to the game when it starts.
 
-## The controller
+| Setting | Default | Choices and notes |
+|---|---|---|
+| Play Style | Manual | Strafe, Manual, Automatic, Old Analog |
+| Camera Speed | 1.0 | |
+| Camera Distance | 192 | |
+| Camera Height | 40 | |
+| Field of View | 90 | 60 to 179. Changes only the picture. Leave it at 90 for normal levels; 120 is recommended for NiGHTS levels |
+| Score/Time/Rings | Mania | Classic, Centiseconds, Mania, Tics |
+| Flip Camera with Gravity | Yes | |
+| Automatic Braking | On | |
+| Music Preference | Digital | Digital: the recorded songs. MIDI: the game's MIDI songs on six emulated Sega Genesis/Mega Drive YM2612 sound chips (MAME's), as upstream's Windows builds play them. Changes only the sound |
+| Tutorial Prompt | Off | |
+| Unlock Record Attack/NiGHTS Mode/Marathon Run | Off | |
+| Unlock All Characters | Off | |
+| Unlock All Maps in Record Attack and NiGHTS Mode | Off | |
+| Unlock All Secrets | Off | |
+| Resolution | 1280x800 | SRB2's video modes, plus 2560x1440 and 3840x2160, shown with square pixels. The game plays the same at every one |
+| Renderer | software | software, or opengl-hw: SRB2's OpenGL renderer on this computer's graphics card through Chimera's GPU bridge. opengl-hw is fast, but its picture depends on the graphics driver. Where Chimera has no GPU bridge it draws in software, which plays differently, and the log warns. The renderer is part of the game, so a movie must be played back with the renderer it was made with |
+| OpenGL Shaders | On | Changes only the picture |
+| Start Map | (empty) | A map number to start in. Empty: the intro and the title screen |
+| Start Map Character | (empty) | A character's skin name, for example knuckles. Empty: Sonic |
 
-SRB2's default keyboard as buttons (Forward, Jump, Spin... the menus' Enter and Escape, which answer a prompt too),
-pressed as keys, so menus and play work as on a keyboard (the ring-slinger controls too - Fire, Fire Normal, Toss Flag, Weapon Next/Prev - but not the number row's weapon slots); plus axes for exact values: Forward Move, Side Move, Turn, Aim. The
-harnesses take a movie as text, `--input FILE` with `FROM-TO: Button; Axis=value` lines (`waterbox/tests/`).
+## Inputs
 
-## Game State and the TAS info script
+The buttons are SRB2's default keyboard keys, pressed as keys, so the menus and play work as on a keyboard. Enter and
+Escape are the menus' keys, and also answer a prompt's yes and no. The ring-slinger controls are included, but not
+the number row's weapon slots: Weapon Next and Weapon Prev reach every weapon.
 
-The core exposes one memory domain, `Game State`, and a property table naming its fields, so RAM Watch (Watches >
-Add Game Properties), RAM Search and Lua's `game.get` see them by name. The core copies them from the game after
-every step; they are read-only. `Game.Tic`, `Game.Level Time`, `Game.State`, `Game.Map`; `Player.In Level`,
-`Player.X`/`Y`/`Z`, `Player.Floor Z`/`Ceiling Z` (`mo->floorz`/`ceilingz`: the floor and ceiling the player is between), `Player.Momentum X`/`Y`/`Z`, `Player.Conveyor Momentum X`/`Y` (`player->cmomx`/`cmomy`: what a
-conveyor or a moving platform adds), `Player.Platform Momentum Z` (`mo->pmomz`: the moving floor's) and
-`Player.Speed` (16.16 fixed point: 65536 is one unit; speed is the game's own `player->speed`), `Player.Dash Speed`,
-`Player.Min Dash`, `Player.Max Dash` (the spindash's charge and its bounds, 16.16), `Player.Flags` (`pflags`) and
-`Player.Charging Spindash` (its `PF_STARTDASH` bit), `Player.Dashmode` and `Player.Normal Speed` (Metal Sonic's dash
-mode counter and the top speed it raises); `Boss.Active`, `Boss.Health`, `Boss.Max Health`, `Boss.Flashing` (the first
-`MF_BOSS` object, as the SRB2 TAS build finds the boss: its health, its type's starting health, and `MF2_FRET`); `Player.Angle` (2^32 a turn); `Timers.Speed Shoes`, `Timers.Invincibility`,
-`Timers.Space`, `Timers.Air` (tics left). Out of a level the player's fields are 0.
+### Digital
 
-`lua/tasinfo.lua` (also an asset of every `dev` and nightly release, beside the package) draws them in the bottom right corner of the game, clear of Chimera's own HUD: open it in Tools > Lua Console with an SRB2 project loaded. It shows
-speed, the angle in hex and in degrees (each to 4 decimal places, on lines of their own), the position and the
-momentum, the conveyor and platform momentum, the spindash's revs, Metal Sonic's dash mode (and its speed at 108, as the
-SRB2 TAS build shows it), the four timers in tics and seconds, and while a boss is in the level its health (left /
-at the start) and whether it is flashing. SRB2
-has no discrete revs: a spindash charges 1.0 of speed a tic while Spin is held, from Min Dash to Max Dash (Sonic: 15
-to 70), so the script counts a rev a tic, as revs so far / revs to full charge. The conveyor and platform momentum,
-the revs, the dash mode and the timers are shown only while they are not 0.
+| Input | TAStudio header |
+|---|---|
+| Forward | `^` |
+| Backward | `v` |
+| Strafe Left | `<` |
+| Strafe Right | `>` |
+| Turn Left | `{` |
+| Turn Right | `}` |
+| Look Up | `U` |
+| Look Down | `D` |
+| Jump | `J` |
+| Spin | `S` |
+| Fire | `F` |
+| Fire Normal | `N` |
+| Toss Flag | `G` |
+| Center View | `C` |
+| Reset Camera | `R` |
+| Camera Toggle | `T` |
+| Weapon Next | `+` |
+| Weapon Prev | `-` |
+| Custom 1 | `1` |
+| Custom 2 | `2` |
+| Custom 3 | `3` |
+| Pause | `P` |
+| Enter | `E` |
+| Escape | `e` |
 
-The harnesses' `--game-state FILE` writes every step's block, and the table beside it in `FILE.json`.
+### Analog
+
+The axes set exact values. Forward Move and Side Move (-50 to 50) count only while their buttons are not held. Turn
+and Aim range from -32768 to 32767; Aim at 0 leaves the game's own look.
+
+| Input | TAStudio header |
+|---|---|
+| Forward Move | Fwd |
+| Side Move | Side |
+| Turn | Turn |
+| Aim | Aim |
+
+## Game State and the TAS info overlay
+
+### Game State
+
+The core has one memory area, `Game State`, with a table naming its fields, so RAM Watch (Watches > Add Game
+Properties), RAM Search and Lua's `game.get` see them by name. The core copies them from the game after every step,
+and they are read-only. Positions, floor and ceiling heights, momentum, speed and the spindash values are 16.16 fixed point: 65536 is one unit.
+
+| Property | What it is |
+|---|---|
+| `Game.Tic` | The game's tic counter (a tic is a 35th of a second) |
+| `Game.Level Time` | Tics since the level started |
+| `Game.State` | SRB2's game state (level, intermission, title screen and so on) |
+| `Game.Map` | The current map number |
+| `Player.In Level` | Whether the player is in a level. Out of a level the player's fields are 0 |
+| `Player.X / Y / Z` | Position |
+| `Player.Floor Z / Ceiling Z` | The height of the floor below the player and the ceiling above them (SRB2's `floorz`/`ceilingz`) |
+| `Player.Momentum X / Y / Z` | Momentum |
+| `Player.Conveyor Momentum X / Y` | What a conveyor or a moving platform adds to the momentum (SRB2's `cmomx`/`cmomy`) |
+| `Player.Platform Momentum Z` | The moving floor's vertical momentum (SRB2's `pmomz`) |
+| `Player.Speed` | Speed, the game's own `player->speed` |
+| `Player.Angle` | The direction the player faces: 2^32 is one full turn |
+| `Player.Dash Speed` | The spindash's charge |
+| `Player.Min Dash / Max Dash` | The spindash's lowest and highest charge |
+| `Player.Flags` | The player's flags (SRB2's `pflags`) |
+| `Player.Charging Spindash` | Whether a spindash is charging (the `PF_STARTDASH` flag) |
+| `Player.Dashmode` | Metal Sonic's dash mode counter |
+| `Player.Normal Speed` | The top speed, which dash mode raises |
+| `Boss.Active` | Whether there is a boss: the first object with `MF_BOSS` |
+| `Boss.Health` | The boss's health |
+| `Boss.Max Health` | Its type's starting health |
+| `Boss.Flashing` | Whether it is flashing after a hit (`MF2_FRET`) |
+| `Timers.Speed Shoes` | Tics left of speed shoes |
+| `Timers.Invincibility` | Tics left of invincibility |
+| `Timers.Space` | Tics left before drowning in space |
+| `Timers.Air` | Tics left before drowning underwater |
+
+### TAS info overlay
+
+`lua/tasinfo.lua` (also attached to every `dev` and nightly release, beside the package) draws these values in the
+bottom right corner of the game, clear of Chimera's own display. Open it in Tools > Lua Console with an SRB2
+project loaded.
+
+| Shows | Notes |
+|---|---|
+| Speed |  |
+| Angle | In hex and in degrees (to 4 decimal places), each on its own line |
+| Position and momentum | Position includes the floor and ceiling heights, under Z |
+| Conveyor and platform momentum | Only while not 0 |
+| Spindash revs | Only while charging. SRB2 has no separate revs: a spindash charges 1.0 of speed a tic while Spin is held, from Min Dash to Max Dash (Sonic: 15 to 70), so the overlay counts a rev a tic, as revs so far / revs to full charge |
+| Metal Sonic's dash mode | Only while not 0, and its speed at 108 |
+| The four timers | In tics and seconds, only while not 0 |
+| Boss health and flashing | While a boss is in the level: health left / health at the start |
 
 ## Licence
 

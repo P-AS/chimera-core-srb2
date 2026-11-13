@@ -196,7 +196,11 @@ CHIMERA_CORES_DIR=<chimera>/build/Cores <chimera>/build/meson-linux/source/ui/te
 ## Where to read more
 
 - `docs/BUILDING.md`: every option, the files a user provides, troubleshooting.
-- `README.md`: the settings, the controller, the gate's legs, the licences.
+- `README.md`: for users: installing the package, the settings, the
+  controller, the Game State properties, the licences.
+- The header of `waterbox/run-gate.sh`: what each test in the test script
+  checks, and how it is shown to fail. `waterbox/harness.h`: the options of
+  `run-native` and `run-wbx`.
 - `docs/PLAN.md`: the milestones, the decisions behind the core, and what is
   left.
 - The header comments of the scripts and makefiles in `waterbox/`.

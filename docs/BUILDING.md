@@ -147,8 +147,7 @@ The gate does not build them: run these before it.
   host with no sandbox (and no GL: its OpenGL renderer falls back to
   software, and warns). `run-wbx` drives `core.wbx` through the miniBox
   host as the frontend does. The gate compares the two step by step. Neither
-  is part of the package. Their use is in `README.md` ("Running the native
-  reference").
+  is part of the package. See "Run the native reference" below.
 
 `sources.mk` is included by both makefiles, so both build the same files with
 the same defines; its source lists are upstream's own `Sourcefile`s. Each
@@ -162,6 +161,26 @@ hand. `build-package.sh` refuses a package whose keybinds and declared
 buttons disagree, or whose system name, button letters or axis headers are
 missing; the gate's `declaration` leg checks the declared controller against
 the core's own.
+
+### Run the native reference
+
+```
+mkdir -p build/work && ln -s /usr/share/games/SRB2/*.pk3 build/work/
+echo '{"warp": "1"}' > build/work/settings          # optional: start in Greenflower Zone Act 1
+build/native/run-native build/work -n 400 --ppm frame.ppm
+build/native/run-wbx build/guest/core.wbx build/work -n 400   # the same, in the sandbox
+```
+
+Both run `-n` steps (a step is one tic, a 35th of a second of game time, on
+the machine's own clock). Every `-p` steps they print the picture's hash, the
+tic and the clock, and at the end a hash of the whole run. `--ppm` writes the
+last picture. The two programs' output can be compared with `diff` directly.
+
+Other options: `--input FILE` plays a movie written as text, one
+`FROM-TO: Button; Axis=value` line per range of steps (examples in
+`waterbox/tests/`); `--wav FILE` writes the run's sound; `--game-state FILE`
+writes the Game State memory after every step, and its property table to
+`FILE.json`. The header of `waterbox/harness.h` lists every option.
 
 ## Build the package
 
