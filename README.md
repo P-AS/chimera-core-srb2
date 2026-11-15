@@ -75,6 +75,35 @@ own options, given to the game when it starts.
 | OpenGL Shaders | On | Changes only the picture |
 | Start Map | (empty) | A map number to start in. Empty: the intro and the title screen |
 | Start Map Character | (empty) | A character's skin name, for example knuckles. Empty: Sonic |
+| Ghosts: Best Time | Show | Hide, Show (the character you play), Show All (every character). The Record Attack and NiGHTS Mode menus' ghost option |
+| Ghosts: Best Score | Show | Hide, Show, Show All |
+| Ghosts: Best Rings | Show | Hide, Show, Show All. Record Attack only |
+| Ghosts: Last | Show | Hide, Show, Show All |
+| Ghosts: Guest | Show | Hide, Show |
+| Ghosts outside Record Attack | Off | Shows ghosts in normal play too. See "Ghosts" below |
+| Record Ghosts | Off | Records every level played outside Record Attack as a ghost. See "Ghosts" below |
+
+## Ghosts
+
+A ghost is a recorded run of a level, drawn as a see-through player that moves the way the recording did, so
+you can race against it while making a TAS. Ghosts change only the picture: the game plays exactly the same with
+or without them, so a movie made with ghosts shown plays back the same without them.
+
+- **Showing ghosts.** Put replay files (`.lmp`) into a project's Ghosts when setting it up, as many as you like.
+  Each is shown on the map it was recorded on (a ghost recorded on another version of the map is skipped, and
+  the log says so), in Record Attack and NiGHTS Mode, and in normal play with Ghosts outside Record Attack on.
+- **Record Attack's own names.** SRB2 keeps Record Attack's replays in a folder named after the game data:
+  `replay/main/` for the game itself, and another name (for example `replay/mymod/`) when an add-on brings its
+  own game data. You never need to know which: a file in Ghosts named the way Record Attack names its replays
+  (`MAP01-sonic-time-best.lmp`, `MAP01-sonic-score-best.lmp`, `MAP01-sonic-rings-best.lmp`,
+  `MAP01-sonic-last.lmp`, `MAP01-guest.lmp`) is found in whichever folder the game uses, so the five ghost
+  settings and Record Attack's Replay menu see it. Any other file name is always shown.
+- **Recording ghosts.** With Record Ghosts on, every attempt at a level outside Record Attack and NiGHTS Mode is
+  recorded as `ghosts/<number>-<map>-<character>.lmp`, for example `ghosts/001-MAP01-sonic.lmp`. Record Attack
+  and NiGHTS Mode record their own replays as usual (`replay/<folder>/...`). Recording does not change the game.
+- **Exporting ghosts.** Game > Export Save Data writes every recorded ghost, Record Attack's replays, and the
+  level being played as far as it went (a movie that ends at the goal does not need to play on into the score
+  tally). Unzip the export and put a ghost file into another project's Ghosts to race against it.
 
 ## Inputs
 

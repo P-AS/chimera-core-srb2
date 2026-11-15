@@ -40,7 +40,9 @@ firmware.
 - `waterbox/platform/midi_fm.cpp`: the MIDI player (Music Preference MIDI),
   the core's own, on libOPNMIDI's sequencer, bank, models and MAME YM2612.
 - `waterbox/srb2-driver.c`: the machine, and the Game State domain and its
-  property table (`GetGameProperties`). `srb2-input.c`: the controller.
+  property table (`GetGameProperties`). `srb2-ghosts.c`: ghosts (a project's
+  ghost files, ghosts in normal play, recording them; patch 0009's hooks).
+  `srb2-input.c`: the controller.
   `wbx-entry.c`: the exports. `platform/`, `compat/`, `native-shim/`: what
   stands in for SRB2's SDL code. `platform/gl_compat.c`: the GPU bridge's
   guest half.
@@ -49,7 +51,7 @@ firmware.
   package carries.
 - `waterbox/tests/`: the gate's movies and helper scripts
   (`check-properties.py`, `timers.lua`, `spindash.txt` and `boss.lua`: the
-  properties leg).
+  properties leg). `file_slots.json`'s slots: add-ons, save data, ghosts.
 - `lua/`: Lua scripts for Chimera's Lua Console: `tasinfo.lua`, the TAS info
   overlay. They read the core's Game State properties by name (`game.get`).
 - `.github/workflows/chimera.yml`: CI. It gates, packages and publishes.

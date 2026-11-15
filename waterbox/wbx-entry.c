@@ -29,6 +29,10 @@ static char g_load_error[1024];
 /* output, not the machine: not in a savestate */
 static uint32_t *g_video;
 static int16_t *g_audio;
+/* the export's copy of the level being recorded as a ghost: a demo's buffer
+ * (G_RecordDemo's 1 MiB) and its end marker */
+#define GHOST_PENDING_SIZE ((1u << 20) + 16)
+static unsigned char *g_ghost_pending;
 ECL_INVISIBLE static int g_render = 1;
 
 ECL_EXPORT const char *GetLoadError(void) { return g_load_error; }
@@ -102,6 +106,23 @@ ECL_EXPORT const char *GetLoadError(void) { return g_load_error; }
  *                   is part of the game (a few things play differently in
  *                   OpenGL), so a movie is the renderer it was made with;
  *                   default software
+ *   ghostBestScore, ghostBestTime, ghostBestRings, ghostLast
+ *                   the Record Attack and NiGHTS Mode menus' ghost options
+ *                   (ghost_bestscore, ghost_besttime, ghost_bestrings,
+ *                   ghost_last): which of the replay folder's ghosts are
+ *                   shown - Hide, Show (the character played's), Show All
+ *                   (every character's); default Show, SRB2's own. NiGHTS
+ *                   Mode has no Best Rings
+ *   ghostGuest      ghost_guest: the guest ghost (MAPxx-guest.lmp), Hide or
+ *                   Show; default Show
+ *   ghostsInNormalPlay  ghosts outside Record Attack and NiGHTS Mode: the
+ *                   replay folder's (by the four options above) and the
+ *                   project's own ghost files; default Off (SRB2 shows
+ *                   ghosts in those two modes only)
+ *   recordGhosts    every level played outside Record Attack recorded as a
+ *                   ghost, ghosts/<n>-<map>-<character>.lmp in the save data
+ *                   export (srb2-ghosts.c); default Off
+ * The ghosts are the picture's alone: the game plays the same with them.
  */
 static const char *const g_playstyles[][3] = {
 	{ "Strafe", "Camera", "Off" },
@@ -111,6 +132,7 @@ static const char *const g_playstyles[][3] = {
 };
 static const char *const g_timerres[] = { "Classic", "Centiseconds", "Mania", "Tics" };
 static const char *const g_musicpref[] = { "Digital", "MIDI" };
+static const char *const g_ghostshow[] = { "Hide", "Show", "Show All" };
 
 /* the argument list: the engine keeps pointers into it for the run */
 static char g_args[80][256];
@@ -227,6 +249,25 @@ static void settings_args(void)
 		mode = !strcmp(renderer, "opengl-hw");
 	chimera_video_set_renderer(mode);
 
+	/* the ghost options: Hide, Show, Show All (the guest: Hide, Show) */
+	static const struct { const char *setting, *option; int choices; } ghosts[] = {
+		{ "ghostBestScore", "+ghost_bestscore", 3 }, { "ghostBestTime", "+ghost_besttime", 3 },
+		{ "ghostBestRings", "+ghost_bestrings", 3 }, { "ghostLast", "+ghost_last", 3 },
+		{ "ghostGuest", "+ghost_guest", 2 },
+	};
+	for (size_t g = 0; g < sizeof ghosts / sizeof ghosts[0]; g++)
+	{
+		char show[16];
+		int v = 1; /* Show */
+		if (wbx_setting_str(ghosts[g].setting, show, (int)sizeof show) > 0)
+			for (int i = 0; i < ghosts[g].choices; i++)
+				if (!strcmp(show, g_ghostshow[i]))
+					v = i;
+		arg(ghosts[g].option);
+		arg(g_ghostshow[v]);
+	}
+	srb2_set_ghosts(wbx_setting_bool("ghostsInNormalPlay", 0), wbx_setting_bool("recordGhosts", 0));
+
 	/* the OpenGL renderer's shaders (gr_shaders): the picture's alone */
 	arg("+gr_shaders");
 	arg(wbx_setting_bool("glShaders", 1) ? "On" : "Off");
@@ -241,9 +282,16 @@ static void settings_args(void)
 /* the project's files (file_slots.json): its add-ons, loaded as -file loads
  * them, in the slot's order. Its save data needs nothing: each file is
  * mounted under its own name (gamedata.dat, srb2sav*.ssg), where the game
- * reads it at start. */
+ * reads it at start. Its ghosts are mounted under their own names too, and
+ * listed for srb2-ghosts.c and the replay folder (platform/files.c). */
 static void slots_args(void)
 {
+	for (int i = 0; i < wbx_slot_count("ghosts"); i++)
+	{
+		char name[256];
+		if (wbx_slot_name("ghosts", i, name, (int)sizeof name))
+			chimera_ghost_file_add(name);
+	}
 	const int n = wbx_slot_count("addons");
 	if (n <= 0)
 		return;
@@ -270,6 +318,8 @@ ECL_EXPORT int Init(void)
 	g_load_error[0] = '\0';
 	g_video = alloc_invisible(sizeof(uint32_t) * VIDEO_MAX_W * VIDEO_MAX_H);
 	g_audio = alloc_invisible(sizeof(int16_t) * 2 * SAMPLES_PER_STEP);
+	g_ghost_pending = alloc_invisible(GHOST_PENDING_SIZE);
+	srb2_set_ghost_pending_buffer(g_ghost_pending, g_ghost_pending ? GHOST_PENDING_SIZE : 0);
 	if (!g_video || !g_audio)
 	{
 		snprintf(g_load_error, sizeof g_load_error, "error.out_of_memory_for_the_picture");
@@ -360,8 +410,10 @@ ECL_EXPORT uint64_t GetCycleCount(void) { return chimera_clock_precise(); }
 
 /* ---- save data (Chimera's docs/save-data.md): every file the game wrote -
  * gamedata.dat (unlocks, emblems, records), the save slots (srb2sav*.ssg),
- * record attack's replays (replay/...), Lua's files - but its configuration,
- * which is the settings'. In the machine's memory (platform/files.c). */
+ * Record Attack's replays (replay/<folder>/...), the ghosts recorded in
+ * normal play (ghosts/..., the level being played among them), Lua's files -
+ * but its configuration, which is the settings'. In the machine's memory
+ * (platform/files.c). */
 ECL_EXPORT int32_t GetSaveDataFileCount(void) { return chimera_savedata_count(); }
 ECL_EXPORT const char *GetSaveDataFileName(int32_t index) { return chimera_savedata_name(index); }
 ECL_EXPORT int64_t GetSaveDataFileSize(int32_t index) { return chimera_savedata_size(index); }

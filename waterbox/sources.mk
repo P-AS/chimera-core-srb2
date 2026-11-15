@@ -145,7 +145,7 @@ PNG_CFLAGS_COMMON := -std=gnu11 -O2 -DNDEBUG -DPNG_INTEL_SSE_OPT=0 -DPNG_ARM_NEO
 
 # ---- the core: its platform layer (platform/) and the driver
 PLATFORM_NAMES := i_system i_video ogl_chimera gl_compat i_sound i_threads i_net files detmath comptime
-CORE_C_NAMES := $(addprefix platform/,$(PLATFORM_NAMES)) srb2-driver srb2-input wbx-entry
+CORE_C_NAMES := $(addprefix platform/,$(PLATFORM_NAMES)) srb2-driver srb2-ghosts srb2-input wbx-entry
 # libco (miniBox's extern/libco, public domain): the engine's cothread, for
 # the CPU both builds run on
 ifeq ($(shell uname -m),aarch64)

@@ -1,6 +1,7 @@
 /* chimera-platform.h - between the platform layer (platform/) and the driver */
 #ifndef CHIMERA_PLATFORM_H
 #define CHIMERA_PLATFORM_H
+#include <stddef.h>
 #include <stdint.h>
 #ifdef __cplusplus
 extern "C" {
@@ -49,6 +50,15 @@ void chimera_input_read(void);
 /* the machine's filesystem (platform/files.c): a folder made, and the save
  * data - every file the game wrote but its configuration */
 void chimera_mkdir(const char *path);
+/* the project's ghost files (file_slots.json's "ghosts", in its order):
+ * each is a mount under its own name, and is also found in the game's
+ * replay folder (replay/<timeattackfolder>/<name>) */
+void chimera_ghost_file_add(const char *name);
+int chimera_ghost_file_count(void);
+const char *chimera_ghost_file_name(int index);
+/* the level being recorded as a ghost, as the file it will be
+ * (srb2-ghosts.c): the save data export's last entry while there is one */
+const unsigned char *srb2_ghost_pending(const char **name, size_t *size);
 int chimera_savedata_count(void);
 const char *chimera_savedata_name(int index);
 int64_t chimera_savedata_size(int index);

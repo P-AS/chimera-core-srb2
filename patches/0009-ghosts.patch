@@ -1,0 +1,183 @@
+diff --git a/src/g_demo.c b/src/g_demo.c
+--- a/src/g_demo.c
++++ b/src/g_demo.c
+@@ -96,6 +96,37 @@
+ } demoghost;
+ demoghost *ghosts = NULL;
+ 
++// An external driver's (Chimera's core): a ghost recorded outside Record
++// Attack, without demorecording, which would also stop the game saving
++boolean demoghostrecording = false;
++
++boolean G_HaveGhosts(void)
++{
++	return ghosts != NULL;
++}
++
++// The demo being recorded so far, and the room left in its buffer
++UINT8 *G_DemoRecorded(size_t *len, size_t *room)
++{
++	*len = demo_p && demobuffer ? (size_t)(demo_p - demobuffer) : 0;
++	*room = demo_p && demobuffer ? (size_t)(demoend - demo_p) : 0;
++	return demo_p ? demobuffer : NULL;
++}
++
++// Where the ghosts are: x, y, z of each, at most max
++INT32 G_GhostPositions(fixed_t *xyz, INT32 max)
++{
++	INT32 n = 0;
++	demoghost *g;
++	for (g = ghosts; g && n < max; g = g->next, n++)
++	{
++		xyz[3*n] = g->mo->x;
++		xyz[3*n+1] = g->mo->y;
++		xyz[3*n+2] = g->mo->z;
++	}
++	return n;
++}
++
+ //
+ // DEMO RECORDING
+ //
+@@ -267,35 +298,35 @@
+ 
+ void G_GhostAddThok(void)
+ {
+-	if (!metalrecording && (!demorecording || !(demoflags & DF_GHOST)))
++	if (!metalrecording && (!(demorecording || demoghostrecording) || !(demoflags & DF_GHOST)))
+ 		return;
+ 	ghostext.flags = (ghostext.flags & ~EZT_THOKMASK) | EZT_THOK;
+ }
+ 
+ void G_GhostAddSpin(void)
+ {
+-	if (!metalrecording && (!demorecording || !(demoflags & DF_GHOST)))
++	if (!metalrecording && (!(demorecording || demoghostrecording) || !(demoflags & DF_GHOST)))
+ 		return;
+ 	ghostext.flags = (ghostext.flags & ~EZT_THOKMASK) | EZT_SPIN;
+ }
+ 
+ void G_GhostAddRev(void)
+ {
+-	if (!metalrecording && (!demorecording || !(demoflags & DF_GHOST)))
++	if (!metalrecording && (!(demorecording || demoghostrecording) || !(demoflags & DF_GHOST)))
+ 		return;
+ 	ghostext.flags = (ghostext.flags & ~EZT_THOKMASK) | EZT_REV;
+ }
+ 
+ void G_GhostAddFlip(void)
+ {
+-	if (!metalrecording && (!demorecording || !(demoflags & DF_GHOST)))
++	if (!metalrecording && (!(demorecording || demoghostrecording) || !(demoflags & DF_GHOST)))
+ 		return;
+ 	ghostext.flags |= EZT_FLIP;
+ }
+ 
+ void G_GhostAddColor(ghostcolor_t color)
+ {
+-	if (!demorecording || !(demoflags & DF_GHOST))
++	if (!(demorecording || demoghostrecording) || !(demoflags & DF_GHOST))
+ 		return;
+ 	if (ghostext.lastcolor == (UINT16)color)
+ 	{
+@@ -308,7 +339,7 @@
+ 
+ void G_GhostAddScale(fixed_t scale)
+ {
+-	if (!metalrecording && (!demorecording || !(demoflags & DF_GHOST)))
++	if (!metalrecording && (!(demorecording || demoghostrecording) || !(demoflags & DF_GHOST)))
+ 		return;
+ 	if (ghostext.lastscale == scale)
+ 	{
+@@ -321,7 +352,7 @@
+ 
+ void G_GhostAddHit(mobj_t *victim)
+ {
+-	if (!demorecording || !(demoflags & DF_GHOST))
++	if (!(demorecording || demoghostrecording) || !(demoflags & DF_GHOST))
+ 		return;
+ 	ghostext.flags |= EZT_HIT;
+ 	ghostext.hits++;
+diff --git a/src/g_demo.h b/src/g_demo.h
+--- a/src/g_demo.h
++++ b/src/g_demo.h
+@@ -100,6 +100,20 @@
+ void G_TimeDemo(const char *name);
+ void G_AddGhost(char *defdemoname);
+ void G_FreeGhosts(void);
++// An external driver's: ghosts recorded outside Record Attack (g_demo.c)
++extern boolean demoghostrecording;
++boolean G_HaveGhosts(void);
++UINT8 *G_DemoRecorded(size_t *len, size_t *room);
++INT32 G_GhostPositions(fixed_t *xyz, INT32 max);
++// ... and the platform's, which an external driver gives (none upstream):
++// at a level's end, before its memory is freed; whether ghosts are shown
++// outside Record Attack and NiGHTS Mode; the driver's own ghost files, as a
++// level starts; the ghosts' tic (G_GhostTicker); and the level loaded
++void I_LevelUnloading(void);
++boolean I_GhostsInNormalPlay(void);
++void I_LoadGhosts(void);
++void I_GhostTicker(void);
++void I_LevelLoaded(void);
+ void G_DoPlayMetal(void);
+ void G_DoneLevelLoad(void);
+ void G_StopMetalDemo(void);
+diff --git a/src/p_setup.c b/src/p_setup.c
+--- a/src/p_setup.c
++++ b/src/p_setup.c
+@@ -7825,6 +7825,11 @@
+ 		P_LoadRecordGhosts();
+ 	else if (modeattacking == ATTACKING_NIGHTS && !demoplayback)
+ 		P_LoadNightsGhosts();
++	else if (I_GhostsInNormalPlay() && (maptol & TOL_NIGHTS))
++		P_LoadNightsGhosts();
++	else if (I_GhostsInNormalPlay())
++		P_LoadRecordGhosts();
++	I_LoadGhosts(); // the project's own ghost files
+ 
+ 	if (G_TagGametype())
+ 		P_InitTagGametype();
+@@ -8013,6 +8018,7 @@
+ 
+ 	Patch_FreeTag(PU_PATCH_LOWPRIORITY);
+ 	Patch_FreeTag(PU_PATCH_ROTATED);
++	I_LevelUnloading(); // the ghosts and their recording are the level's
+ 	Z_FreeTags(PU_LEVEL, PU_PURGELEVEL - 1);
+ 	mobjcache = NULL;
+ 
+@@ -8156,6 +8162,7 @@
+ 		P_MapStart(); // just in case MapLoad modifies tmthing
+ 		LUA_HookInt(gamemap, HOOK(MapLoad));
+ 		P_MapEnd(); // just in case MapLoad modifies tmthing
++		I_LevelLoaded(); // a ghost's recording starts here
+ 	}
+ 
+ 	// No render mode or reloading gamestate, stop here.
+diff --git a/src/p_tick.c b/src/p_tick.c
+--- a/src/p_tick.c
++++ b/src/p_tick.c
+@@ -754,7 +754,7 @@
+ 	{
+ 		R_UpdateMobjInterpolators();
+ 
+-		if (demorecording)
++		if (demorecording || demoghostrecording)
+ 			G_WriteDemoTiccmd(&players[consoleplayer].cmd, 0);
+ 		if (demoplayback)
+ 		{
+@@ -863,12 +863,12 @@
+ 			G_ReadMetalTic(metalplayback);
+ 		if (metalrecording)
+ 			G_WriteMetalTic(players[consoleplayer].mo);
+-		if (demorecording)
++		if (demorecording || demoghostrecording)
+ 			G_WriteGhostTic(players[consoleplayer].mo);
+ 		if (demoplayback) // Use Ghost data for consistency checks.
+ 			G_ConsGhostTic();
+-		if (modeattacking)
+-			G_GhostTicker();
++		if (modeattacking || G_HaveGhosts())
++			I_GhostTicker();
+ 
+ 		PS_START_TIMING(ps_lua_postthinkframe_time);
+ 		LUA_HookPostThinkFrame();

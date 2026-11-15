@@ -14,6 +14,10 @@
  *                   unlocked (the settings leg)
  *   --print-skin    after the run, print "skin NAME": the player's character
  *                   in the level (the settings leg)
+ *   --print-ghosts  after the run, print "ghosts N folder F x,y,z...": how
+ *                   many ghosts the level shows, the replay folder the game
+ *                   uses (SRB2's timeattackfolder), and where each ghost is,
+ *                   in 16.16 fixed point (the ghosts leg)
  *   --list-input    print the controller: "button NAME" and "axis NAME" lines,
  *                   in its order, and exit (the declaration leg)
  */
@@ -74,7 +78,8 @@ static const uint8_t *game_state(int64_t *size)
 extern const char *chimera_cvar_string(const char *name);
 extern const char *chimera_unlocks_summary(void);
 extern const char *chimera_player_skin(void);
-static int g_print_unlocks, g_print_skin;
+extern const char *chimera_ghosts_summary(void);
+static int g_print_unlocks, g_print_skin, g_print_ghosts;
 
 static const char *g_cvars[32];
 static int g_ncvars;
@@ -100,6 +105,8 @@ static int known(const char *arg)
 		return g_print_unlocks = 1;
 	if (!strcmp(arg, "--print-skin"))
 		return g_print_skin = 1;
+	if (!strcmp(arg, "--print-ghosts"))
+		return g_print_ghosts = 1;
 	return 0;
 }
 
@@ -210,5 +217,7 @@ int main(int argc, char **argv)
 		printf("unlocks %s\n", chimera_unlocks_summary());
 	if (g_print_skin)
 		printf("skin %s\n", chimera_player_skin());
+	if (g_print_ghosts)
+		printf("%s\n", chimera_ghosts_summary());
 	return ret;
 }

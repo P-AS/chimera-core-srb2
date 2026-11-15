@@ -70,6 +70,21 @@
 #                and moved to a new host, and nothing is written to the host's
 #                work folder. Its teeth - a run that ends before the second
 #                write does not pass
+#   ghosts       Greenflower's movie with Record Ghosts on exports
+#                ghosts/001-MAP01-sonic.lmp (the level being played), the same
+#                native, sandboxed and rerecorded, and the run is the run
+#                without recording (every step's picture, sound, state and
+#                Game State); that file in a project's Ghosts, with Ghosts
+#                outside Record Attack on and no input, is where the recorded
+#                player was at steps 100, 200 and 300, the player's Game State
+#                is the run's without it, and the run is the same native,
+#                sandboxed, rerecorded and in a new host; the same file named
+#                MAP01-sonic-last.lmp is the replay folder's Last ghost, in
+#                replay/main and in an add-on's replay/ghosttest (a SOC's
+#                GameData), and Ghosts: Last Hide hides it. Its teeth - no
+#                ghost with the setting off or on MAP02, the ghost of the run
+#                without its jump is elsewhere, no ghost file without Record
+#                Ghosts, and another input is another Game State
 #   exports      core.wbx exports every call Chimera's engine requires of it
 #                (source/engine/source/session.cpp's required proc() lookups:
 #                Init, FrameAdvance, SetAxis, the five memory-domain calls, and
@@ -82,7 +97,8 @@
 #                setting given, and with every declared default given, the
 #                engine plays Manual (directionchar Movement, configanalog
 #                Off), cam_speed 1.0, cam_dist 192, cam_height 40, fov 90, timerres Mania, flipcam Yes, autobrake On, musicpref
-#                Digital, tutorialprompt Off, nothing unlocked, Sonic; each other
+#                Digital, tutorialprompt Off, every ghost option Show, nothing
+#                unlocked, Sonic; each other
 #                value of each setting is the engine's option (read back with
 #                run-native --print-cvar). Its teeth - another value is not the
 #                default's
@@ -373,6 +389,98 @@ fi
 [ "$(names short)" != "$want" ] && pass "files teeth: a run ending before the second write does not pass" \
 	|| bad "files teeth: the short run passed - the leg cannot fail"
 
+# ---- ghosts: Greenflower's movie recorded as a ghost, and played back
+gh="$root/build/gate/ghosts"
+rm -rf "$gh"
+mkdir -p "$gh"
+content ghostrec '{"warp": "1", "recordGhosts": true}'
+content ghostplay '{"warp": "1", "ghostsInNormalPlay": true}'
+# recording: the export has the level being played, the same native,
+# sandboxed and rerecorded; and the game is the one without the recording
+# (every step's picture, sound and state, and the Game State block)
+rn="$(nat ghostrec -n 400 -p 25 --input "$tests/gfz1-run.txt" --savedata-out "$gh/native" --game-state "$gh/rec.bin")"
+rb="$(box ghostrec -n 400 -p 25 --input "$tests/gfz1-run.txt" --savedata-out "$gh/sandbox")"
+rr="$(box ghostrec -n 400 -p 25 --input "$tests/gfz1-run.txt" --rerecord --savedata-out "$gh/rerecord")"
+plain="$(nat gfz1 -n 400 -p 25 --input "$tests/gfz1-run.txt" --game-state "$gh/plain.bin")"
+glist() { (cd "$gh/$1" 2>/dev/null && find . -type f | sort | xargs -r md5sum); }
+ghost="$gh/native/ghosts/001-MAP01-sonic.lmp"
+if [ "$(glist native | awk '{print $2}')" = ./ghosts/001-MAP01-sonic.lmp ] && [ "$(glist native)" = "$(glist sandbox)" ] \
+	&& [ "$(glist native)" = "$(glist rerecord)" ] && [ -n "$rn" ] && [ "$rn" = "$rb" ] && [ "$rn" = "$rr" ] \
+	&& [ "$rn" = "$plain" ] && cmp -s "$gh/rec.bin" "$gh/plain.bin"; then
+	pass "ghosts: Record Ghosts exports ghosts/001-MAP01-sonic.lmp ($(wc -c < "$ghost") bytes), the same native, sandboxed and rerecorded, and the run is the one without recording"
+else
+	bad "ghosts: the recording's export differs or is not ghosts/001-MAP01-sonic.lmp, or recording changed the run (build/gate/ghosts)"
+fi
+# playing it: in a run with no input, the ghost is where the recorded player
+# was (Player.X, Y, Z by the property table) at steps 100, 200 and 300; the
+# player's own game is the run without the ghost; the same native, sandboxed,
+# rerecorded and in a new host
+cp "$ghost" "$root/build/gate/ghostplay/tasrun.lmp" 2>/dev/null || true
+cp "$ghost" "$root/build/gate/ghostplay/MAP01-sonic-last.lmp" 2>/dev/null || true
+printf 'MAINCFG CATEGORY\nGameData = ghosttest.dat\n' > "$root/build/gate/ghostplay/gamedata.soc"
+gslots() { printf '%s\n' "$1" > "$root/build/gate/ghostplay/slots"; }
+gset() { printf '%s\n' "$1" > "$root/build/gate/ghostplay/settings"; }
+ghosts_at() { "$native" "$root/build/gate/ghostplay" -n "$1" -p 0 --print-ghosts 2>/dev/null | grep '^ghosts' || true; }
+player_at() {
+	python3 -c 'import json,struct,sys
+t={p["name"]:p for p in json.load(open(sys.argv[1]+".json"))["properties"]}
+d=open(sys.argv[1],"rb").read(); n=int(sys.argv[2]); size=len(d)//int(sys.argv[3]); o=(n-1)*size
+print(",".join(str(struct.unpack_from("<i",d,o+t["Player."+a]["offset"])[0]) for a in "XYZ"))' "$1" "$2" "$3"
+}
+gslots '{"ghosts": ["tasrun.lmp"]}'
+gset '{"warp": "1", "ghostsInNormalPlay": true}'
+ok=1
+for n in 100 200 300; do
+	g="$(ghosts_at $n)"
+	want="$(player_at "$gh/rec.bin" $n 400)"
+	case "$g" in "ghosts 1 folder main $want") ;; *) ok=0; echo "  step $n: '$g', the recorded player at $want" ;; esac
+done
+nat ghostplay -n 400 -p 0 --game-state "$gh/play.bin" >/dev/null
+nat gfz1 -n 400 -p 0 --game-state "$gh/still.bin" >/dev/null
+cmp -s "$gh/play.bin" "$gh/still.bin" || { ok=0; echo "  the ghost changed the player's game (Game State)"; }
+pn="$(nat ghostplay -n 300 -p 25)"
+pb="$(box ghostplay -n 300 -p 25)"
+pr="$(box ghostplay -n 300 -p 25 --rerecord)"
+ps="$(box ghostplay -n 300 -p 25 --session-at 150)"
+{ [ -n "$pn" ] && [ "$pn" = "$pb" ] && [ "$pn" = "$pr" ] && [ "$pn" = "$ps" ]; } || { ok=0; echo "  the ghost's run differs native, sandboxed, rerecorded, in a new host"; }
+[ "$ok" = 1 ] && pass "ghosts: the exported ghost, in a project's Ghosts, is where the recorded player was at steps 100, 200 and 300; the player's game is the one without it; native == sandbox == rerecord == session" \
+	|| bad "ghosts: the ghost did not play back as it was recorded"
+# a file named as Record Attack names its replays is the replay folder's, by
+# the ghost settings, whatever the folder: "main", or "ghosttest" when an
+# add-on brings its own game data
+gslots '{"ghosts": ["MAP01-sonic-last.lmp"]}'
+f1="$(ghosts_at 200)"
+gslots '{"ghosts": ["MAP01-sonic-last.lmp"], "addons": ["gamedata.soc"]}'
+f2="$(ghosts_at 200)"
+gset '{"warp": "1", "ghostsInNormalPlay": true, "ghostLast": "Hide"}'
+f3="$(ghosts_at 200)"
+case "$f1|$f2|$f3" in
+"ghosts 1 folder main "*"|ghosts 1 folder ghosttest "*"|ghosts 0 folder ghosttest")
+	pass "ghosts: MAP01-sonic-last.lmp is the replay folder's Last ghost, in replay/main and in an add-on's replay/ghosttest, and Ghosts: Last Hide hides it" ;;
+*) bad "ghosts: the replay folder's ghost: '$f1' / '$f2' / '$f3'" ;;
+esac
+# teeth: the ghost is not shown with the setting off, nor on another map; a
+# ghost of another run is not where this one's player was; without Record
+# Ghosts nothing is recorded; another input is another Game State
+gslots '{"ghosts": ["tasrun.lmp"]}'
+gset '{"warp": "1"}'
+t1="$(ghosts_at 200)"
+gset '{"warp": "2", "ghostsInNormalPlay": true}'
+t2="$(ghosts_at 200)"
+nat ghostrec -n 400 -p 0 --input "$root/build/gate/gfz1-nojump.txt" --savedata-out "$gh/other" >/dev/null
+cp "$gh/other/ghosts/001-MAP01-sonic.lmp" "$root/build/gate/ghostplay/tasrun.lmp" 2>/dev/null || true
+gset '{"warp": "1", "ghostsInNormalPlay": true}'
+t3="$(ghosts_at 200)"
+nat gfz1 -n 400 -p 0 --input "$tests/gfz1-run.txt" --savedata-out "$gh/off" >/dev/null
+t4="$(glist off | grep -c ghosts/ || true)"
+nat gfz1 -n 400 -p 0 --input "$root/build/gate/gfz1-nojump.txt" --game-state "$gh/nojump.bin" >/dev/null
+if [ "${t1%% folder*}" = "ghosts 0" ] && [ "${t2%% folder*}" = "ghosts 0" ] && [ "${t3#ghosts 1 }" != "folder main $(player_at "$gh/rec.bin" 200 400)" ] \
+	&& [ "${t3%% folder*}" = "ghosts 1" ] && [ "$t4" = 0 ] && ! cmp -s "$gh/nojump.bin" "$gh/plain.bin"; then
+	pass "ghosts teeth: no ghost with Ghosts outside Record Attack off or on MAP02; the ghost of a run without its jump is elsewhere; no ghost file without Record Ghosts; another input is another Game State"
+else
+	bad "ghosts teeth: '$t1' / '$t2' / '$t3' / $t4 ghost files without Record Ghosts - the test cannot fail"
+fi
+
 # ---- exports: what Chimera's engine refuses to open a core without
 exported="$(nm --defined-only "$core" | awk '$2 ~ /^[TtDdBb]$/ {print $3}' | sort -u)"
 missing_from() {
@@ -414,15 +522,16 @@ content settings '{"warp": "1"}'
 cvars() {
 	printf '%s\n' "$1" > "$root/build/gate/settings/settings"
 	"$native" "$root/build/gate/settings" -n 5 -p 0 --print-cvar directionchar --print-cvar configanalog \
-		--print-cvar cam_speed --print-cvar cam_dist --print-cvar cam_height --print-cvar fov --print-cvar timerres --print-cvar flipcam --print-cvar autobrake --print-cvar musicpref --print-cvar tutorialprompt 2>/dev/null \
+		--print-cvar cam_speed --print-cvar cam_dist --print-cvar cam_height --print-cvar fov --print-cvar timerres --print-cvar flipcam --print-cvar autobrake --print-cvar musicpref --print-cvar tutorialprompt \
+		--print-cvar ghost_besttime --print-cvar ghost_bestscore --print-cvar ghost_bestrings --print-cvar ghost_last --print-cvar ghost_guest 2>/dev/null \
 		| grep '^cvar' | tr '\n' ' '
 }
-want="cvar directionchar Movement cvar configanalog Off cvar cam_speed 1.00000 cvar cam_dist 192.00000 cvar cam_height 40.00000 cvar fov 90.00000 cvar timerres Mania cvar flipcam Yes cvar autobrake On cvar musicpref Digital cvar tutorialprompt Off "
+want="cvar directionchar Movement cvar configanalog Off cvar cam_speed 1.00000 cvar cam_dist 192.00000 cvar cam_height 40.00000 cvar fov 90.00000 cvar timerres Mania cvar flipcam Yes cvar autobrake On cvar musicpref Digital cvar tutorialprompt Off cvar ghost_besttime Show cvar ghost_bestscore Show cvar ghost_bestrings Show cvar ghost_last Show cvar ghost_guest Show "
 none="$(cvars '{"warp": "1"}')"
 defaults="$(python3 -c 'import json,sys; c=json.load(open(sys.argv[1])); d={s["name"]:s["default"] for s in c["settings"]}; d["warp"]="1"; print(json.dumps(d))' "$decl")"
 explicit="$(cvars "$defaults")"
 if [ "$none" = "$want" ] && [ "$explicit" = "$want" ]; then
-	pass "settings: the defaults, absent or given, are Manual, cam_speed 1.0, cam_dist 192, cam_height 40, fov 90, timerres Mania, flipcam Yes, autobrake On, musicpref Digital"
+	pass "settings: the defaults, absent or given, are Manual, cam_speed 1.0, cam_dist 192, cam_height 40, fov 90, timerres Mania, flipcam Yes, autobrake On, musicpref Digital, every ghost option Show"
 else
 	bad "settings: the defaults are not what they should be: absent '$none', given '$explicit', want '$want'"
 fi
@@ -432,7 +541,10 @@ for v in "playStyle Strafe directionchar Camera configanalog Off" "playStyle Aut
 	"cameraDistance 320 cam_dist 320.00000" "cameraHeight 64.5 cam_height 64.50000" \
 	"fov 120 fov 120.00000" "fov 30 fov 60.00000" "fov 200 fov 179.00000" \
 	"scoreTimeRings Classic timerres Classic" "scoreTimeRings Centiseconds timerres Centiseconds" "scoreTimeRings Tics timerres Tics" \
-	"flipCamera false flipcam No" "autoBrake false autobrake Off" "musicPref MIDI musicpref MIDI"; do
+	"flipCamera false flipcam No" "autoBrake false autobrake Off" "musicPref MIDI musicpref MIDI" \
+	"ghostBestTime Hide ghost_besttime Hide" "ghostBestTime 'Show All' ghost_besttime 'Show All'" \
+	"ghostBestScore 'Show All' ghost_bestscore 'Show All'" "ghostBestRings Hide ghost_bestrings Hide" \
+	"ghostLast 'Show All' ghost_last 'Show All'" "ghostGuest Hide ghost_guest Hide"; do
 	eval "set -- $v"
 	key="$1"; val="$2"; shift 2
 	case "$val" in [0-9]*|true|false) js="$val" ;; *) js="\"$val\"" ;; esac
@@ -466,7 +578,7 @@ for v in '{"warp": "1"}|sonic' '{"warp": "1", "skin": "knuckles"}|knuckles' '{"w
 done
 case "$(cvars '{"warp": "1"}')" in *"cvar tutorialprompt Off "*) ;; *) ok=0; echo "  tutorialprompt is not Off by default" ;; esac
 case "$(cvars '{"warp": "1", "tutorialPrompt": true}')" in *"cvar tutorialprompt On "*) ;; *) ok=0; echo "  tutorialPrompt true is not On" ;; esac
-[ "$ok" = 1 ] && pass "settings: every other value of every setting is the engine's option (16 values, fov clamped to 60..179), tutorialprompt, the unlocks (the game data's; every Record Attack map, the menu's), and the Start Map character (5 cases)" \
+[ "$ok" = 1 ] && pass "settings: every other value of every setting is the engine's option (22 values, fov clamped to 60..179), tutorialprompt, the unlocks (the game data's; every Record Attack map, the menu's), and the Start Map character (5 cases)" \
 	|| bad "settings: a value did not reach the engine"
 [ "$(cvars '{"warp": "1", "scoreTimeRings": "Classic"}')" != "$want" ] && pass "settings teeth: another value is not the default's" \
 	|| bad "settings teeth: a value changed nothing - the leg cannot fail"

@@ -1,5 +1,5 @@
 {
-  "_comment": "This file lists the kinds of file a project of this core can hold. Chimera's New Project window is built from it. An SRB2 project is the game, whose four pk3 files are the firmware, plus any add-ons and save data it wants.",
+  "_comment": "This file lists the kinds of file a project of this core can hold. Chimera's New Project window is built from it. An SRB2 project is the game, whose four pk3 files are the firmware, plus any add-ons, save data and ghosts it wants.",
   "slots": [
     {
       "id": "addons",
@@ -24,6 +24,16 @@
         "ssg"
       ],
       "help": "slot.savedata.help"
+    },
+    {
+      "id": "ghosts",
+      "title": "slot.ghosts",
+      "min": 0,
+      "max": -1,
+      "formats": [
+        "lmp"
+      ],
+      "help": "slot.ghosts.help"
     }
   ]
 }

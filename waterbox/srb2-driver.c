@@ -360,6 +360,7 @@ void srb2_frame(void)
 	chimera_clock_step();
 	srb2_input_post();
 	co_switch(g_engine);
+	srb2_ghosts_step();
 	update_game_state();
 }
 

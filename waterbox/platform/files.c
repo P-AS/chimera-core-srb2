@@ -16,19 +16,28 @@
  *     folder (platform/i_system.c), stat says a recorded folder or one a file
  *     is in is a folder; opendir lists nothing (the machine has no folder of
  *     the host's to list, and the native reference must not list one);
- *   - access is answered by opening: miniBox has no access(2).
+ *   - access is answered by opening: miniBox has no access(2);
+ *   - the project's ghost files are mounts under their own names, and are
+ *     also found in the game's replay folder, replay/<folder>/<name>, where
+ *     <folder> is SRB2's timeattackfolder: "main", or the name of an add-on's
+ *     own game data. So a project's Record Attack replays are the game's
+ *     whatever folder it uses (srb2-ghosts.c).
  *
  * The memory files are what the core exports as save data (wbx-entry.c's
- * GetSaveData*): everything the game wrote but its configuration. */
+ * GetSaveData*): everything the game wrote but its configuration, and last
+ * the level being recorded as a ghost, when there is one. */
 #define _GNU_SOURCE
 #include <dirent.h>
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
+
+#include <emulibc.h>
 
 #include "chimera-platform.h"
 
@@ -71,6 +80,37 @@ static const char *machine_path(const char *path)
 	while (path && path[0] == '.' && path[1] == '/')
 		path += 2;
 	return path;
+}
+
+/* ---- the project's ghost files, and the replay folder they are found in */
+#define MAX_GHOSTS 256
+static char *g_ghosts[MAX_GHOSTS];
+static int g_nghosts;
+/* the replay folder's name (g_game.c): an add-on's game data changes it */
+extern char timeattackfolder[64];
+
+void chimera_ghost_file_add(const char *name)
+{
+	if (g_nghosts < MAX_GHOSTS && (g_ghosts[g_nghosts] = strdup(name)))
+		g_nghosts++;
+}
+
+int chimera_ghost_file_count(void) { return g_nghosts; }
+const char *chimera_ghost_file_name(int index) { return index >= 0 && index < g_nghosts ? g_ghosts[index] : ""; }
+
+/* "replay/<folder>/<name>" with <folder> the game's and <name> a ghost
+ * file's (any case: the game spells MAP01 and the character as it does) is
+ * that file's mount; anything else is itself */
+static const char *mount_of(const char *name)
+{
+	const size_t f = strlen(timeattackfolder);
+	if (strncmp(name, "replay/", 7) || strncmp(name + 7, timeattackfolder, f) || name[7 + f] != '/')
+		return name;
+	const char *base = name + 7 + f + 1;
+	for (int i = 0; i < g_nghosts; i++)
+		if (!strcasecmp(base, g_ghosts[i]))
+			return g_ghosts[i];
+	return name;
 }
 
 static int find(const char *name)
@@ -226,7 +266,7 @@ FILE *__wrap_fopen(const char *path, const char *mode)
 	const int writes = strpbrk(mode, "wa+") != NULL;
 	int i = find(name);
 	if (!writes)
-		return i >= 0 ? open_memory(i, mode, 0, 0) : __real_fopen(name, mode);
+		return i >= 0 ? open_memory(i, mode, 0, 0) : __real_fopen(mount_of(name), mode);
 	if (mode[0] == 'w')
 	{
 		if (i < 0)
@@ -261,7 +301,7 @@ int __wrap_access(const char *path, int mode)
 	const char *name = machine_path(path);
 	if (find(name) >= 0)
 		return 0;
-	FILE *f = __real_fopen(name, "rb");
+	FILE *f = __real_fopen(mount_of(name), "rb");
 	if (!f)
 	{
 		/* nothing there: writable all the same (it would be a memory file) */
@@ -300,7 +340,7 @@ int __wrap_stat(const char *path, struct stat *st)
 		st->st_nlink = 1;
 		return 0;
 	}
-	return __real_stat(name, st);
+	return __real_stat(mount_of(name), st);
 }
 
 int __wrap_remove(const char *path)
@@ -371,12 +411,22 @@ static int is_save_data(const struct memfile *m)
 	return strcmp(m->name, "config.cfg") != 0;
 }
 
+/* the export's snapshot of the level being recorded (made by the count):
+ * output, so invisible - an export does not change the machine */
+static ECL_INVISIBLE struct memfile g_pending;
+
 int chimera_savedata_count(void)
 {
 	int n = 0;
 	for (int i = 0; i < g_nfiles; i++)
 		n += is_save_data(&g_files[i]);
-	return n;
+	const char *name;
+	size_t size;
+	const unsigned char *data = srb2_ghost_pending(&name, &size);
+	g_pending.name = (char *)name;
+	g_pending.data = (unsigned char *)data;
+	g_pending.size = data ? size : 0;
+	return n + (data != NULL);
 }
 
 static const struct memfile *savedata(int index)
@@ -384,7 +434,7 @@ static const struct memfile *savedata(int index)
 	for (int i = 0; i < g_nfiles; i++)
 		if (is_save_data(&g_files[i]) && index-- == 0)
 			return &g_files[i];
-	return NULL;
+	return index == 0 && g_pending.data ? &g_pending : NULL;
 }
 
 const char *chimera_savedata_name(int index)

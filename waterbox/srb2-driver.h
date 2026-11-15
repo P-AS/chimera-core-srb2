@@ -1,12 +1,20 @@
 /* srb2-driver.h - the machine (srb2-driver.c), for the exports and harnesses */
 #ifndef SRB2_DRIVER_H
 #define SRB2_DRIVER_H
+#include <stddef.h>
 #ifdef __cplusplus
 extern "C" {
 #endif
 /* the unlocks the project starts with (set before srb2_start): Record Attack,
  * NiGHTS Mode and Marathon Run; every character; every unlockable */
 void srb2_set_unlocks(int modes, int skins, int all, int maps);
+/* the ghosts (srb2-ghosts.c), set before srb2_start: shown in normal play;
+ * every level recorded as one. And the buffer the export's copy of the level
+ * being recorded is made in (invisible memory: output, not the machine) */
+void srb2_set_ghosts(int normal_play, int record);
+void srb2_set_ghost_pending_buffer(unsigned char *buf, size_t size);
+/* after every step: a level's recording ends with the level */
+void srb2_ghosts_step(void);
 /* the engine's start: upstream's main before its loop; nonzero if it halted */
 int srb2_start(int argc, char **argv);
 /* a step: the machine's clock a tic further, the engine run until it next

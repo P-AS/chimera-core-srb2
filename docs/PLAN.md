@@ -73,6 +73,11 @@ the guest build), following Chimera's `docs/porting-a-core.md` and `docs/game-co
   CMake makes curl mandatory, so nothing else guards it); without it, no download.
 - `patches/openmpt/0001-deterministic-random-device.patch` (on `extern/openmpt`): libopenmpt's random seeding
   deterministic under `MPT_BUILD_DETERMINISTIC_RANDOM` (see "The sound").
+- `0009-ghosts.patch`: ghosts outside Record Attack, as hooks the platform gives (`I_LevelUnloading`,
+  `I_GhostsInNormalPlay`, `I_LoadGhosts`, `I_GhostTicker`, `I_LevelLoaded`, declared in `g_demo.h`), and
+  `demoghostrecording`: the ghost data written as `demorecording` writes it, without what `demorecording` also
+  does (it stops the game saving progress and records). Three accessors (`G_HaveGhosts`, `G_DemoRecorded`,
+  `G_GhostPositions`) read what `g_demo.c` keeps static. See "Ghosts".
 - `0008-gl-context-lost.patch`: `ContextLost`/`ContextRestored` in the GL driver and `HWR_ContextLost`/
   `HWR_ContextRestored` in the hardware renderer: a platform layer whose context can be replaced under the
   renderer (the GPU bridge's) has it forget every GL name without deleting any, then make its objects again.
@@ -152,6 +157,10 @@ which differ from SRB2's own:
 | OpenGL Shaders | `gr_shaders`; the picture's alone | **On** (On) |
 | Resolution | the engine's one video mode (see "Resolution") | **1280x800** (1280x800) |
 | Start Map | `-warp` (empty: the intro and the title) | empty |
+| Ghosts: Best Time, Best Score, Best Rings, Last | `ghost_besttime`, `ghost_bestscore`, `ghost_bestrings`, `ghost_last`: Hide, **Show**, Show All | **Show** (Show) |
+| Ghosts: Guest | `ghost_guest`: Hide, **Show** | **Show** (Show) |
+| Ghosts outside Record Attack | the core's (`srb2-ghosts.c`, patch 0009); see "Ghosts" | **Off** (no such option) |
+| Record Ghosts | the core's (`srb2-ghosts.c`, patch 0009); see "Ghosts" | **Off** (no such option) |
 
 **The unlocks** (user-decided, 2026-10-04: so a verification movie need not be made for each run) are set in
 the game data the engine has loaded, client's and server's (`srb2-driver.c`), at the start and before every
@@ -165,6 +174,41 @@ game in Greenflower Zone.
 Manual is the Standard control style (`PF_DIRECTIONCHAR`, no `PF_ANALOGMODE`): the player faces where it moves
 and the camera does not turn by itself. The gate's `settings` leg reads the engine's options back
 (`run-native --print-cvar`): the defaults absent and given, and every other value of every setting.
+
+## Ghosts (2026-11-15)
+
+Asked for by a TASer: a run made with Chimera is compared against a demo's ghost. What was built, and why:
+
+- **A project's ghost files are a slot** (`ghosts`, `.lmp`, any number), mounted under their own names. Each is
+  shown on the map its header names, when the header's map checksum is the loaded map's (another version of the
+  map would put the ghost in the wrong place). SRB2's own `G_AddGhost` does the rest, so a duplicate (the same
+  demo checksum) is dropped as in Record Attack.
+- **The replay folder's name is not the project's problem.** SRB2 keeps Record Attack's replays under
+  `replay/<timeattackfolder>/`, "main" for the game and an add-on's game data name otherwise (`deh_soc.c`'s
+  MAINCFG GameData), known only once the add-ons have loaded. `platform/files.c` answers
+  `replay/<that folder>/<name>` with the ghost file named `<name>` (any case), at the time the game asks. So a
+  file named as Record Attack names its replays is the folder's, and the five ghost settings (SRB2's own
+  console variables) and the Replay menu see it; it is not loaded again by name. Any other name is always shown.
+- **Ghosts in normal play** (a setting): `P_InitGametype` loads them as Record Attack does (NiGHTS maps as NiGHTS
+  Mode does), and `P_Ticker` runs the ghosts' tic whenever there are ghosts. The ghosts are level memory
+  (`PU_LEVEL`), so they are freed before every level's memory is (`I_LevelUnloading`): outside Record Attack
+  nothing ends the demo between levels, and the list would point at freed memory.
+- **A level entered at a starpost** starts at the starpost's time (`P_MovePlayerToStarpost` sets `leveltime`),
+  and a ghost's tics count from its level's start: the first ghost tic runs the ghosts on to the clock.
+- **Recording** (a setting): every level started outside Record Attack and NiGHTS Mode is recorded with SRB2's
+  own `G_RecordDemo`/`G_BeginRecording`, as Record Attack starts its replay (after the level's pre-tics and its
+  Lua MapLoad), and ended with its own `G_CheckDemoStatus` when the level's memory goes or the game leaves the
+  level. Not under `demorecording`: that also stops the game saving to its save slot and game data, and counts
+  toward game overs. `G_BeginRecording` also sets the player's flags from the controls' options; the core puts
+  them back, so recording changes nothing (the gate compares every step's picture, sound, state and Game
+  State with and without it). The name is `ghosts/<n>-<map>-<skin>.lmp`, `n` counting recordings in the
+  machine's memory, so it rewinds with a savestate.
+- **The level being recorded is exported too**, as the file it will be (the demo so far, its end marker and its
+  checksum, made when the export asks, in invisible memory). A TAS movie ends where the run ends, at the goal,
+  before the score tally that would end the recording; without this its last level would be missing.
+- **A ghost does not change the game**: `MT_GHOST` is `MF_NOBLOCKMAP|MF_NOCLIP|MF_SCENERY`, and what a ghost's
+  tic spawns (thok trails, hit poofs) is too. The gate shows the player's Game State is the same, every step,
+  with a ghost shown. The picture and the object list (the state digest) do have the ghost in them.
 
 ## OpenGL (milestone 8, 2026-10-05)
 
