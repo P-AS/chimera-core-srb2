@@ -2,7 +2,7 @@
 
 A third-party [Chimera](https://github.com/ToolAssisted-run/chimera) game core for [Sonic Robo Blast 2](https://srb2.org/) v2.2.15. This core facilitates tool-assisted speedrunning of Sonic Robo Blast 2 (including mods) with the benefits of the Chimera TAS frontend, such as a simplified setup process, cross-platform support, an easily accessible game state with a lua-based TAS info overlay, the TAStudio input editor, and persistent savestates.
 
-> [!IMPORTANT]
+> [!NOTE]
 > chimera-core-srb2 was primarily written using AI assistance from Anthropic's Claude LLMs. [libTAS](https://github.com/clementgallet/libTAS) is a viable alternative to this core.
 
 ## Usage
