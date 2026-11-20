@@ -17,6 +17,12 @@
 #include "srb2-input.h"
 #include "platform/chimera-platform.h"
 
+/* this core's windows in Chimera's Emulator menu: miniBox's ready-made Export
+ * Save Data, built on the save data exports below (Chimera has no tool of its
+ * own for a core, Chimera issue 610) */
+#define WBX_WINDOWS_IMPLEMENTATION
+#include <waterbox_windows.h>
+
 /* the largest picture the core reports: the largest resolution setting
  * (sources.mk raises the engine's MAXVIDWIDTH/HEIGHT to it, patches/0005) */
 #define VIDEO_MAX_W 3840
