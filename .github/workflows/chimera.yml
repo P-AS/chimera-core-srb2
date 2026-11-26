@@ -60,6 +60,10 @@ jobs:
     name: gate ${{ matrix.arch }} (package, declaration, Chimera contract)
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 120
+    permissions:
+      contents: read
+      # to delete this job's own old Chimera builds and ccache entries
+      actions: write
     strategy:
       # one CPU's failure says nothing about the other's
       fail-fast: false
@@ -87,19 +91,102 @@ jobs:
           path: chimera-checkout
           submodules: recursive
 
+      - name: Which Chimera this is
+        # the commit, and the runner image it is built on (its compiler and
+        # system libraries): what a kept build of Chimera must match
+        id: chimera
+        run: |
+          echo "sha=$(git -C chimera-checkout rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "image=${ImageOS:-unknown}-${ImageVersion:-unknown}" >> "$GITHUB_OUTPUT"
+
       - name: Install build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends meson ninja-build build-essential cmake pkg-config python3 libgl1-mesa-dev libegl-dev libx11-dev libxext-dev libasound2-dev python3-pip curl lua5.4
+          sudo apt-get install -y --no-install-recommends meson ninja-build build-essential cmake pkg-config python3 libgl1-mesa-dev libegl-dev libx11-dev libxext-dev libasound2-dev python3-pip curl lua5.4 ccache libxkbcommon0 libfontconfig1 libfreetype6 libdbus-1-3
 
       - name: Cache Qt
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/qt
           key: qt-6.12.0-linux-${{ runner.arch }}-aqt-3.3.0
 
+      # Chimera takes about 5.5 minutes to build. Two caches save most of it:
+      # a run on a Chimera commit an earlier run already built takes that
+      # build (what the gate and the contract test use: dll/, libchimera.so,
+      # test-packages - not the object files) and skips the step; any other
+      # run builds through ccache (meson uses it when it is installed), so
+      # only the files Chimera changed since the last kept build compile again.
+      - name: Restore Chimera's build for this commit
+        id: chimera-build
+        uses: actions/cache/restore@v6
+        with:
+          path: |
+            chimera-checkout/build
+            !chimera-checkout/build/meson-linux/**/*.p
+          key: chimera-build-${{ runner.os }}-${{ runner.arch }}-${{ steps.chimera.outputs.image }}-qt6.12.0-${{ steps.chimera.outputs.sha }}
+
+      - name: Restore the compiler's output for Chimera (ccache)
+        id: ccache
+        if: steps.chimera-build.outputs.cache-hit != 'true'
+        uses: actions/cache/restore@v6
+        with:
+          path: ~/.cache/ccache
+          key: ccache-chimera-${{ runner.os }}-${{ runner.arch }}-${{ steps.chimera.outputs.image }}-${{ steps.chimera.outputs.sha }}
+          restore-keys: |
+            ccache-chimera-${{ runner.os }}-${{ runner.arch }}-${{ steps.chimera.outputs.image }}-
+            ccache-chimera-${{ runner.os }}-${{ runner.arch }}-
+
       - name: Build Chimera (the engine, chimera-run and the window)
-        run: chimera-checkout/tools/ci-chimera.sh "$HOME/qt"
+        if: steps.chimera-build.outputs.cache-hit != 'true'
+        run: |
+          export CCACHE_DIR="$HOME/.cache/ccache" CCACHE_MAXSIZE=1G
+          ccache -z
+          chimera-checkout/tools/ci-chimera.sh "$HOME/qt"
+          ccache -s
+
+      - name: Keep the compiler's output for Chimera
+        # saved now, so the clean-up below never removes the last one
+        if: steps.chimera-build.outputs.cache-hit != 'true' && steps.ccache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: ~/.cache/ccache
+          key: ${{ steps.ccache.outputs.cache-primary-key }}
+
+      - name: Keep Chimera's build for this commit
+        # saved now, before the package is installed into its Cores folder
+        if: steps.chimera-build.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: |
+            chimera-checkout/build
+            !chimera-checkout/build/meson-linux/**/*.p
+          key: ${{ steps.chimera-build.outputs.cache-primary-key }}
+
+      - name: Delete old Chimera builds and ccache entries
+        # A repository keeps 10 GB of caches, and GitHub drops the least
+        # recently used past that - which could be the Qt or miniBox caches
+        # rather than the builds of Chimera commits no run asks for again.
+        # So this CPU's own are deleted here, on this run's ref only (a pull
+        # request's caches are its own; main's it cannot replace): every
+        # Chimera build and ccache entry but this commit's and the newest. Best effort: a run whose
+        # token cannot delete (a fork's pull request) only says so.
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CURRENT_BUILD: ${{ steps.chimera-build.outputs.cache-primary-key }}
+          CURRENT_CCACHE: ccache-chimera-${{ runner.os }}-${{ runner.arch }}-${{ steps.chimera.outputs.image }}-${{ steps.chimera.outputs.sha }}
+        run: |
+          set -eu
+          for kind in "chimera-build-${{ runner.os }}-${{ runner.arch }}-|$CURRENT_BUILD" "ccache-chimera-${{ runner.os }}-${{ runner.arch }}-|$CURRENT_CCACHE"; do
+            prefix=${kind%%|*} current=${kind#*|}
+            # newest first; the first entry and the current commit's stay
+            gh cache list --repo "$GITHUB_REPOSITORY" --ref "$GITHUB_REF" --key "$prefix" --sort created_at --order desc --limit 100 \
+              --json id,key --jq '.[] | "\(.id) \(.key)"' | tail -n +2 | while read -r id key; do
+              [ "$key" = "$current" ] && continue
+              echo "deleting $key"
+              gh cache delete "$id" --repo "$GITHUB_REPOSITORY"
+            done
+          done
 
       - name: What the guest toolchain is built from
         id: toolchain
@@ -122,7 +209,7 @@ jobs:
           grep -q 'std=gnu17' "$f"
 
       - name: Cache the guest toolchain
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             chimera-checkout/extern/chimera-common-minibox/build/meson-linux
@@ -146,7 +233,7 @@ jobs:
         run: for f in lua/*.lua; do luac5.4 -p "$f"; done
 
       - name: Cache SRB2 2.2.15's data
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: build/srb2-2.2.15
           key: srb2-2.2.15-data-${{ hashFiles('waterbox/waterbox.config') }}
@@ -308,7 +395,7 @@ jobs:
           submodules: false
 
       - name: Download the packages
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v8
         with:
           pattern: srb2-${{ github.sha }}-*
           path: package
