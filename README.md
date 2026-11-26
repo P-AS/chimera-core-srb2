@@ -170,6 +170,8 @@ and they are read-only. Positions, floor and ceiling heights, momentum, speed an
 | `Player.X / Y / Z` | Position |
 | `Player.Floor Z / Ceiling Z` | The height of the floor below the player and the ceiling above them (SRB2's `floorz`/`ceilingz`) |
 | `Player.Momentum X / Y / Z` | Momentum |
+| `Player.Thrust` | The length of `Thrust X` and `Thrust Y` together: how hard the controls pushed this tic, in any direction |
+| `Player.Thrust X / Y` | How much the controls added to the momentum this tic, before the game limits the speed and applies friction (0 on a tic with no push) |
 | `Player.Conveyor Momentum X / Y` | What a conveyor or a moving platform adds to the momentum (SRB2's `cmomx`/`cmomy`) |
 | `Player.Platform Momentum Z` | The moving floor's vertical momentum (SRB2's `pmomz`) |
 | `Player.Speed` | Speed, the game's own `player->speed` |

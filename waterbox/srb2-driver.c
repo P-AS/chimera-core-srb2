@@ -32,6 +32,7 @@
 #include "command.h"
 #include "g_game.h"
 #include "p_local.h"
+#include "r_main.h"
 #include "p_tick.h"
 #include "m_random.h"
 #include "m_cond.h"
@@ -200,7 +201,8 @@ const char *chimera_player_skin(void)
 
 /* ---- the Game State domain (Chimera's docs/game-cores.md, "Properties"): a
  * copy of what a TASer watches, made after every step - the player's object
- * (its position, momentum and angle), the speed the game reckons, the
+ * (its position, momentum and angle), the thrust its input added to the
+ * momentum this tic and its length, the speed the game reckons, the
  * powers' timers, what a conveyor or a moving platform adds to the player's
  * momentum, the spindash's charge, Metal Sonic's dash mode, and the boss. Read-only: the game would overwrite a poke on its next tic.
  * In the machine's memory, so a savestate carries it. */
@@ -233,9 +235,14 @@ struct game_state
 	UINT32 dashmode;      /* 100: player->dashmode, tics */
 	INT32 normalspeed;    /* 104: player->normalspeed, 16.16 */
 	INT32 floorz, ceilingz; /* 108: mo->floorz/ceilingz, the sector's floor and ceiling under the player, 16.16 */
+	INT32 thrustx, thrusty; /* 116: the thrust the player's input added to the momentum this tic (patch 0010: chimera_thrustx/y), 16.16 */
+	INT32 thrust;          /* 124: their length (R_PointToDist2), 16.16 */
 };
 
 static struct game_state g_state;
+
+/* the thrust P_3dMovement added this tic, a player each (patch 0010) */
+extern fixed_t chimera_thrustx[MAXPLAYERS], chimera_thrusty[MAXPLAYERS];
 
 static void update_game_state(void)
 {
@@ -272,6 +279,9 @@ static void update_game_state(void)
 	g_state.normalspeed = p->normalspeed;
 	g_state.floorz = mo->floorz;
 	g_state.ceilingz = mo->ceilingz;
+	g_state.thrustx = chimera_thrustx[consoleplayer];
+	g_state.thrusty = chimera_thrusty[consoleplayer];
+	g_state.thrust = R_PointToDist2(0, 0, g_state.thrustx, g_state.thrusty);
 
 	/* the boss as the SRB2 TAS build finds it (P_GetBossInfo): the first
 	 * object with MF_BOSS among the thinkers */
@@ -321,6 +331,9 @@ const char *srb2_game_properties(void)
 	GS("Player.Momentum X", momx, "s32", "Player", "property.player_momentum_x");
 	GS("Player.Momentum Y", momy, "s32", "Player", "property.player_momentum_y");
 	GS("Player.Momentum Z", momz, "s32", "Player", "property.player_momentum_z");
+	GS("Player.Thrust", thrust, "s32", "Player", "property.player_thrust");
+	GS("Player.Thrust X", thrustx, "s32", "Player", "property.player_thrust_x");
+	GS("Player.Thrust Y", thrusty, "s32", "Player", "property.player_thrust_y");
 	GS("Player.Angle", angle, "u32", "Player", "property.player_angle");
 	GS("Player.Speed", speed, "s32", "Player", "property.player_speed");
 	GS("Timers.Speed Shoes", shoes, "u16", "Timers", "property.timers_speed_shoes");

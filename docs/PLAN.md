@@ -73,6 +73,10 @@ the guest build), following Chimera's `docs/porting-a-core.md` and `docs/game-co
   CMake makes curl mandatory, so nothing else guards it); without it, no download.
 - `patches/openmpt/0001-deterministic-random-device.patch` (on `extern/openmpt`): libopenmpt's random seeding
   deterministic under `MPT_BUILD_DETERMINISTIC_RANDOM` (see "The sound").
+- `0010-tas-thrust.patch`: `chimera_thrustx`/`chimera_thrusty`, a value per player: the thrust `P_3dMovement`
+  added to the momentum this tic (`totalthrust`, before the top speed cap and friction), cleared at the start of
+  `P_PlayerThink`. The game never reads them; the core copies the console player's into the Game State
+  (`Player.Thrust X`/`Y`, and `Player.Thrust`, their length by `R_PointToDist2`) for the TAS info script.
 - `0009-ghosts.patch`: ghosts outside Record Attack, as hooks the platform gives (`I_LevelUnloading`,
   `I_GhostsInNormalPlay`, `I_LoadGhosts`, `I_GhostTicker`, `I_LevelLoaded`, declared in `g_demo.h`), and
   `demoghostrecording`: the ghost data written as `demorecording` writes it, without what `demorecording` also

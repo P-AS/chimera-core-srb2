@@ -1,0 +1,36 @@
+diff --git a/src/p_user.c b/src/p_user.c
+index 19a51c116..66bc922c8 100644
+--- a/src/p_user.c
++++ b/src/p_user.c
+@@ -6024,6 +6024,11 @@ static void P_2dMovement(player_t *player)
+ 	player->mo->friction = ORIG_FRICTION; //katsy: reset player friction AFTER movement code
+ }
+ 
++// An external driver's (Chimera's core) TAS info: the thrust P_3dMovement
++// added to each player's momentum this tic, before the top speed cap and
++// friction. The game never reads these.
++fixed_t chimera_thrustx[MAXPLAYERS], chimera_thrusty[MAXPLAYERS];
++
+ //#define OLD_MOVEMENT_CODE 1
+ static void P_3dMovement(player_t *player)
+ {
+@@ -6307,6 +6312,9 @@ static void P_3dMovement(player_t *player)
+ 		}
+ 	}
+ 
++	chimera_thrustx[player-players] = totalthrust.x;
++	chimera_thrusty[player-players] = totalthrust.y;
++
+ 	player->mo->momx += totalthrust.x;
+ 	player->mo->momy += totalthrust.y;
+ 
+@@ -11696,6 +11704,9 @@ void P_PlayerThink(player_t *player)
+ 		I_Error("p_playerthink: players[%s].mo == NULL", sizeu1(playeri));
+ #endif
+ 
++	// no thrust this tic unless P_3dMovement adds some
++	chimera_thrustx[playeri] = chimera_thrusty[playeri] = 0;
++
+ 	// Reset terrain blocked status for this frame
+ 	player->blocked = false;
+ 

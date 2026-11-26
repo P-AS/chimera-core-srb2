@@ -10,7 +10,9 @@ one after the other, and the property table beside it in <dump>.json.
 
   movie   waterbox/tests/gfz1-run.txt in Greenflower Zone Act 1: the player is
           in the level once the game state says so; Forward moves it and gives
-          it speed; Jump lifts it; the Turn axis turns it (the angle changes
+          it speed, and thrust along the way it faces (none before), the
+          total thrust the length of its X and Y;
+          Jump lifts it; the Turn axis turns it (the angle changes
           only while it is held); speed is what the game reckons from the
           momentum (P_AproxDistance) whenever the player is in the air
   timers  the same with waterbox/tests/timers.lua loaded: from leveltime 20,
@@ -30,19 +32,21 @@ one after the other, and the property table beside it in <dump>.json.
 
 --swap NAME NAME reads the two properties each where the table puts the
 other: the leg's teeth (a table that misplaces two fields of the same type
-inside the block does not pass - Player.Angle and Player.Speed for the movie,
+inside the block does not pass - Player.Angle and Player.Speed or Player.Thrust X and Player.Thrust Y or Player.Thrust and
+Player.Thrust X for the movie,
 Timers.Air and Timers.Space for the timers).
 
 Prints "ok ..." and exits 0, or the first thing wrong and exits 1.
 """
 import json
+import math
 import struct
 import sys
 
 FORMATS = {"bool": "<?", "u8": "<B", "s8": "<b", "u16": "<H", "s16": "<h", "u32": "<I", "s32": "<i"}
 WANT = ["Game.Tic", "Game.Level Time", "Game.State", "Game.Map", "Player.In Level",
         "Player.X", "Player.Y", "Player.Z", "Player.Floor Z", "Player.Ceiling Z", "Player.Momentum X", "Player.Momentum Y", "Player.Momentum Z",
-        "Player.Angle", "Player.Speed",
+        "Player.Thrust", "Player.Thrust X", "Player.Thrust Y", "Player.Angle", "Player.Speed",
         "Timers.Speed Shoes", "Timers.Invincibility", "Timers.Space", "Timers.Air",
         "Player.Conveyor Momentum X", "Player.Conveyor Momentum Y", "Player.Platform Momentum Z",
         "Player.Dash Speed", "Player.Min Dash", "Player.Max Dash", "Player.Flags", "Player.Charging Spindash",
@@ -90,8 +94,8 @@ def main():
 
     data = open(dump, "rb").read()
     # the block's size: the dump is whole steps of it, at least as large as
-    # the table reaches (116 bytes now; the table may not run past it)
-    block = 116
+    # the table reaches (128 bytes now; the table may not run past it)
+    block = 128
     if len(data) % block or size > block:
         fail(f"the dump ({len(data)} bytes) is not whole {block}-byte blocks, or the table reaches {size}")
     steps = []
@@ -137,6 +141,29 @@ def main():
             fail(f"the Turn axis held: {len(turned)} angles")
         if len({at[s]["Player.Angle"] for s in range(140, 180)}) != 1 or len({at[s]["Player.Angle"] for s in range(225, len(steps) + 1)}) != 1:
             fail("the angle changed with no Turn held")
+        # thrust: none before Forward is held; while it is, a push along the
+        # way the player faces (Forward alone, no strafing), through the turn
+        # too (the run starts at 45 degrees, where X and Y are the same)
+        if any(at[s]["Player.Thrust"] or at[s]["Player.Thrust X"] or at[s]["Player.Thrust Y"] for s in at if s < 80):
+            fail("thrust before Forward was held")
+        pushed = 0
+        for s in range(82, 260):
+            v = at[s]
+            tx, ty = v["Player.Thrust X"], v["Player.Thrust Y"]
+            # the total: the length of the two (R_PointToDist2's, from its
+            # angle tables: within a few units of 1/65536 of the exact length)
+            length = math.hypot(tx, ty)
+            if abs(v["Player.Thrust"] - length) > 16 + length / 1000:
+                fail(f"step {s}: thrust {v['Player.Thrust']}, the length of ({tx}, {ty}) is {length:.0f}")
+            if not tx and not ty:
+                continue
+            pushed += 1
+            facing = v["Player.Angle"] * 2 * math.pi / 2 ** 32
+            off = (math.atan2(ty, tx) - facing + math.pi) % (2 * math.pi) - math.pi
+            if abs(off) > math.radians(2):
+                fail(f"step {s}: thrust ({tx}, {ty}) points {math.degrees(off):.1f} degrees off the player's facing")
+        if pushed < 100:
+            fail(f"only {pushed} steps with thrust while Forward is held")
         airborne = 0
         for s in range(122, 160):
             v = at[s]
@@ -153,7 +180,7 @@ def main():
                                      "Boss.Active", "Boss.Health", "Boss.Max Health", "Boss.Flashing"]:
             if any(v[name] for v in steps):
                 fail(f"{name} is not 0 on the movie's path")
-        print(f"ok movie: {len(level)} steps in the level; moved {moved / 65536:.0f} units, jumped, "
+        print(f"ok movie: {len(level)} steps in the level; moved {moved / 65536:.0f} units, thrust along the facing on {pushed} steps, jumped, "
               f"{len(turned)} angles while turning, speed the momentum's on {airborne} airborne steps")
     elif mode == "spindash":
         charging = [s for s, v in level if v["Player.Charging Spindash"]]

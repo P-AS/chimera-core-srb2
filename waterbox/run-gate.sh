@@ -37,7 +37,9 @@
 #                reads it (RAM Watch, Lua's game.get): on Greenflower's movie
 #                the player's position, momentum, angle and speed are what the
 #                movie did (moved by Forward, lifted by Jump, turned only by
-#                Turn; in the air, speed is the momentum's P_AproxDistance), and
+#                Turn; in the air, speed is the momentum's P_AproxDistance; the
+#                thrust the controls add is 0 before Forward and points the way
+#                the player faces while it is held, the total its length), and
 #                with tests/timers.lua loaded the speed shoes, invincibility,
 #                air and space timers and the conveyor and platform momenta are
 #                what it set; on tests/spindash.txt the spindash charges from Min
@@ -49,7 +51,8 @@
 #                the boss), and Metal Sonic's dash mode counter is what it set;
 #                every step's
 #                block the same native, sandboxed and rerecorded. Its teeth -
-#                the table with two fields swapped (angle and speed; air and
+#                the table with two fields swapped (angle and speed; thrust X
+#                and Y; thrust and thrust X; air and
 #                space; dash speed and max dash; boss health and max health)
 #                does not pass
 #   audio        the core's mixer: the intro's music and Greenflower's sounds are
@@ -305,7 +308,7 @@ for kind in movie timers spindash boss; do
 		bad "properties: $kind: $r (or the blocks differ native, sandboxed, rerecorded)"
 	fi
 done
-for t in "movie|Player.Angle|Player.Speed" "timers|Timers.Air|Timers.Space" "spindash|Player.Dash Speed|Player.Max Dash" "boss|Boss.Health|Boss.Max Health"; do
+for t in "movie|Player.Angle|Player.Speed" "movie|Player.Thrust X|Player.Thrust Y" "movie|Player.Thrust|Player.Thrust X" "timers|Timers.Air|Timers.Space" "spindash|Player.Dash Speed|Player.Max Dash" "boss|Boss.Health|Boss.Max Health"; do
 	IFS='|' read -r kind a b <<EOT
 $t
 EOT
